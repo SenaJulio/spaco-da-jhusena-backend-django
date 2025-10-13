@@ -1,75 +1,77 @@
 {% extends "base.html" %}
 {% load moeda %}
 {% load static %}
-
 {% block title %}📊 Painel Financeiro{% endblock %}
-
 {% block content %}
 {% csrf_token %}
 <meta name="csrf-token" content="{{ csrf_token }}" />
 
-<p style="opacity:.6">DEBUG: {{ total_receitas }} | {{ total_despesas }} | {{ saldo }}</p>
+<p style="opacity: 0.6">
+  DEBUG: {{ total_receitas }} | {{ total_despesas }} | {{ saldo }}
+</p>
 
 <h2 class="mb-3">📊 Painel Financeiro Inteligente</h2>
-<div class="alert alert-success">Se você está vendo esta mensagem, o template carregou certinho. 🤝</div>
+<div class="alert alert-success">
+  Se você está vendo esta mensagem, o template carregou certinho. 🤝
+</div>
 
 <div id="boxResumoMensal" class="alert alert-info d-none"></div>
+
 <script>
-async function carregarResumoMensal() {
-  const r = await fetch("/financeiro/ia/resumo-mensal/");
-  const d = await r.json();
-  const box = document.getElementById("boxResumoMensal");
-  box.classList.remove("d-none");
-}
-  // Formatação BRL no front
+  // Carrega resumo mensal (única definição)
+  (function () {
+    const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
-(function () {
-  const brl = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
+    async function carregarResumoMensal() {
+      try {
+        const r = await fetch("/financeiro/ia/resumo-mensal/");
+        const d = await r.json();
 
-  async function carregarResumoMensal() {
-    try {
-    const r = await fetch("/financeiro/ia/resumo-mensal/");
-      const d = await r.json();
+        const box = document.getElementById("boxResumoMensal");
+        box.classList.remove("d-none");
+        box.innerHTML = `
+          <strong>📅 ${d.mes}</strong><br>
+          Receitas: ${brl.format(d.receitas)} | Despesas: ${brl.format(d.despesas)} | Saldo: ${brl.format(d.saldo)}<br>
+          💡 ${d.dica}
+        `;
 
-      const box = document.getElementById("boxResumoMensal");
-      box.classList.remove("d-none");
-      box.innerHTML = `
-        <strong>📅 ${d.mes}</strong><br>
-        Receitas: ${brl.format(d.receitas)} | Despesas: ${brl.format(d.despesas)} | Saldo: ${brl.format(d.saldo)}<br>
-        💡 ${d.dica}
-      `;
-
-      // Esconde o placeholder antigo, se existir
-      const ph = document.getElementById("placeholderInsights");
-      if (ph) ph.classList.add("d-none");
-    } catch (e) {
-      console.error("Falha ao carregar resumo mensal:", e);
+        // Esconde os placeholders (gráfico e cartão), se existirem
+        document.getElementById("placeholderInsights")?.classList.add("d-none");
+        document.getElementById("placeholderInsightCard")?.classList.add("d-none");
+      } catch (e) {
+        console.error("Falha ao carregar resumo mensal:", e);
+      }
     }
-  }
 
-  carregarResumoMensal();
-})();
+    carregarResumoMensal();
+  })();
 </script>
 
 <!-- Totais -->
 <div class="row g-3">
   <div class="col-md-4">
-    <div class="card border-success"><div class="card-body">
-      <div class="fw-semibold">Receitas</div>
-      <div class="h4 text-success">{{ total_receitas|moeda }}</div>
-    </div></div>
+    <div class="card border-success">
+      <div class="card-body">
+        <div class="fw-semibold">Receitas</div>
+        <div class="h4 text-success">{{ total_receitas|moeda }}</div>
+      </div>
+    </div>
   </div>
   <div class="col-md-4">
-    <div class="card border-danger"><div class="card-body">
-      <div class="fw-semibold">Despesas</div>
-      <div class="h4 text-danger">{{ total_despesas|moeda }}</div>
-    </div></div>
+    <div class="card border-danger">
+      <div class="card-body">
+        <div class="fw-semibold">Despesas</div>
+        <div class="h4 text-danger">{{ total_despesas|moeda }}</div>
+      </div>
+    </div>
   </div>
   <div class="col-md-4">
-    <div class="card border-primary"><div class="card-body">
-      <div class="fw-semibold">Saldo</div>
-      <div class="h4 text-primary">{{ saldo|moeda }}</div>
-    </div></div>
+    <div class="card border-primary">
+      <div class="card-body">
+        <div class="fw-semibold">Saldo</div>
+        <div class="h4 text-primary">{{ saldo|moeda }}</div>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -83,7 +85,9 @@ async function carregarResumoMensal() {
             💡 Recomendações Inteligentes
             <span class="badge bg-primary-subtle text-primary border border-primary ms-2">β Mini-IA</span>
           </h5>
-          <button id="btnTurbo" class="btn btn-primary btn-sm">⚡ Gerar dica dos últimos 30 dias</button>
+          <button id="btnTurbo" class="btn btn-primary btn-sm">
+            ⚡ Gerar dica dos últimos 30 dias
+          </button>
         </div>
 
         <div id="turboStatus" class="small text-muted mt-2 d-none">Analisando…</div>
@@ -99,8 +103,33 @@ async function carregarResumoMensal() {
   </div>
 </div>
 
-<!-- 🧠 Histórico de Dicas da IA -->
-<div class="d-flex align-items-center gap-3 mt-4">
+<!-- 🧠 Histórico de Dicas da IA – filtros superiores -->
+<div class="row g-2 align-items-end mb-2 mt-4">
+  <div class="col-sm-3">
+    <label class="form-label">Início</label>
+    <input type="date" id="filtroInicio" class="form-control" />
+  </div>
+  <div class="col-sm-3">
+    <label class="form-label">Fim</label>
+    <input type="date" id="filtroFim" class="form-control" />
+  </div>
+  <div class="col-sm-3">
+    <label class="form-label">Categoria</label>
+    <select id="filtroCategoria" class="form-select">
+      <option value="">Todas</option>
+      <option>Geral</option>
+      <option>Alerta</option>
+      <option>Meta</option>
+      <option>Dica</option>
+    </select>
+  </div>
+  <div class="col-sm-3 d-flex gap-2">
+    <button id="btnAplicarFiltros" class="btn btn-success w-50">Aplicar</button>
+    <button id="btnGerarDica" class="btn btn-outline-primary w-50">Gerar nova dica</button>
+  </div>
+</div>
+
+<div class="d-flex align-items-center gap-3">
   <h4 class="m-0">🧠 Histórico de Dicas da IA</h4>
   <span id="badgeNovas" class="badge bg-warning text-dark d-none" title="Novas desde sua última visita">
     Novas dicas: <span id="badgeNovasCount">0</span>
@@ -110,7 +139,7 @@ async function carregarResumoMensal() {
   </button>
 </div>
 
-<!-- Filtros -->
+<!-- Filtros rápidos -->
 <div class="mt-2">
   <div class="btn-group" role="group">
     <button class="btn btn-sm btn-outline-primary active" data-filter="all">
@@ -136,27 +165,31 @@ async function carregarResumoMensal() {
   <div id="feedDicas" class="vstack gap-2"></div>
 </div>
 <div class="mt-2">
-  <button id="btnVerMais" class="btn btn-outline-secondary btn-sm">Ver mais</button>
+  <button id="btnVerMaisFeed" class="btn btn-outline-secondary btn-sm">Ver mais</button>
 </div>
 
 <style>
-.loading-overlay{position:absolute;inset:0;z-index:10;background:rgba(255,255,255,.6);
-display:flex;align-items:center;justify-content:center;}
-.fade-in{animation:fadeIn .4s ease-out;}
-@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .loading-overlay {
+    position: absolute; inset: 0; z-index: 10;
+    background: rgba(255, 255, 255, 0.6);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .fade-in { animation: fadeIn 0.4s ease-out; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 </style>
+
 <div id="placeholderInsights" class="mt-3">
-<h4 class="mt-4">📈 Resumo mensal da IA</h4>
-<canvas id="chartResumoIA" height="120"></canvas>
-<div id="resumoIAStats" class="mt-2 small text-muted"></div>
- <div>Insight • 12/10/2025 23:25</div>
+  <h4 class="mt-4">📈 Resumo mensal da IA</h4>
+  <canvas id="chartResumoIA" height="120"></canvas>
+  <div id="resumoIAStats" class="mt-2 small text-muted"></div>
+  <div>Insight • 12/10/2025 23:25</div>
   <div>Dica gerada em 12/10 20:25</div>
   <div>Registre receitas e despesas diariamente. Em 7 dias, você já enxerga padrões claros.</div>
 </div>
 
-<!-- Botão Gerar Nova Dica -->
+<!-- Botão Gerar Nova Dica (cartão do último insight) -->
 <div class="d-flex align-items-center gap-2 mt-3">
-  <button id="btnGerarDica" class="btn btn-success btn-sm">⚡ Gerar Nova Dica</button>
+  <button id="btnGerarDicaSimples" class="btn btn-success btn-sm">⚡ Gerar Nova Dica</button>
   <span id="statusDica" class="small text-muted"></span>
 </div>
 
@@ -169,17 +202,15 @@ display:flex;align-items:center;justify-content:center;}
         <h5 class="card-title mb-1">{{ ultimo_insight.title }}</h5>
         <p class="mb-2">{{ ultimo_insight.text }}</p>
         <span class="badge bg-success-subtle text-success border border-success-subtle">
-          {{ ultimo_insight.get_kind_display }}
-          {% if ultimo_insight.categoria_dominante %} • {{ ultimo_insight.categoria_dominante }}{% endif %}
+          {{ ultimo_insight.get_kind_display }}{% if ultimo_insight.categoria_dominante %} • {{ ultimo_insight.categoria_dominante }}{% endif %}
         </span>
         {% if ultimo_insight.score %}
-        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle ms-1">
-          Score: {{ ultimo_insight.score }}
-        </span>{% endif %}
+        <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle ms-1">Score: {{ ultimo_insight.score }}</span>
+        {% endif %}
       {% else %}
-      <div id="placeholderInsights">
-        <div class="small text-muted">Insight</div>
-        <p class="mb-0">Ainda não há dicas. Em breve vamos gerar a primeira automaticamente.</p>
+       <div id="placeholderInsightCard">
+          <div class="small text-muted">Insight</div>
+          <p class="mb-0">Ainda não há dicas. Em breve vamos gerar a primeira automaticamente.</p>
         </div>
       {% endif %}
     </div>
@@ -191,129 +222,317 @@ display:flex;align-items:center;justify-content:center;}
 
 <!-- Feed Único (Histórico de Dicas) -->
 <script>
-document.addEventListener('DOMContentLoaded', ()=> {
-  const urlFeed = "{% url 'financeiro:ia_historico_feed' %}";
-  let pageSize = 10;
+  document.addEventListener("DOMContentLoaded", () => {
+    const urlFeed = "{% url 'financeiro:ia_historico_feed' %}";
+    let pageSize = 10;
 
-  function renderItem(i){
-    const dt = (i.created_at_br || i.created_at || '').replace('T',' ').slice(0,16);
-    const t  = i.title || 'Dica da IA';
-    const tx = i.text || i.texto || '';
-    const k  = (i.kind || i.categoria || 'neutra').toLowerCase();
-    const cor = k==='positiva'?'success':k==='alerta'?'warning':'secondary';
-    return `<div class="card mb-2 dica-item" data-kind="${k}">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-start">
-          <h6 class="mb-1">${t}</h6>${dt?`<small class="text-muted">Criada em: ${dt}</small>`:''}
-        </div>
-        <span class="badge bg-${cor} text-uppercase mb-1">${i.categoria || i.kind || 'Geral'}</span>
-        <p class="mb-0">${tx}</p>
-      </div>
-    </div>`;
-  }
-
-  async function carregarFeed(limit = pageSize){
-    const el = document.getElementById('feedDicas');
-    try{
-      const resp = await fetch(`${urlFeed}?limit=${Math.max(limit, 20)}`, { headers:{'X-Requested-With':'XMLHttpRequest'}});
-      const data = await resp.json();
-      const lista = data.items || [];
-
-      // 1) dedup por (texto+categoria) para esconder dicas idênticas
-      const seen = new Set();
-      const dedup = [];
-      for (const it of lista){
-        const msg = (it.text || it.texto || '').trim();
-        const cat = (it.categoria || it.kind || '').toLowerCase();
-        const key = `${msg}::${cat}`;
-        if (!msg || seen.has(key)) continue;
-        seen.add(key);
-        dedup.push(it);
-      }
-
-      // 2) limita a exibição a 'limit'
-      const visiveis = dedup.slice(0, limit);
-      el.innerHTML = visiveis.length
-        ? visiveis.map(renderItem).join('')
-        : `<p class="text-muted mb-0">Nenhum item ainda.</p>`;
-
-      // contadores
-      const total = dedup.length;
-      const pos    = dedup.filter(i => (i.kind||'').toLowerCase()==='positiva').length;
-      const alerta = dedup.filter(i => (i.kind||'').toLowerCase()==='alerta').length;
-      const neutra = dedup.filter(i => (i.kind||'').toLowerCase()==='neutra').length;
-      const set = (id,v)=>{ const e=document.getElementById(id); if(e) e.textContent=v; };
-      set('countAll', total); set('countPos', pos); set('countAlerta', alerta); set('countNeutra', neutra);
-
-      // controla botão "Ver mais"
-      const btn = document.getElementById('btnVerMais');
-      if (btn) btn.style.display = total > visiveis.length ? '' : 'none';
-    }catch(e){
-      console.error(e);
-      el.innerHTML = `<div class="alert alert-danger">Erro ao carregar feed.</div>`;
+    function renderItem(i) {
+      const dt = (i.created_at_br || i.created_at || "").replace("T", " ").slice(0, 16);
+      const t = i.title || "Dica da IA";
+      const tx = i.text || i.texto || "";
+      const k = (i.kind || i.categoria || "neutra").toLowerCase();
+      const cor = k === "positiva" ? "success" : k === "alerta" ? "warning" : "secondary";
+      return `
+        <div class="card mb-2 dica-item" data-kind="${k}">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start">
+              <h6 class="mb-1">${t}</h6>
+              ${dt ? `<small class="text-muted">Criada em: ${dt}</small>` : ""}
+            </div>
+            <span class="badge bg-${cor} text-uppercase mb-1">${i.categoria || i.kind || "Geral"}</span>
+            <p class="mb-0">${tx}</p>
+          </div>
+        </div>`;
     }
-  }
 
-  // handlers
-  document.getElementById('btnReloadDicas')?.addEventListener('click', ()=>carregarFeed(pageSize));
-  document.querySelectorAll('[data-filter]').forEach(b=>{
-    b.addEventListener('click', ()=>{
-      document.querySelectorAll('[data-filter]').forEach(x=>x.classList.remove('active'));
-      b.classList.add('active');
-      const f=b.dataset.filter;
-      document.querySelectorAll('.dica-item').forEach(c=>{
-        const k=c.dataset.kind;
-        c.style.display = (f==='all'||f===k)?'':'none';
+    async function carregarFeed(limit = pageSize) {
+      const el = document.getElementById("feedDicas");
+      try {
+        const resp = await fetch(`${urlFeed}?limit=${Math.max(limit, 20)}`, {
+          headers: { "X-Requested-With": "XMLHttpRequest" },
+          credentials: "same-origin",
+        });
+        const data = await resp.json();
+        const lista = data.items || [];
+
+        // 1) dedup por (texto+categoria)
+        const seen = new Set();
+        const dedup = [];
+        for (const it of lista) {
+          const msg = (it.text || it.texto || "").trim();
+          const cat = (it.categoria || it.kind || "").toLowerCase();
+          const key = `${msg}::${cat}`;
+          if (!msg || seen.has(key)) continue;
+          seen.add(key);
+          dedup.push(it);
+        }
+
+        // 2) limita a exibição a 'limit'
+        const visiveis = dedup.slice(0, limit);
+        el.innerHTML = visiveis.length
+          ? visiveis.map(renderItem).join("")
+          : `<p class="text-muted mb-0">Nenhum item ainda.</p>`;
+
+        // contadores
+        const total = dedup.length;
+        const pos = dedup.filter(i => (i.kind || "").toLowerCase() === "positiva").length;
+        const alerta = dedup.filter(i => (i.kind || "").toLowerCase() === "alerta").length;
+        const neutra = dedup.filter(i => (i.kind || "").toLowerCase() === "neutra").length;
+        const set = (id, v) => { const e = document.getElementById(id); if (e) e.textContent = v; };
+        set("countAll", total);
+        set("countPos", pos);
+        set("countAlerta", alerta);
+        set("countNeutra", neutra);
+
+        // controla botão "Ver mais"
+        const btn = document.getElementById("btnVerMaisFeed");
+        if (btn) btn.style.display = total > visiveis.length ? "" : "none";
+      } catch (e) {
+        console.error(e);
+        el.innerHTML = `<div class="alert alert-danger">Erro ao carregar feed.</div>`;
+      }
+    }
+
+    // handlers
+    document.getElementById("btnReloadDicas")?.addEventListener("click", () => carregarFeed(pageSize));
+    document.querySelectorAll("[data-filter]").forEach((b) => {
+      b.addEventListener("click", () => {
+        document.querySelectorAll("[data-filter]").forEach((x) => x.classList.remove("active"));
+        b.classList.add("active");
+        const f = b.dataset.filter;
+        document.querySelectorAll(".dica-item").forEach((c) => {
+          const k = c.dataset.kind;
+          c.style.display = f === "all" || f === k ? "" : "none";
+        });
       });
     });
-  });
-  document.getElementById('btnVerMais')?.addEventListener('click', ()=>{
-    pageSize += 10;
-    carregarFeed(pageSize);
-  });
+    document.getElementById("btnVerMaisFeed")?.addEventListener("click", () => {
+      pageSize += 10;
+      carregarFeed(pageSize);
+    });
 
-  carregarFeed(pageSize);
-});
+    carregarFeed(pageSize);
+
+    // dispara o Turbo uma vez ao abrir a página (opcional)
+    setTimeout(() => document.getElementById("btnTurbo")?.click(), 400);
+  });
 </script>
 
-<!-- β Mini-IA -->
+<!-- β Mini-IA: gerar dica 30d -->
 <script>
-(function(){
-  const b=document.getElementById('btnTurbo'),s=document.getElementById('turboStatus'),
-  bx=document.getElementById('turboResult'),d=document.getElementById('turboDica'),
- m=document.getElementById('turboMetrics');
-  function csrf(){return document.querySelector('meta[name="csrf-token"]')?.content||'';}
-  if(b)b.onclick=async()=>{
-    b.disabled=true;s.classList.remove('d-none');bx.classList.add('d-none');d.textContent='';m.innerHTML='';
-    try{const r=await fetch("{% url 'financeiro:gerar_dica_30d' %}",{method:'POST',headers:{'X-CSRFToken':csrf(),'X-Requested-With':'XMLHttpRequest'}});
-      const data=await r.json();if(data.ok){d.innerHTML=data.dica||'';const x=data.metrics||{};m.innerHTML=[
-        `<li><strong>Período:</strong> ${x.periodo?.inicio||''} a ${x.periodo?.fim||''}</li>`,
-        `<li><strong>Total Receitas:</strong> R$ ${Number(x.total_receitas||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</li>`,
-        `<li><strong>Total Despesas:</strong> R$ ${Number(x.total_despesas||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</li>`,
-        `<li><strong>Saldo:</strong> R$ ${Number(x.saldo||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</li>`,
-        `<li><strong>Top Categoria:</strong> ${x.top_categoria||''} — R$ ${Number(x.top_categoria_total||0).toLocaleString('pt-BR',{minimumFractionDigits:2})}</li>`
-      ].join('');bx.classList.remove('d-none');}
-      else{d.textContent='Não foi possível gerar a dica.';bx.classList.remove('d-none');}}
-    catch(e){d.textContent='Erro ao gerar dica.';bx.classList.remove('d-none');console.error(e);}
-    finally{s.classList.add('d-none');b.disabled=false;}
-  };
-})();
+  (function () {
+    const b = document.getElementById("btnTurbo"),
+          s = document.getElementById("turboStatus"),
+          bx = document.getElementById("turboResult"),
+          d = document.getElementById("turboDica"),
+          m = document.getElementById("turboMetrics");
+
+    function csrf() { return document.querySelector('meta[name="csrf-token"]')?.content || ""; }
+
+    if (b) b.onclick = async () => {
+      b.disabled = true;
+      s.classList.remove("d-none");
+      bx.classList.add("d-none");
+      d.textContent = "";
+      m.innerHTML = "";
+      try {
+        const r = await fetch("{% url 'financeiro:gerar_dica_30d' %}", {
+          method: "POST",
+          headers: {
+            "X-CSRFToken": csrf(),
+            "X-Requested-With": "XMLHttpRequest",
+            "Accept": "application/json",
+          },
+          credentials: "same-origin",
+        });
+
+        const data = await r.json();
+        if (data.ok) {
+          d.innerHTML = data.dica || "";
+          const x = data.metrics || {};
+          m.innerHTML = [
+            `<li><strong>Período:</strong> ${x.periodo?.inicio || ""} a ${x.periodo?.fim || ""}</li>`,
+            `<li><strong>Total Receitas:</strong> R$ ${Number(x.total_receitas || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</li>`,
+            `<li><strong>Total Despesas:</strong> R$ ${Number(x.total_despesas || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</li>`,
+            `<li><strong>Saldo:</strong> R$ ${Number(x.saldo || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</li>`,
+            `<li><strong>Top Categoria:</strong> ${x.top_categoria || ""} — R$ ${Number(x.top_categoria_total || 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })}</li>`,
+          ].join("");
+          bx.classList.remove("d-none");
+        } else {
+          d.textContent = "Não foi possível gerar a dica.";
+          bx.classList.remove("d-none");
+        }
+      } catch (e) {
+        d.textContent = "Erro ao gerar dica.";
+        bx.classList.remove("d-none");
+        console.error(e);
+      } finally {
+        s.classList.add("d-none");
+        b.disabled = false;
+      }
+    };
+  })();
 </script>
 
 <!-- Gerar Nova Dica (Simples) -->
 <script>
-(function(){
- const b=document.getElementById('btnGerarDica'),st=document.getElementById('statusDica');
- function csrf(){return document.querySelector('meta[name="csrf-token"]')?.content||'';}
- if(b)b.onclick=async()=>{
-   b.disabled=true;st.textContent='Gerando...';
-   try{const r=await fetch("{% url 'financeiro:api_criar_insight_simples' %}",{method:'POST',headers:{'X-CSRFToken':csrf(),'X-Requested-With':'XMLHttpRequest'}});
-     const j=await r.json();if(j.ok){const html=`<div data-insight-bloco class="card border-success mt-3"><div class="card-body"><div class="small text-muted">Insight • ${j.created_at}</div><h5>${j.title}</h5><p>${j.text}</p></div></div>`;
-       const ib=document.querySelector('[data-insight-bloco]');if(ib)ib.outerHTML=html;else document.getElementById('cardsInsight').insertAdjacentHTML('beforeend',html);
-       st.textContent='Pronto!';}else st.textContent='Não consegui gerar a dica.';
-   }catch(e){st.textContent='Erro.';console.error(e);}
-   finally{setTimeout(()=>st.textContent='',2000);b.disabled=false;}
- };
-})();
+  (function () {
+    const b = document.getElementById("btnGerarDicaSimples"),
+          st = document.getElementById("statusDica");
+
+    function csrf() { return document.querySelector('meta[name="csrf-token"]')?.content || ""; }
+
+    if (b) b.onclick = async () => {
+      b.disabled = true;
+      st.textContent = "Gerando...";
+      try {
+        const r = await fetch("{% url 'financeiro:api_criar_insight_simples' %}", {
+          method: "POST",
+          headers: {
+            "X-CSRFToken": csrf(),
+            "X-Requested-With": "XMLHttpRequest",
+          },
+          credentials: "same-origin",
+        });
+        const j = await r.json();
+        if (j.ok) {
+          const html = `
+            <div data-insight-bloco class="card border-success mt-3">
+              <div class="card-body">
+                <div class="small text-muted">Insight • ${j.created_at}</div>
+                <h5>${j.title}</h5>
+                <p>${j.text}</p>
+              </div>
+            </div>`;
+          const ib = document.querySelector("[data-insight-bloco]");
+          if (ib) ib.outerHTML = html;
+          else document.getElementById("cardsInsight").insertAdjacentHTML("beforeend", html);
+          st.textContent = "Pronto!";
+        } else {
+          st.textContent = "Não consegui gerar a dica.";
+        }
+      } catch (e) {
+        st.textContent = "Erro.";
+        console.error(e);
+      } finally {
+        setTimeout(() => (st.textContent = ""), 2000);
+        b.disabled = false;
+      }
+    };
+  })();
 </script>
+
+<!-- Histórico paginado com filtros (cards compactos) -->
+<script>
+  (() => {
+    let page = 1;
+    const perPage = 5;
+    let filtros = { inicio: "", fim: "", categoria: "" };
+
+    const feed = document.getElementById("feedDicas");
+    const btnVerMais = document.getElementById("btnVerMaisFeed");
+    const btnAplicar = document.getElementById("btnAplicarFiltros");
+    const btnGerarTop = document.getElementById("btnGerarDica"); // botão do topo (gera e recarrega feed)
+
+    function tplItem(it) {
+      return `
+        <div class="card">
+          <div class="card-body">
+            <div class="small text-muted">
+              Criada em: ${it.created_at_br || it.created_at || ""} • ${it.categoria || it.kind || "Geral"}
+            </div>
+            <div class="fw-semibold">${it.title || "Dica da IA"}</div>
+            <p class="mb-0">${it.text || it.texto || ""}</p>
+          </div>
+        </div>`;
+    }
+
+    async function carregarFeed(append = true) {
+      try {
+        const p = append ? page : 1;
+        const qs = new URLSearchParams({
+          page: p,
+          per_page: perPage,
+          inicio: filtros.inicio || "",
+          fim: filtros.fim || "",
+          categoria: filtros.categoria || "",
+        });
+        const url = `{% url 'financeiro:ia_historico_feed' %}?${qs.toString()}`;
+        const r = await fetch(url, {
+          headers: { "X-Requested-With": "XMLHttpRequest" },
+          credentials: "same-origin",
+        });
+
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+
+        // dedup por (texto+categoria)
+        const seen = new Set();
+        const dedup = [];
+        for (const it of data.items || []) {
+          const msg = (it.text || it.texto || "").trim();
+          const cat = (it.categoria || it.kind || "").toLowerCase();
+          const key = `${msg}::${cat}`;
+          if (!msg || seen.has(key)) continue;
+          seen.add(key);
+          dedup.push(it);
+        }
+
+        if (!append) feed.innerHTML = "";
+        dedup.forEach((it) => feed.insertAdjacentHTML("beforeend", tplItem(it)));
+
+        if (dedup.length === 0 && !append) {
+          feed.innerHTML = `<div class="alert alert-light border">Sem resultados para os filtros selecionados.</div>`;
+        }
+
+        if (data.has_next && dedup.length > 0) {
+          page = data.next_page;
+          btnVerMais?.classList.remove("d-none");
+        } else {
+          btnVerMais?.classList.add("d-none");
+        }
+      } catch (e) {
+        console.error(e);
+        if (!append) {
+          feed.innerHTML = `<div class="alert alert-warning">Não foi possível carregar o histórico agora.</div>`;
+        }
+      }
+    }
+
+    // Eventos
+    btnVerMais?.addEventListener("click", () => carregarFeed(true));
+
+    btnAplicar?.addEventListener("click", () => {
+      filtros.inicio = document.getElementById("filtroInicio").value;
+      filtros.fim = document.getElementById("filtroFim").value;
+      filtros.categoria = document.getElementById("filtroCategoria").value;
+      page = 1;
+      btnVerMais?.classList.add("d-none"); // esconde enquanto recarrega
+      carregarFeed(false);
+    });
+
+    btnGerarTop?.addEventListener("click", async () => {
+      btnGerarTop.disabled = true;
+      const r = await fetch("/financeiro/api/insights/gerar/", {
+        method: "POST",
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+          "X-CSRFToken": document.querySelector('meta[name="csrf-token"]')?.content || "{{ csrf_token }}",
+        },
+        credentials: "same-origin",
+      });
+      btnGerarTop.disabled = false;
+      if (r.ok) {
+        page = 1;
+        carregarFeed(false);
+      } else {
+        alert("Não foi possível gerar a dica agora.");
+      }
+    });
+
+    // 1ª carga
+    carregarFeed(false);
+  })();
+</script>
+
 {% endblock %}
