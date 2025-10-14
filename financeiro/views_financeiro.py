@@ -20,6 +20,9 @@ from django.views.decorators.http import require_GET, require_POST
 # App local
 from .models import Insight, Transacao
 from .services.ia import generate_tip_last_30d
+from django.utils.dateparse import parse_date
+from django.db.models.functions import TruncDate
+
 # Pode existir em outro arquivo; mantido aqui para compat com teu projeto
 
 
@@ -508,39 +511,116 @@ def ia_resumo_mensal_series(request):
 # =============================================================================
 # Resumo mensal — SIMPLES (usado pelo dashboard.html)
 # =============================================================================
-@require_GET
+def _parse_date_safely(s, default=None):
+    d = parse_date(s) if s else None
+    return d or default
+
+def _month_bounds(d):
+    first = d.replace(day=1)
+    if first.month == 12:
+        last = first.replace(year=first.year + 1, month=1, day=1) - timedelta(days=1)
+    else:
+        last = first.replace(month=first.month + 1, day=1) - timedelta(days=1)
+    return first, last
+
 @login_required
 def ia_resumo_mensal(request):
-    hoje = timezone.now()
-    mes = hoje.month
-    ano = hoje.year
+    """
+    GET /financeiro/ia/resumo-mensal/
+    Snapshot do mês: { mes, receitas, despesas, saldo, dica }
+    """
+    try:
+        hoje = timezone.localdate()
+        inicio, fim = _month_bounds(hoje)
 
-    qs_mes = Transacao.objects.filter(data__year=ano, data__month=mes)
+        qs = Transacao.objects.filter(data__date__range=(inicio, fim))
 
-    total_receitas = qs_mes.filter(tipo="receita").aggregate(Sum("valor"))["valor__sum"] or 0
-    total_despesas = qs_mes.filter(tipo="despesa").aggregate(Sum("valor"))["valor__sum"] or 0
+        # Ajuste os filtros de tipo conforme seu model/choices
+        total_r = qs.filter(Q(tipo__in=["R", "receita", "Receita"])).aggregate(s=Sum("valor"))["s"] or Decimal("0")
+        total_d = qs.filter(Q(tipo__in=["D", "despesa", "Despesa"])).aggregate(s=Sum("valor"))["s"] or Decimal("0")
+        saldo = total_r - total_d
 
-    saldo = (total_receitas or 0) - (total_despesas or 0)
-    margem = (saldo / total_receitas * 100) if total_receitas else 0
+        pct = 0.0
+        if total_r:
+            try:
+                pct = round(float(saldo) / float(total_r) * 100, 1)
+            except Exception:
+                pct = 0.0
 
-    if saldo > 0:
-        dica = f"Saldo POSITIVO em {margem:.1f}%. Reforce a reserva e evite novos gastos."
-    elif saldo < 0:
-        dica = "Saldo NEGATIVO! Reveja as despesas: você gastou mais do que ganhou."
-    else:
-        dica = "Saldo neutro. Hora de revisar metas e otimizar despesas."
+        dica = f"Saldo {'POSITIVO' if saldo >= 0 else 'NEGATIVO'} em {pct}%. Reforce a reserva e evite novos gastos."
 
-    return JsonResponse(
-        {
+        return JsonResponse({
             "mes": hoje.strftime("%m/%Y"),
-            "receitas": float(total_receitas),
-            "despesas": float(total_despesas),
+            "receitas": float(total_r),
+            "despesas": float(total_d),
             "saldo": float(saldo),
-            "margem": round(margem, 1),
             "dica": dica,
-        }
-    )
+        })
+    except Exception as e:
+        logging.exception("Erro em ia_resumo_mensal")
+        return JsonResponse({"ok": False, "error": str(e)}, status=500)
 
+@login_required
+def dados_grafico_filtrados(request):
+    """
+    GET /financeiro/dados_grafico_filtrados/?inicio=YYYY-MM-DD&fim=YYYY-MM-DD&categoria=...
+    Retorna séries diárias: { dias[], receitas[], despesas[], saldo[] }
+    Aceita também data_inicio/data_fim.
+    """
+    try:
+        hoje = timezone.localdate()
+        inicio_str = request.GET.get("inicio") or request.GET.get("data_inicio")
+        fim_str    = request.GET.get("fim")    or request.GET.get("data_fim")
+        categoria  = (request.GET.get("categoria") or "").strip()
+
+        inicio_default, fim_default = _month_bounds(hoje)
+        inicio = _parse_date_safely(inicio_str, inicio_default)
+        fim    = _parse_date_safely(fim_str,    _month_bounds(inicio)[1])
+
+        # eixo X: lista 'dd'
+        cur = inicio
+        dias = []
+        while cur <= fim:
+            dias.append(cur.strftime("%d"))
+            cur += timedelta(days=1)
+
+        qs = Transacao.objects.filter(data__date__range=(inicio, fim))
+        if categoria:
+            # Troque o campo caso seu model use outro nome
+            qs = qs.filter(Q(categoria__iexact=categoria) | Q(categoria__icontains=categoria))
+
+        agreg = qs.annotate(dia=TruncDate("data")).values("dia", "tipo").annotate(total=Sum("valor"))
+
+        rec_by_day, desp_by_day = {}, {}
+        for row in agreg:
+            dkey = int(row["dia"].strftime("%d"))
+            total = float(row["total"] or 0)
+            if row["tipo"] in ("R", "receita", "Receita"):
+                rec_by_day[dkey] = rec_by_day.get(dkey, 0.0) + total
+            else:
+                desp_by_day[dkey] = desp_by_day.get(dkey, 0.0) + total
+
+        receitas = [rec_by_day.get(int(d), 0.0) for d in dias]
+        despesas = [desp_by_day.get(int(d), 0.0) for d in dias]
+
+        saldo = []
+        acc = 0.0
+        for r, de in zip(receitas, despesas):
+            acc += (r - de)
+            saldo.append(acc)
+
+        return JsonResponse({
+            "dias": dias,
+            "receitas": receitas,
+            "despesas": despesas,
+            "saldo": saldo,
+            "inicio": inicio.strftime("%Y-%m-%d"),
+            "fim": fim.strftime("%Y-%m-%d"),
+            "categoria": categoria,
+        })
+    except Exception as e:
+        logging.exception("Erro em dados_grafico_filtrados")
+        return JsonResponse({"ok": False, "error": str(e)}, status=500)
 
 # =============================================================================
 # Geração sob demanda (opção simples)
@@ -639,3 +719,28 @@ if not hasattr(builtins, "gerar_texto_dica"):
             f"🔻 Déficit de R$ {abs(saldo):.2f}. Tente cortar 10% nas 3 maiores despesas.",
             "economia",
         )
+
+def _parse_date_safely(s, default=None):
+    d = parse_date(s) if s else None
+    return d or default
+
+
+
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+
+@login_required
+def diag_transacao(request):
+    try:
+        m = Transacao
+        fields = [f.name for f in m._meta.get_fields()]
+        sample = m.objects.order_by('-id').values().first()
+        tipo_field = 'tipo' in fields
+        cat_field  = 'categoria' in fields
+        data_field = m._meta.get_field('data').get_internal_type()  # "DateField" ou "DateTimeField"
+        return JsonResponse({
+            "ok": True, "fields": fields, "data_field": data_field,
+            "has_tipo": tipo_field, "has_categoria": cat_field, "sample": sample
+        })
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=200)

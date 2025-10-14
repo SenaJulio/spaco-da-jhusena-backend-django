@@ -1,4 +1,5 @@
 from django.contrib.auth.decorators import login_required
+from .views_financeiro import dados_grafico_filtrados, ia_resumo_mensal
 from django.http import HttpResponse
 from django.urls import path
 
@@ -38,4 +39,12 @@ urlpatterns = [
     path("ia/historico/", login_required(ia_historico), name="insights_historico"),
     path("ia/historico-feed/", login_required(ia_historico_feed), name="ia_historico_feed"),
     path("ia/resumo-mensal/", login_required(ia_resumo_mensal), name="ia_resumo_mensal"),
+    path("dados_grafico_filtrados/", login_required(dados_grafico_filtrados), name="dados_grafico_filtrados"),    
+    path("dashboard/dados-filtrados/", login_required(dados_grafico_filtrados), name="dados_filtrados_dashboard"),
+
+]
+
+from .views_financeiro import diag_transacao
+urlpatterns += [
+    path("diag/transacao/", login_required(diag_transacao), name="diag_transacao"),
 ]

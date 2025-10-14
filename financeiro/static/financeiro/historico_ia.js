@@ -251,49 +251,117 @@ document.addEventListener("DOMContentLoaded", function(){
   const elCanvas = document.getElementById("chartResumoIA");
   if(!elCanvas) return;
 
-  fetch("/financeiro/ia/resumo-mensal/", {headers:{"Accept":"application/json"}})
-    .then(r => r.json())
-    .then(data => {
-      const lbls = data.labels.map(s => s.slice(0,7)); // YYYY-MM
-      const ctx = elCanvas.getContext("2d");
+ fetch("/financeiro/ia/resumo-mensal/", {
+   headers: { Accept: "application/json" },
+   credentials: "same-origin",
+ })
+   .then(async (r) => {
+     if (!r.ok) throw new Error(`HTTP ${r.status}`);
+     // Em caso de HTML (ex.: redirect login), evita estourar JSON
+     const text = await r.text();
+     try {
+       return JSON.parse(text);
+     } catch {
+       throw new Error("Resposta não é JSON");
+     }
+   })
+   .then((data) => {
+     // Normaliza o formato de dados
+     // Se vier série (labels + valores), usa; senão, cria uma "mini série" a partir de receitas/despesas/saldo
+     const hasSerie =
+       Array.isArray(data?.labels) &&
+       Array.isArray(data?.receitas) &&
+       Array.isArray(data?.despesas);
+     const labels = hasSerie
+       ? data.labels.map((s) => String(s).slice(0, 7))
+       : ["Receitas", "Despesas", "Saldo"];
+     const serieReceitas = hasSerie
+       ? data.receitas
+       : [Number(data?.receitas) || 0, 0, 0];
+     const serieDespesas = hasSerie
+       ? data.despesas
+       : [0, Number(data?.despesas) || 0, 0];
+     const serieSaldo = hasSerie
+       ? Array.isArray(data?.saldo)
+         ? data.saldo
+         : []
+       : [
+           0,
+           0,
+           Number(data?.saldo) ||
+             (Number(data?.receitas) || 0) - (Number(data?.despesas) || 0),
+         ];
 
-      // cria série
-      const chart = new Chart(ctx, {
-        type: "line",
-        data: {
-          labels: lbls,
-          datasets: [
-            { label: "Total",    data: data.total,    tension: 0.25 },
-            { label: "Positivas",data: data.positivas,tension: 0.25 },
-            { label: "Alertas",  data: data.alertas,  tension: 0.25 },
-            { label: "Neutras",  data: data.neutras,  tension: 0.25 },
-          ]
-        },
-        options: {
-          responsive: true,
-          plugins: { legend: { position: "bottom" } },
-          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
-        }
-      });
+     const elCanvas = document.getElementById("chartResumoIA");
+     if (!elCanvas) return;
 
-      // estatísticas rápidas + previsão
-      const lastTotal = data.total[data.total.length-1] || 0;
-      const prevTotal = data.total[data.total.length-2] || 0;
-      const delta = lastTotal - prevTotal;
-      const pct = prevTotal ? ((delta/prevTotal)*100).toFixed(1) : "—";
-      const nextLabel = (data.forecast_next?.label || "").slice(0,7);
-      const nextTotal = data.forecast_next?.total ?? 0;
+     const ctx = elCanvas.getContext("2d");
 
-      const elStats = document.getElementById("resumoIAStats");
-      if(elStats){
-        elStats.innerHTML = `
-          Mês atual: <b>${lbls[lbls.length-1] || "-"}</b> |
-          Total: <b>${lastTotal}</b> (${delta >= 0 ? "+" : ""}${delta}, ${pct}% vs. mês anterior) |
-          Previsão ${nextLabel ? "para "+nextLabel : ""}: <b>${nextTotal}</b>
-        `;
-      }
-    })
-    .catch(e => {
-      console.warn("Falha ao carregar resumo mensal:", e);
-    });
+     // Evita re-render se já existir
+     if (window._chartResumoIA instanceof Chart) {
+       const ch = window._chartResumoIA;
+       ch.data.labels = labels;
+       ch.data.datasets[0].data = serieReceitas;
+       ch.data.datasets[1].data = serieDespesas;
+       // Se não houver saldo em série, garante comprimento igual
+       if (ch.data.datasets[2])
+         ch.data.datasets[2].data = serieSaldo.length
+           ? serieSaldo
+           : labels.map(() => null);
+       ch.update("none");
+       return;
+     }
+
+     window._chartResumoIA = new Chart(ctx, {
+       type: "line",
+       data: {
+         labels,
+         datasets: [
+           {
+             label: "Receitas",
+             data: serieReceitas,
+             tension: 0.3,
+             fill: false,
+           },
+           {
+             label: "Despesas",
+             data: serieDespesas,
+             tension: 0.3,
+             fill: false,
+           },
+           {
+             label: "Saldo",
+             data: serieSaldo.length ? serieSaldo : labels.map(() => null),
+             tension: 0.3,
+             fill: false,
+           },
+         ],
+       },
+       options: {
+         responsive: true,
+         maintainAspectRatio: false,
+         animation: false,
+         plugins: {
+           legend: { position: "top" },
+           title: {
+             display: true,
+             text: hasSerie
+               ? "Resumo IA (série mensal)"
+               : "Resumo IA (snapshot do mês)",
+           },
+         },
+         scales: { y: { beginAtZero: true } },
+       },
+     });
+   })
+   .catch((e) => {
+     console.error("Falha ao carregar resumo mensal:", e);
+     // opcional: exibir um aviso amigável no boxResumoMensal
+     const box = document.getElementById("boxResumoMensal");
+     if (box) {
+       box.classList.remove("d-none");
+       box.classList.add("alert-warning");
+       box.innerHTML = "Não foi possível carregar o resumo mensal agora.";
+     }
+   });
 });
