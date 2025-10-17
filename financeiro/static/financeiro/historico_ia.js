@@ -442,3 +442,41 @@ function getCsrfToken() {
     //return; // evita acessar elementos que não existem neste template
   }
 }
+
+// === Botão "⚡ Gerar dica dos últimos 30 dias" ===
+{
+  const btn = document.getElementById("btnTurbo");
+  const st = document.getElementById("statusDica"); // pode usar o mesmo span de status
+  const csrf = (typeof getCsrfToken === "function") ? getCsrfToken : () => "";
+
+  if (btn) {
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      if (st) st.textContent = "Gerando dica dos últimos 30 dias...";
+      try {
+        const r = await fetch("/financeiro/modo-turbo/dica30d/", {
+          method: "POST",
+          headers: {
+            "X-Requested-With": "XMLHttpRequest",
+            "X-CSRFToken": csrf(),
+            Accept: "application/json",
+          },
+          credentials: "same-origin",
+        });
+        const j = await r.json();
+        if (j.ok) {
+          if (st) st.textContent = "✅ Pronto! Nova dica gerada.";
+          console.log("Dica 30d:", j);
+        } else {
+          if (st) st.textContent = "⚠️ Não consegui gerar a dica.";
+        }
+      } catch (e) {
+        console.error("Erro ao gerar dica dos 30 dias:", e);
+        if (st) st.textContent = "Erro na solicitação.";
+      } finally {
+        btn.disabled = false;
+        setTimeout(() => { if (st) st.textContent = ""; }, 2000);
+      }
+    });
+  }
+}
