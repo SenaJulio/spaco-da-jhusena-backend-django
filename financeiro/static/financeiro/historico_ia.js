@@ -1,12 +1,19 @@
 // static/financeiro/historico_ia.js
 document.addEventListener("DOMContentLoaded", function () {
+  // evita rodar duas vezes se o script for incluído duplicado
+  if (document.body.dataset.iaHistoricoInit === "1") return;
+  document.body.dataset.iaHistoricoInit = "1";
+
   const API_URL = "/financeiro/ia/historico/";
   const KEY_LAST_SEEN = "iaHistoricoLastSeenAt";
 
-  const elList = document.getElementById("listaHistorico");
-  if (!elList) {
+const elList = document.getElementById("listaHistorico");
+if (!elList) {
+  console.warn(
+    "[IA Histórico] #listaHistorico não encontrado. Abortando init."
+  );
   return;
-  }
+}
 
   const elOvl = document.getElementById("ovlHistorico");
   const elBadge = document.getElementById("badgeNovas");
@@ -368,6 +375,20 @@ document.addEventListener("DOMContentLoaded", function(){
 
 // HOTFIX: se não existir a lista do histórico neste template,
 // ainda assim ativamos o botão "⚡ Gerar Nova Dica" e saímos.
+
+
+// === Helper para CSRF ===
+function getCsrfToken() {
+  // Tenta ler do <meta name="csrf-token">
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  if (meta && meta.content) return meta.content;
+
+  // Fallback: tenta pegar do cookie csrftoken
+  const match = document.cookie.match(/(^|;\s*)csrftoken=([^;]+)/);
+  return match ? decodeURIComponent(match[2]) : "";
+}
+
+
 {
   const elList = document.getElementById("listaHistorico");
   if (!elList) {
@@ -418,6 +439,6 @@ document.addEventListener("DOMContentLoaded", function(){
         }
       };
     }
-    return; // evita acessar elementos que não existem neste template
+    //return; // evita acessar elementos que não existem neste template
   }
 }
