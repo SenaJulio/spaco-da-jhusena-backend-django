@@ -5,7 +5,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
   const elList = document.getElementById("listaHistorico");
   if (!elList) {
-    return;
+  return;
   }
 
   const elOvl = document.getElementById("ovlHistorico");
@@ -365,3 +365,59 @@ document.addEventListener("DOMContentLoaded", function(){
      }
    });
 });
+
+// HOTFIX: se não existir a lista do histórico neste template,
+// ainda assim ativamos o botão "⚡ Gerar Nova Dica" e saímos.
+{
+  const elList = document.getElementById("listaHistorico");
+  if (!elList) {
+    const btn = document.getElementById("btnGerarDicaSimples");
+    const st  = document.getElementById("statusDica");
+    const csrf = (typeof getCsrfToken === "function") ? getCsrfToken : () => "";
+
+    if (btn) {
+      btn.onclick = async () => {
+        btn.disabled = true;
+        if (st) st.textContent = "Gerando...";
+        try {
+          const r = await fetch("/financeiro/api/insights/criar-simples/", {
+            method: "POST",
+            headers: {
+              "X-Requested-With": "XMLHttpRequest",
+              "X-CSRFToken": csrf(),
+              "Accept": "application/json",
+            },
+            credentials: "same-origin",
+          });
+          const j = await r.json();
+          if (j.ok) {
+            // Atualiza o cartão do último insight (se existir)
+            const container = document.getElementById("cardsInsight");
+            if (container) {
+              const card = document.createElement("div");
+              card.className = "card border-success mt-3";
+              card.innerHTML = `
+                <div class="card-body">
+                  <div class="small text-muted">Insight • ${j.created_at || new Date().toLocaleString()}</div>
+                  <h5 class="card-title mb-1">${j.title || "Nova dica"}</h5>
+                  <p class="mb-2">${j.text || j.dica || ""}</p>
+                </div>`;
+              const old = container.querySelector("[data-insight-bloco]") || container.firstElementChild;
+              if (old) old.replaceWith(card); else container.appendChild(card);
+            }
+            if (st) st.textContent = "Pronto!";
+          } else {
+            if (st) st.textContent = "Não consegui gerar a dica.";
+          }
+        } catch (e) {
+          console.error(e);
+          if (st) st.textContent = "Erro.";
+        } finally {
+          btn.disabled = false;
+          setTimeout(() => { if (st) st.textContent = ""; }, 1500);
+        }
+      };
+    }
+    return; // evita acessar elementos que não existem neste template
+  }
+}

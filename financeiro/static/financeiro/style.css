@@ -161,14 +161,17 @@ button:hover {
 }
 
 /* Gráficos */
+.chart-box {
+  min-height: 320px;
+  position: relative;
+}
 canvas#graficoEvolucao,
 canvas#graficoCategorias {
-  max-width: 100%;
-  background-color: #fff;
-  border-radius: 8px;
-  box-shadow: 0 0 10px #ccc;
-  padding: 15px;
+  width: 100% !important;
+  height: 100% !important;
 }
+
+
 
 /* Mensagem sem dados */
 .sem-dados {

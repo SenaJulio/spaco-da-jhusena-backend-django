@@ -22,7 +22,7 @@ from .models import Insight, Transacao
 from .services.ia import generate_tip_last_30d
 from django.utils.dateparse import parse_date
 from django.db.models.functions import TruncDate
-
+from django.db import DatabaseError
 # Pode existir em outro arquivo; mantido aqui para compat com teu projeto
 
 
@@ -41,6 +41,21 @@ except Exception:
 # =============================================================================
 # Helpers
 # =============================================================================
+from django.db.models.functions import TruncDate  # mantenha
+
+def _date_range_kwargs(model, field_name: str, start, end, inclusive_end=True):
+    """
+    Retorna kwargs corretos para filtrar por faixa de datas,
+    independente se o campo é DateField ou DateTimeField.
+    inclusive_end=True => usa __lte / __date__lte
+    """
+    f = model._meta.get_field(field_name)
+    end_op = "lte" if inclusive_end else "lt"
+    if f.get_internal_type() == "DateTimeField":
+        return {f"{field_name}__date__gte": start, f"{field_name}__date__{end_op}": end}
+    # DateField
+    return {f"{field_name}__gte": start, f"{field_name}__{end_op}": end}
+
 def _parse_date(s: str):
     try:
         return datetime.strptime(s, "%Y-%m-%d").date()
@@ -428,8 +443,7 @@ def ia_historico(request):
 
 # =============================================================================
 # Resumo mensal — SÉRIE (para gráficos históricos)  [opcional]
-# =============================================================================
-@require_GET
+# ============================================================================
 @login_required
 def ia_resumo_mensal_series(request):
     """Mantido caso você utilize este endpoint para Chart.js com série histórica."""
@@ -523,42 +537,137 @@ def _month_bounds(d):
         last = first.replace(month=first.month + 1, day=1) - timedelta(days=1)
     return first, last
 
-@login_required
-def ia_resumo_mensal(request):
+
+def _parse_ymd(s: str):
     """
-    GET /financeiro/ia/resumo-mensal/
-    Snapshot do mês: { mes, receitas, despesas, saldo, dica }
+    Converte uma string 'YYYY-MM-DD' para date.
+    Retorna None se a string for inválida.
+    """
+    from datetime import datetime
+    try:
+        return datetime.strptime(s, "%Y-%m-%d").date()
+    except Exception:
+        return None
+
+
+# --- Helper: filtro seguro por data (DateField ou DateTimeField) ---
+def _date_range_kwargs(model, field_name: str, start, end, inclusive_end=True):
+    """
+    Monta kwargs corretos para filtrar por data, independente do tipo do campo.
+    inclusive_end=True usa __lte; False usa __lt.
+    """
+    f = model._meta.get_field(field_name)
+    end_op = "lte" if inclusive_end else "lt"
+    if f.get_internal_type() == "DateTimeField":
+        return {f"{field_name}__date__gte": start, f"{field_name}__date__{end_op}": end}
+    return {f"{field_name}__gte": start, f"{field_name}__{end_op}": end}
+
+# --- Aliases de tipo que cobrimos (ajuste se precisar) ---
+TIPO_RECEITA = ("receita", "Receita", "R")
+TIPO_DESPESA = ("despesa", "Despesa", "D")
+
+@login_required
+def dados_financeiros_filtrados(request):
+    """
+    GET /financeiro/dashboard/dados-filtrados/?inicio=YYYY-MM-DD&fim=YYYY-MM-DD
+    Retorna séries diárias: dias[], receitas[], despesas[], saldo[]
     """
     try:
-        hoje = timezone.localdate()
-        inicio, fim = _month_bounds(hoje)
+        inicio = request.GET.get("inicio")
+        fim = request.GET.get("fim")
+        if not inicio or not fim:
+            return JsonResponse({"error": "Parâmetros 'inicio' e 'fim' são obrigatórios."}, status=400)
 
-        qs = Transacao.objects.filter(data__date__range=(inicio, fim))
+        dt_inicio = _parse_ymd(inicio)
+        dt_fim = _parse_ymd(fim)
+        if not dt_inicio or not dt_fim or dt_inicio > dt_fim:
+            return JsonResponse({"error": "Período inválido."}, status=400)
 
-        # Ajuste os filtros de tipo conforme seu model/choices
-        total_r = qs.filter(Q(tipo__in=["R", "receita", "Receita"])).aggregate(s=Sum("valor"))["s"] or Decimal("0")
-        total_d = qs.filter(Q(tipo__in=["D", "despesa", "Despesa"])).aggregate(s=Sum("valor"))["s"] or Decimal("0")
-        saldo = total_r - total_d
+        # Filtro seguro por data (independe do tipo do campo)
+        base = Transacao.objects.filter(
+            **_date_range_kwargs(Transacao, "data", dt_inicio, dt_fim, inclusive_end=True)
+        )
 
-        pct = 0.0
-        if total_r:
-            try:
-                pct = round(float(saldo) / float(total_r) * 100, 1)
-            except Exception:
-                pct = 0.0
+        # Agrupamentos por dia (aceitando aliases de tipo)
+        rec_qs = (
+            base.filter(tipo__in=TIPO_RECEITA)
+            .annotate(dia=TruncDate("data"))
+            .values("dia")
+            .annotate(total=Sum("valor"))
+            .order_by("dia")
+        )
+        dep_qs = (
+            base.filter(tipo__in=TIPO_DESPESA)
+            .annotate(dia=TruncDate("data"))
+            .values("dia")
+            .annotate(total=Sum("valor"))
+            .order_by("dia")
+        )
 
-        dica = f"Saldo {'POSITIVO' if saldo >= 0 else 'NEGATIVO'} em {pct}%. Reforce a reserva e evite novos gastos."
+        # TruncDate já devolve 'date'; não use .date()
+        rec_map = {row["dia"]: float(row["total"] or 0) for row in rec_qs}
+        dep_map = {row["dia"]: float(row["total"] or 0) for row in dep_qs}
 
-        return JsonResponse({
-            "mes": hoje.strftime("%m/%Y"),
-            "receitas": float(total_r),
-            "despesas": float(total_d),
-            "saldo": float(saldo),
-            "dica": dica,
-        })
-    except Exception as e:
-        logging.exception("Erro em ia_resumo_mensal")
+        # Linha do tempo contínua
+        dias, receitas, despesas, saldo = [], [], [], []
+        cur = dt_inicio
+        while cur <= dt_fim:
+            r = rec_map.get(cur, 0.0)
+            d = dep_map.get(cur, 0.0)
+            dias.append(cur.strftime("%Y-%m-%d"))
+            receitas.append(r)
+            despesas.append(d)
+            saldo.append(r - d)
+            cur += timedelta(days=1)
+
+        return JsonResponse(
+            {"dias": dias, "receitas": receitas, "despesas": despesas, "saldo": saldo},
+            status=200,
+        )
+
+    except (ValueError, DatabaseError) as e:
+        logging.getLogger(__name__).exception("Erro de dados no dados_financeiros_filtrados")
         return JsonResponse({"ok": False, "error": str(e)}, status=500)
+    except Exception as e:
+        logging.getLogger(__name__).exception("Erro inesperado no dados_financeiros_filtrados")
+        return JsonResponse({"ok": False, "error": str(e)}, status=500)
+
+
+@login_required
+def ia_resumo_mensal(request):
+    ano = request.GET.get("ano"); mes = request.GET.get("mes")
+    today = date.today()
+    try:
+        ano = int(ano) if ano else today.year
+        mes = int(mes) if mes else today.month
+    except ValueError:
+        return JsonResponse({"error": "Parâmetros 'ano' e 'mes' inválidos."}, status=400)
+
+    dt_inicio = date(ano, mes, 1)
+    dt_fim = date(ano + (1 if mes == 12 else 0), (mes % 12) + 1, 1)  # exclusivo
+
+    # 🔧 usa fim exclusivo (mais correto pra mês)
+    base = Transacao.objects.filter(**_date_range_kwargs(Transacao, "data", dt_inicio, dt_fim, inclusive_end=False))
+
+    rec_total = float(base.filter(tipo="receita").aggregate(soma=Sum("valor")).get("soma") or 0)
+    dep_total = float(base.filter(tipo="despesa").aggregate(soma=Sum("valor")).get("soma") or 0)
+
+    saldo = rec_total - dep_total
+    perc_pos = round((saldo / rec_total) * 100, 1) if rec_total > 0 else 0.0
+    resumo = (
+        f"Receitas: R$ {rec_total:,.2f} | Despesas: R$ {dep_total:,.2f} | "
+        f"Saldo: R$ {saldo:,.2f} | Margem: {perc_pos}%"
+    )
+    dica = "Ótimo! Saldo POSITIVO — reforce a reserva e considere um aporte no Tesouro Selic." if saldo >= 0 else \
+           "Alerta! Saldo NEGATIVO — revise despesas e adie gastos não essenciais."
+
+    return JsonResponse({
+        "ano": ano, "mes": mes,
+        "total_receitas": rec_total, "total_despesas": dep_total,
+        "saldo": saldo, "percentual_positivo": perc_pos,
+        "resumo": resumo, "dica": dica,
+    }, status=200)
+
 
 @login_required
 def dados_grafico_filtrados(request):
@@ -584,16 +693,16 @@ def dados_grafico_filtrados(request):
             dias.append(cur.strftime("%d"))
             cur += timedelta(days=1)
 
-        qs = Transacao.objects.filter(data__date__range=(inicio, fim))
+        qs = Transacao.objects.filter(data__range=(inicio, fim))
         if categoria:
             # Troque o campo caso seu model use outro nome
             qs = qs.filter(Q(categoria__iexact=categoria) | Q(categoria__icontains=categoria))
 
-        agreg = qs.annotate(dia=TruncDate("data")).values("dia", "tipo").annotate(total=Sum("valor"))
+        agreg = qs.values("data", "tipo").annotate(total=Sum("valor")).order_by("data")
 
         rec_by_day, desp_by_day = {}, {}
         for row in agreg:
-            dkey = int(row["dia"].strftime("%d"))
+            dkey = int(row["data"].strftime("%d"))
             total = float(row["total"] or 0)
             if row["tipo"] in ("R", "receita", "Receita"):
                 rec_by_day[dkey] = rec_by_day.get(dkey, 0.0) + total
@@ -720,14 +829,6 @@ if not hasattr(builtins, "gerar_texto_dica"):
             "economia",
         )
 
-def _parse_date_safely(s, default=None):
-    d = parse_date(s) if s else None
-    return d or default
-
-
-
-from django.http import JsonResponse
-from django.contrib.auth.decorators import login_required
 
 @login_required
 def diag_transacao(request):
