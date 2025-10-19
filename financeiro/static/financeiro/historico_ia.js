@@ -390,93 +390,297 @@ function getCsrfToken() {
 
 
 {
+  // Se NÃO houver #listaHistorico, usamos o layout do Turbo
   const elList = document.getElementById("listaHistorico");
   if (!elList) {
-    const btn = document.getElementById("btnGerarDicaSimples");
-    const st  = document.getElementById("statusDica");
-    const csrf = (typeof getCsrfToken === "function") ? getCsrfToken : () => "";
+    const btn = document.getElementById("btnTurbo");
+    const st = document.getElementById("turboStatus");
+    const box = document.getElementById("turboResult");
+    const dica = document.getElementById("turboDica");
+    const csrf = typeof getCsrfToken === "function" ? getCsrfToken : () => "";
 
-    if (btn) {
+    if (btn && st && box && dica) {
       btn.onclick = async () => {
         btn.disabled = true;
-        if (st) st.textContent = "Gerando...";
+
+        // status ON
+        st.textContent = "Analisando…";
+        st.classList.remove("d-none");
+        box.classList.add("d-none"); // esconde resultado antigo enquanto processa
+
         try {
-          const r = await fetch("/financeiro/api/insights/criar-simples/", {
+          const r = await fetch("/financeiro/modo-turbo/dica30d/", {
             method: "POST",
             headers: {
               "X-Requested-With": "XMLHttpRequest",
               "X-CSRFToken": csrf(),
-              "Accept": "application/json",
+              Accept: "application/json",
             },
             credentials: "same-origin",
           });
+
           const j = await r.json();
-          if (j.ok) {
-            // Atualiza o cartão do último insight (se existir)
-            const container = document.getElementById("cardsInsight");
-            if (container) {
-              const card = document.createElement("div");
-              card.className = "card border-success mt-3";
-              card.innerHTML = `
-                <div class="card-body">
-                  <div class="small text-muted">Insight • ${j.created_at || new Date().toLocaleString()}</div>
-                  <h5 class="card-title mb-1">${j.title || "Nova dica"}</h5>
-                  <p class="mb-2">${j.text || j.dica || ""}</p>
-                </div>`;
-              const old = container.querySelector("[data-insight-bloco]") || container.firstElementChild;
-              if (old) old.replaceWith(card); else container.appendChild(card);
+          if (j && j.ok) {
+            const titulo = j.title || "Dica dos últimos 30 dias";
+            const texto = j.text || j.dica || "(sem texto)";
+            const quando = j.created_at || new Date().toLocaleString("pt-BR");
+
+            // Preenche a área do Turbo (já existia)
+            dica.textContent = `${titulo} — ${texto}\n(Insight • ${quando})`;
+            box.classList.remove("d-none");
+            st.textContent = "✅ Pronto! Nova dica gerada.";
+
+            // === MÉTRICAS DO PERÍODO (INSIRA A PARTIR DAQUI) ===
+            const ul = document.getElementById("turboMetrics");
+            const detailsEl = ul ? ul.closest("details") : null;
+
+            if (ul) {
+              const linhas = [];
+
+              // 1) Se vier um array
+              if (Array.isArray(j.metrics)) {
+                for (const m of j.metrics) linhas.push(String(m));
+              }
+
+              // 2) Se vier um objeto { chave: valor }
+              if (
+                j.metrics &&
+                !Array.isArray(j.metrics) &&
+                typeof j.metrics === "object"
+              ) {
+                for (const [k, v] of Object.entries(j.metrics)) {
+                  linhas.push(`${labelize(k)}: ${fmt(v)}`);
+                }
+              }
+
+              // 3) Fallbacks comuns
+              if (j.receitas != null)
+                linhas.push(`Receitas (30d): ${fmtMoeda(j.receitas)}`);
+              if (j.despesas != null)
+                linhas.push(`Despesas (30d): ${fmtMoeda(j.despesas)}`);
+              if (j.saldo != null)
+                linhas.push(`Saldo (30d): ${fmtMoeda(j.saldo)}`);
+              if (j.margem != null)
+                linhas.push(`Margem: ${Number(j.margem).toFixed(1)}%`);
+              if (j.periodo || j.range)
+                linhas.push(`Período: ${j.periodo || j.range}`);
+
+              // Render/mostrar
+              if (linhas.length) {
+                ul.innerHTML = linhas
+                  .map((li) => `<li>${escapeHtml(li)}</li>`)
+                  .join("");
+                if (detailsEl) detailsEl.open = true; // abre o <details>
+              } else {
+                ul.innerHTML = "";
+                if (detailsEl) detailsEl.open = false; // fecha se não houver métricas
+              }
             }
-            if (st) st.textContent = "Pronto!";
+            // === FIM DAS MÉTRICAS ===
           } else {
-            if (st) st.textContent = "Não consegui gerar a dica.";
+            st.textContent = "⚠️ Não consegui gerar a dica.";
           }
         } catch (e) {
           console.error(e);
-          if (st) st.textContent = "Erro.";
+          st.textContent = "Erro na solicitação.";
         } finally {
           btn.disabled = false;
-          setTimeout(() => { if (st) st.textContent = ""; }, 1500);
+          setTimeout(() => st.classList.add("d-none"), 2000); // oculta status depois
         }
       };
     }
-    //return; // evita acessar elementos que não existem neste template
   }
 }
 
-// === Botão "⚡ Gerar dica dos últimos 30 dias" ===
-{
-  const btn = document.getElementById("btnTurbo");
-  const st = document.getElementById("statusDica"); // pode usar o mesmo span de status
-  const csrf = (typeof getCsrfToken === "function") ? getCsrfToken : () => "";
+function fmtMoeda(x) {
+  const n = Number(x) || 0;
+  return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+function fmt(v) {
+  if (typeof v === "number") return v.toLocaleString("pt-BR");
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toLocaleString("pt-BR") : String(v);
+}
+function labelize(k) {
+  return String(k)
+    .replaceAll("_", " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+function escapeHtml(s) {
+  return String(s)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
 
-  if (btn) {
-    btn.addEventListener("click", async () => {
-      btn.disabled = true;
-      if (st) st.textContent = "Gerando dica dos últimos 30 dias...";
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("btnReloadDicas");
+  const list = document.getElementById("listaHistorico"); // container onde as dicas aparecerão
+  const badge = document.getElementById("badgeNovas");
+  const badgeCount = document.getElementById("badgeNovasCount");
+
+  if (!btn || !list) return;
+
+  btn.addEventListener("click", () => carregarHistorico(20));
+  // opcional: carregue ao abrir a página
+  // carregarHistorico(20);
+
+  async function carregarHistorico(limit = 20) {
+    btn.disabled = true;
+    const urls = [
+      `/financeiro/ia/historico/feed/?limit=${limit}`,
+      `/financeiro/ia/historico/?limit=${limit}`,
+    ];
+    let data = null;
+
+    for (const url of urls) {
       try {
-        const r = await fetch("/financeiro/modo-turbo/dica30d/", {
-          method: "POST",
-          headers: {
-            "X-Requested-With": "XMLHttpRequest",
-            "X-CSRFToken": csrf(),
-            Accept: "application/json",
-          },
+        const r = await fetch(url, {
+          headers: { Accept: "application/json" },
           credentials: "same-origin",
         });
-        const j = await r.json();
-        if (j.ok) {
-          if (st) st.textContent = "✅ Pronto! Nova dica gerada.";
-          console.log("Dica 30d:", j);
-        } else {
-          if (st) st.textContent = "⚠️ Não consegui gerar a dica.";
-        }
-      } catch (e) {
-        console.error("Erro ao gerar dica dos 30 dias:", e);
-        if (st) st.textContent = "Erro na solicitação.";
-      } finally {
-        btn.disabled = false;
-        setTimeout(() => { if (st) st.textContent = ""; }, 2000);
+        if (!r.ok) continue;
+        data = await r.json();
+        break;
+      } catch (_) {}
+    }
+
+    render(data);
+    btn.disabled = false;
+  }
+
+  function render(json) {
+    // Normaliza formatos comuns de API: items | results | data
+    const items = (json && (json.items || json.results || json.data)) || [];
+    if (!Array.isArray(items) || items.length === 0) {
+      list.innerHTML = `<div class="alert alert-secondary mb-2">Nenhuma dica encontrada.</div>`;
+      if (badge) badge.classList.add("d-none");
+      return;
+    }
+
+    // Monta HTML dos cards
+    const html = items.map(toCardHTML).join("");
+    list.innerHTML = html;
+     
+    atualizarContadores();
+
+    // Badge de novas (se a API trouxer algo como json.novas)
+    if (badge && badgeCount) {
+      const n = Number(json?.novas || 0);
+      if (n > 0) {
+        badgeCount.textContent = String(n);
+        badge.classList.remove("d-none");
+      } else {
+        badge.classList.add("d-none");
       }
+    }
+  }
+
+  function toCardHTML(item) {
+    const quando = escapeHtml(
+      item.created_at || item.data || new Date().toLocaleString("pt-BR")
+    );
+    const titulo = escapeHtml(item.title || item.titulo || "Dica da IA");
+    const texto = escapeHtml(item.text || item.dica || item.conteudo || "");
+    const tag = escapeHtml(item.categoria || item.kind || item.tipo || "Geral");
+
+    return `
+      <div class="card border-success mb-2">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="badge bg-success-subtle text-success border border-success-subtle">${tag}</span>
+            <small class="text-muted">${quando}</small>
+          </div>
+          <h6 class="mb-1">${titulo}</h6>
+          <p class="mb-0" style="white-space:pre-wrap">${texto}</p>
+        </div>
+      </div>
+    `;
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+});
+
+// === Filtros rápidos do histórico ===
+document.addEventListener("DOMContentLoaded", () => {
+  const list = document.getElementById("listaHistorico");
+  if (!list) return;
+
+  // Liga os botões de filtro
+  const btns = Array.from(document.querySelectorAll('[data-filter]'));
+  for (const b of btns) {
+    b.addEventListener("click", () => {
+      // visual "active"
+      btns.forEach(x => x.classList.remove("active"));
+      b.classList.add("active");
+
+      const f = b.getAttribute("data-filter") || "all";
+      aplicarFiltro(f);
+      atualizarContadores();
     });
   }
+
+  function aplicarFiltro(filtro) {
+    const cards = Array.from(list.querySelectorAll(".card[data-kind]"));
+    for (const card of cards) {
+      const kind = card.getAttribute("data-kind");
+      const show = (filtro === "all") ? true : (kind === filtro);
+      card.style.display = show ? "" : "none";
+    }
+  }
+
+  function atualizarContadores() {
+    const allCards  = Array.from(list.querySelectorAll(".card[data-kind]"));
+    const visiveis  = allCards.filter(c => c.style.display !== "none");
+    const countAll  = document.getElementById("countAll");
+    const countPos  = document.getElementById("countPos");
+    const countAlt  = document.getElementById("countAlerta");
+    const countNeu  = document.getElementById("countNeutra");
+
+    // totais por categoria (considera TODOS os cards carregados)
+    const tot = { positiva: 0, alerta: 0, neutra: 0, geral: 0 };
+    for (const c of allCards) {
+      const k = c.getAttribute("data-kind");
+      if (tot[k] != null) tot[k]++;
+    }
+
+    if (countAll) countAll.textContent = String(allCards.length);
+    if (countPos) countPos.textContent = String(tot.positiva);
+    if (countAlt) countAlt.textContent = String(tot.alerta);
+    if (countNeu) countNeu.textContent = String(tot.neutra);
+  }
+
+  // Chame isso DEPOIS que você renderizar os cards (ex.: no final da sua função render)
+  // Exemplo: se você tem uma função render(json), adicione no fim:
+  // atualizarContadores();
+});
+
+// === Helper: normaliza categoria/kind para data-kind ===
+function normKind(v) {
+  const s = String(v || "").toLowerCase();
+  if (s.includes("posit")) return "positiva";
+  if (s.includes("alert")) return "alerta";
+  if (s.includes("neut"))  return "neutra";
+  return "geral";
+}
+
+// Helpers de segurança (amanhã a gente melhora)
+function firstLine(s, max = 60) {
+  if (!s) return "";
+  const str = String(s).trim().split(/\r?\n/)[0];
+  return str.length > max ? str.slice(0, max - 1) + "…" : str;
+}
+
+// Se ainda não existir, evita erro ao chamar
+if (typeof atualizarContadores !== "function") {
+  function atualizarContadores() { /* no-op temporário */ }
 }

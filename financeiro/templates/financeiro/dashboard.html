@@ -100,7 +100,7 @@
   </div>
 </div>
 
-<!-- β Mini-IA -->
+<!-- 💡 β Mini-IA -->
 <div class="row mt-4">
   <div class="col-12">
     <div class="card border-primary">
@@ -110,9 +110,13 @@
             💡 Recomendações Inteligentes
             <span class="badge bg-primary-subtle text-primary border border-primary ms-2">β Mini-IA</span>
           </h5>
-          <button id="btnTurbo" class="btn btn-primary btn-sm">⚡ Gerar dica dos últimos 30 dias</button>
+          <button id="btnTurbo" class="btn btn-primary btn-sm" type="button">
+            ⚡ Gerar dica dos últimos 30 dias
+          </button>
         </div>
+
         <div id="turboStatus" class="small text-muted mt-2 d-none">Analisando…</div>
+
         <div id="turboResult" class="mt-3 d-none">
           <div class="alert alert-info mb-2" id="turboDica"></div>
           <details class="small">
@@ -125,7 +129,7 @@
   </div>
 </div>
 
-<!-- Filtros superiores do histórico -->
+<!-- 🧭 Filtros Superiores -->
 <div class="row g-2 align-items-end mb-2 mt-4">
   <div class="col-sm-3">
     <label class="form-label">Início</label>
@@ -146,47 +150,60 @@
     </select>
   </div>
   <div class="col-sm-3 d-flex gap-2">
-    <button id="btnAplicarFiltros" class="btn btn-success w-50">Aplicar</button>
-    <button id="btnGerarDica" class="btn btn-outline-primary w-50">Gerar nova dica</button>
+    <button id="btnAplicarFiltros" class="btn btn-success w-50" type="button">Aplicar</button>
+    <button id="btnGerarDica" class="btn btn-outline-primary w-50" type="button">Gerar nova dica</button>
   </div>
 </div>
 
-<div class="d-flex align-items-center gap-3">
+<!-- 🧠 Histórico de Dicas da IA -->
+<div class="d-flex align-items-center gap-3 mt-4">
   <h4 class="m-0">🧠 Histórico de Dicas da IA</h4>
   <span id="badgeNovas" class="badge bg-warning text-dark d-none" title="Novas desde sua última visita">
     Novas dicas: <span id="badgeNovasCount">0</span>
   </span>
-  <button id="btnReloadDicas" class="btn btn-sm btn-outline-primary ms-auto" type="button">Atualizar histórico</button>
+  <button id="btnReloadDicas" class="btn btn-sm btn-outline-primary ms-auto" type="button">
+    Atualizar histórico
+  </button>
 </div>
 
-<!-- Filtros rápidos -->
+<!-- ⚙️ Filtros rápidos -->
 <div class="mt-2">
   <div class="btn-group" role="group">
-    <button class="btn btn-sm btn-outline-primary active" data-filter="all">
+    <button type="button" class="btn btn-sm btn-outline-primary active" data-filter="all">
       Todas <span class="badge bg-light text-dark ms-1" id="countAll">0</span>
     </button>
-    <button class="btn btn-sm btn-outline-success" data-filter="positiva">
+    <button type="button" class="btn btn-sm btn-outline-success" data-filter="positiva">
       Positivas <span class="badge bg-light text-dark ms-1" id="countPos">0</span>
     </button>
-    <button class="btn btn-sm btn-outline-warning" data-filter="alerta">
+    <button type="button" class="btn btn-sm btn-outline-warning" data-filter="alerta">
       Alertas <span class="badge bg-light text-dark ms-1" id="countAlerta">0</span>
     </button>
-    <button class="btn btn-sm btn-outline-secondary" data-filter="neutra">
+    <button type="button" class="btn btn-sm btn-outline-secondary" data-filter="neutra">
       Neutras <span class="badge bg-light text-dark ms-1" id="countNeutra">0</span>
     </button>
   </div>
 </div>
 
-<!-- Feed -->
+<!-- 📋 Lista de Dicas -->
+<div id="listaHistorico" class="mt-3"></div>
+
+<!-- 🔄 Script do histórico -->
+<script src="{% static 'financeiro/historico_ia.js' %}"></script>
+
+<!-- 📚 Feed adicional -->
 <div class="mt-3 position-relative">
   <div id="ovlHistorico" class="loading-overlay d-none">
     <div class="spinner-border" role="status" aria-label="Carregando"></div>
   </div>
   <div id="feedDicas" class="vstack gap-2"></div>
 </div>
+
 <div class="mt-2">
-  <button id="btnVerMaisFeed" class="btn btn-outline-secondary btn-sm">Ver mais</button>
+  <button id="btnVerMaisFeed" class="btn btn-outline-secondary btn-sm" type="button">
+    Ver mais
+  </button>
 </div>
+
 
 <div class="row g-3">
   <!-- Gráfico de Evolução (linhas) -->
@@ -243,32 +260,49 @@
 
 <!-- Último Insight -->
 <div id="cardsInsight" class="mt-3">
-  <div data-insight-bloco class="card {% if ultimo_insight %}border-success{% else %}border-secondary{% endif %}">
-    <div class="card-body">
-      {% if ultimo_insight %}
-        <div class="small text-muted">Insight • {{ ultimo_insight.created_at|date:"d/m/Y H:i" }}</div>
-        <h5 class="card-title mb-1">{{ ultimo_insight.title }}</h5>
-        <p class="mb-2">{{ ultimo_insight.text }}</p>
+  {% if ultimo_insight %}
+    <div data-insight-bloco class="card border-success">
+      <div class="card-body">
+        <div class="small text-muted">
+          Insight • {{ ultimo_insight.created_at|date:"d/m/Y H:i" }}
+        </div>
+        <h5 class="card-title mb-1">
+          {{ ultimo_insight.title|default:"Nova dica"|escape }}
+        </h5>
+        <p class="mb-2" style="white-space:pre-wrap">
+          {{ ultimo_insight.text|default:"" }}
+        </p>
+
         <span class="badge bg-success-subtle text-success border border-success-subtle">
           {{ ultimo_insight.get_kind_display }}
-          {% if ultimo_insight.categoria_dominante %} • {{ ultimo_insight.categoria_dominante }}{% endif %}
+          {% if ultimo_insight.categoria_dominante %}
+            • {{ ultimo_insight.categoria_dominante }}
+          {% endif %}
         </span>
+
         {% if ultimo_insight.score %}
-          <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle ms-1">Score:</span>
+          <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle ms-1">
+            Score: {{ ultimo_insight.score }}
+          </span>
         {% else %}
-          <span class="badge">Sem score</span>
+          <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle ms-1">
+            Sem score
+          </span>
         {% endif %}
-        <div id="placeholderInsightCard">
-          <div class="small text-muted">Insight</div>
-          <p class="mb-0">Ainda não há dicas. Em breve vamos gerar a primeira automaticamente.</p>
-        </div>
-      {% endif %}
+      </div>
     </div>
-  </div>
+  {% else %}
+    <div id="placeholderInsightCard" class="alert alert-secondary">
+      <div class="small text-muted">Insight</div>
+      <p class="mb-0">Ainda não há dicas. Em breve vamos gerar a primeira automaticamente.</p>
+    </div>
+  {% endif %}
 </div>
+
 <style>
   #graficoEvolucao, #graficoCategorias { height: 320px !important; }
 </style>
+
 
 <!-- URLs globais usadas pelos scripts -->
 <script>
@@ -287,5 +321,6 @@
 
 <!-- Seus scripts já existentes (Mini-IA, feed, etc.) permanecem aqui SEM a lógica de gráficos -->
 <!-- (deixei como estavam; não repito aqui para não alongar mais) -->
+ 
 
 {% endblock %}

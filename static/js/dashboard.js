@@ -593,3 +593,258 @@ document.addEventListener("DOMContentLoaded", function () {
     loadCharts();
   });
 })();
+
+// === Botão "Aplicar" (filtros de data/serviço) ===
+{
+  const btn = document.getElementById("btnAplicarFiltros");
+  if (btn) {
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      const st = document.getElementById("statusFiltros");
+      if (st) st.textContent = "⏳ Aplicando filtros...";
+
+      try {
+        // Chame sua função de atualização (ajuste conforme seu projeto)
+        if (typeof atualizarDashboard === "function") {
+          await atualizarDashboard();
+        } else {
+          // fallback: recarrega página
+          location.reload();
+        }
+
+        if (st) st.textContent = "✅ Filtros aplicados!";
+      } catch (e) {
+        console.error("Erro ao aplicar filtros:", e);
+        if (st) st.textContent = "Erro ao aplicar filtros.";
+      } finally {
+        btn.disabled = false;
+        setTimeout(() => { if (st) st.textContent = ""; }, 2000);
+      }
+    });
+  }
+}
+
+// === Botão "Gerar nova dica" ===
+{
+  const btn = document.getElementById("btnGerarDica");
+  const st = document.getElementById("statusDica");
+  const csrf = (typeof getCsrfToken === "function") ? getCsrfToken : () => "";
+
+  if (btn) {
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      if (st) st.textContent = "Gerando dica...";
+
+      try {
+        const r = await fetch("/financeiro/api/insights/criar-simples/", {
+          method: "POST",
+          headers: {
+            "X-Requested-With": "XMLHttpRequest",
+            "X-CSRFToken": csrf(),
+            "Accept": "application/json",
+          },
+          credentials: "same-origin",
+        });
+        const j = await r.json();
+
+        if (j.ok) {
+          if (st) st.textContent = "✅ Nova dica gerada!";
+
+          const box =
+            document.getElementById("cardsInsight") ||
+            document.getElementById("listaHistorico");
+
+          if (box) {
+            const data = j.created_at || new Date().toLocaleString("pt-BR");
+            const titulo = j.title || "Nova dica";
+            const texto = j.text || j.dica || "";
+
+            const card = document.createElement("div");
+            card.className = "card border-success mt-3";
+            card.innerHTML = `<div class="card-body"> <div class="small text-muted">Insight • ${data}</div>
+           <h5 class="card-title mb-1">${titulo}</h5>
+           <p class="mb-0" style="white-space:pre-wrap">${texto}</p>
+           </div>`;
+
+            const placeholder = document.getElementById(
+              "placeholderInsightCard"
+            );
+            if (placeholder) {
+              placeholder.replaceWith(card); // substitui o placeholder
+            } else {
+              box.prepend(card); // se não tem placeholder, adiciona no topo
+            }
+          }
+
+          if (st) st.textContent = "✅ Nova dica gerada!";
+
+        } else {
+          if (st) st.textContent = "⚠️ Não consegui gerar a dica.";
+        }
+      } catch (e) {
+        console.error("Erro ao gerar dica simples:", e);
+        if (st) st.textContent = "Erro na solicitação.";
+      } finally {
+        btn.disabled = false;
+        setTimeout(() => { if (st) st.textContent = ""; }, 2000);
+      }
+    });
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  // Mantém visível apenas o botão funcional com id="btnGerarDica"
+  const main = document.getElementById("btnGerarDica");
+  if (!main) return;
+
+  // Encontra outros botões com o mesmo texto
+  const all = Array.from(document.querySelectorAll("button")).filter(
+    (b) =>
+      b !== main && b.textContent.trim().toLowerCase() === "gerar nova dica"
+  );
+
+  // Esconde os duplicados (sem apagar)
+  for (const b of all) {
+    b.classList.add("d-none"); // some da interface
+    b.disabled = true; // evita clique acidental se estilo não aplicar
+    // opcional: marcar para revisão futura
+    b.setAttribute("data-duplicado", "true");
+  }
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+  const btn = document.getElementById("btnReloadDicas");
+  const list = document.getElementById("listaHistorico"); // container onde as dicas aparecerão
+  const badge = document.getElementById("badgeNovas");
+  const badgeCount = document.getElementById("badgeNovasCount");
+
+  if (!btn || !list) return;
+
+  btn.addEventListener("click", () => carregarHistorico(20));
+  // opcional: carregue ao abrir a página
+  // carregarHistorico(20);
+
+  async function carregarHistorico(limit = 20) {
+    btn.disabled = true;
+    const urls = [
+      `/financeiro/ia/historico/feed/?limit=${limit}`,
+      `/financeiro/ia/historico/?limit=${limit}`
+    ];
+    let data = null;
+
+    for (const url of urls) {
+      try {
+        const r = await fetch(url, { headers: { "Accept": "application/json" }, credentials: "same-origin" });
+        if (!r.ok) continue;
+        data = await r.json();
+        break;
+      } catch (_) {}
+    }
+
+    render(data);
+    btn.disabled = false;
+  }
+
+  function render(json) {
+    // Normaliza formatos comuns de API: items | results | data
+    const items = (json && (json.items || json.results || json.data)) || [];
+    if (!Array.isArray(items) || items.length === 0) {
+      list.innerHTML = `<div class="alert alert-secondary mb-2">Nenhuma dica encontrada.</div>`;
+      if (badge) badge.classList.add("d-none");
+      return;
+    }
+
+    // Monta HTML dos cards
+    const html = items.map(toCardHTMLStrong).join("");
+
+    list.innerHTML = html;
+
+    // Badge de novas (se a API trouxer algo como json.novas)
+    if (badge && badgeCount) {
+      const n = Number(json?.novas || 0);
+      if (n > 0) {
+        badgeCount.textContent = String(n);
+        badge.classList.remove("d-none");
+      } else {
+        badge.classList.add("d-none");
+      }
+    }
+  }
+
+ function toCardHTML(item) {
+   const quando = escapeHtml(
+     item.created_at || item.data || new Date().toLocaleString("pt-BR")
+   );
+   const rawTexto = item.text ?? item.dica ?? item.conteudo ?? "";
+   const textoLimpo = String(rawTexto).trim();
+   const texto = escapeHtml(textoLimpo || "Sem conteúdo disponível.");
+   const titulo = escapeHtml(
+    item.title || firstLine(textoLimpo, 60) || "Dica da IA");
+
+   const tagRaw = item.categoria || item.kind || item.tipo || "Geral";
+   const tag = escapeHtml(capitalize(tagRaw));
+
+   return `
+    <div class="card border-success mb-3 shadow-sm">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span class="badge bg-success-subtle text-success border border-success-subtle">${tag}</span>
+          <small class="text-muted">${quando}</small>
+        </div>
+        <h6 class="card-title text-success mb-1">${titulo}</h6>
+        <p class="card-text mb-0" style="white-space: pre-wrap">${texto}</p>
+      </div>
+    </div>
+  `;
+ }
+
+
+  // helpers (coloque junto das outras helpers)
+  function firstLine(s, max = 60) {
+    if (!s) return "";
+    const str = String(s).trim().split(/\r?\n/)[0]; // 1ª linha
+    return str.length > max ? str.slice(0, max - 1) + "…" : str;
+  }
+  function capitalize(s) {
+    const t = String(s || "");
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+});
+
+function toCardHTMLStrong(item) {
+  const quando = escapeHtml(
+    item.created_at || item.data || new Date().toLocaleString("pt-BR")
+  );
+  const rawTexto = item.text ?? item.dica ?? item.conteudo ?? "";
+  const textoLimpo = String(rawTexto).trim();
+  const texto = escapeHtml(textoLimpo || "Sem conteúdo disponível.");
+  const titulo = escapeHtml(
+    (item.title && String(item.title).trim()) ||
+      firstLine(textoLimpo, 60) ||
+      "Dica da IA"
+  );
+  const tagRaw = item.categoria || item.kind || item.tipo || "Geral";
+  const tag = escapeHtml(capitalize(tagRaw));
+
+  return `
+    <div class="card border-success mb-3 shadow-sm">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <span class="badge bg-success-subtle text-success border border-success-subtle">${tag}</span>
+          <small class="text-muted">${quando}</small>
+        </div>
+        <h6 class="card-title text-success mb-1">${titulo}</h6>
+        <p class="card-text mb-0" style="white-space: pre-wrap">${texto}</p>
+      </div>
+    </div>
+  `;
+}
