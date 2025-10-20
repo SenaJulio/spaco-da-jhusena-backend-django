@@ -48,6 +48,8 @@ urlpatterns = [
     # Histórico/Feeds/Resumo
     path("ia/historico/", login_required(ia_historico), name="insights_historico"),
     path("ia/historico-feed/", login_required(ia_historico_feed), name="ia_historico_feed"),
+    # compat: aceita também /ia/historico/feed/ para o JS antigo
+    path("ia/historico/feed/", login_required(ia_historico_feed), name="ia_historico_feed_compat"),
     path("ia/resumo-mensal/", login_required(ia_resumo_mensal), name="ia_resumo_mensal"),
     # Dados para gráficos do dashboard
     path(

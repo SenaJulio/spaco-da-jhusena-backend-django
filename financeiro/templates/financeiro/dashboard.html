@@ -161,7 +161,10 @@
   <span id="badgeNovas" class="badge bg-warning text-dark d-none" title="Novas desde sua última visita">
     Novas dicas: <span id="badgeNovasCount">0</span>
   </span>
-  <button id="btnReloadDicas" class="btn btn-sm btn-outline-primary ms-auto" type="button">
+  <button id="btnHistoricoIA" class="btn btn-sm btn-outline-success ms-auto me-2" type="button">
+    Ver Histórico
+  </button>
+  <button id="btnReloadDicas" class="btn btn-sm btn-outline-primary" type="button">
     Atualizar histórico
   </button>
 </div>
@@ -186,9 +189,135 @@
 
 <!-- 📋 Lista de Dicas -->
 <div id="listaHistorico" class="mt-3"></div>
+<!-- Modal: Histórico de Dicas da IA -->
+<div class="modal fade" id="modalHistoricoIA" tabindex="-1" aria-labelledby="modalHistoricoIALabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 id="modalHistoricoIALabel" class="modal-title">🧠 Histórico de Dicas da IA</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
+      </div>
+      <div class="modal-body">
+        <!-- Reaproveitamos o mesmo id que seu JS já usa -->
+        <!-- no dashboard.html -->
+<div id="listaHistorico" data-feed-url="{% url 'financeiro:ia_historico_feed' %}"></div>
+<button id="btnVerMais" class="btn btn-outline-secondary btn-sm mt-2">Ver mais</button>
+
+      </div>
+      <div class="modal-footer">
+        <button id="btnReloadDicasModal" type="button" class="btn btn-outline-primary">Atualizar</button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 
 <!-- 🔄 Script do histórico -->
-<script src="{% static 'financeiro/historico_ia.js' %}"></script>
+<!-- ⚙️ Histórico de Dicas: liga botões e renderiza cards (sem historico_ia.js) -->
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const list = document.getElementById('listaHistorico');
+  const btnAtualizar = document.getElementById('btnReloadDicas');
+  const grp = document.querySelector('.btn-group[role="group"]'); // seus filtros com data-filter
+  if (!list) return;
+
+  const FEED_URL = "/financeiro/ia/historico-feed/"; // bate com urls.py
+  let filtroCategoria = ""; // "" = todas
+
+  async function carregarHistorico(limit = 20) {
+    if (btnAtualizar) btnAtualizar.disabled = true;
+
+    const qs = new URLSearchParams({ limit: String(limit) });
+    // período (se existir na página)
+    const di = document.getElementById("filtroInicio")?.value || document.getElementById("data_inicio")?.value;
+    const df = document.getElementById("filtroFim")?.value    || document.getElementById("data_fim")?.value;
+    if (di) qs.set("inicio", di);
+    if (df) qs.set("fim", df);
+
+    if (filtroCategoria) qs.set("categoria", filtroCategoria); // neutra|positiva|alerta|geral
+
+    let data = { items: [] };
+    try {
+      const r = await fetch(`${FEED_URL}?${qs}`, { headers: { Accept: "application/json" }, credentials: "same-origin" });
+      if (r.ok) data = await r.json();
+    } catch (e) {
+      console.error("Falha ao buscar histórico:", e);
+    } finally {
+      if (btnAtualizar) btnAtualizar.disabled = false;
+    }
+
+    renderLista(data);
+  }
+
+  function formatQuando(it) {
+    const raw = it.created_at_br || it.created_at || it.data || it.quando || it.timestamp || "";
+    return raw ? String(raw) : new Date().toLocaleString("pt-BR");
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;").replaceAll("'","&#039;");
+  }
+
+  function cardHTML(it) {
+    const texto = (it.text || it.texto || it.dica || it.conteudo || "").toString().trim();
+    if (!texto) return ""; // ignora vazios
+    const titulo = (it.title || it.titulo || (texto.split("\n")[0] || "Dica da IA")).toString();
+    const catRaw = (it.categoria || it.categoria_dominante || it.tipo || it.kind || "Geral").toString();
+    const cat = catRaw.charAt(0).toUpperCase() + catRaw.slice(1);
+
+    return `
+      <div class="card border-success mb-3 shadow-sm">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <span class="badge bg-success-subtle text-success border border-success-subtle">${escapeHtml(cat)}</span>
+            <small class="text-muted">${escapeHtml(formatQuando(it))}</small>
+          </div>
+          <h6 class="card-title text-success mb-1">${escapeHtml(titulo)}</h6>
+          <p class="card-text mb-0" style="white-space: pre-wrap">${escapeHtml(texto)}</p>
+        </div>
+      </div>`;
+  }
+
+  function renderLista(json) {
+    const arr = (json && (json.items || json.results || json.data)) || [];
+    const html = (Array.isArray(arr) ? arr : []).map(cardHTML).filter(Boolean).join("");
+    list.innerHTML = html || `<div class="alert alert-secondary mb-2">Nenhuma dica encontrada.</div>`;
+  }
+
+  // Botão “Atualizar histórico”
+  if (btnAtualizar) {
+    const clone = btnAtualizar.cloneNode(true);   // remove listeners antigos
+    btnAtualizar.replaceWith(clone);
+    clone.addEventListener("click", () => carregarHistorico(20));
+  }
+
+  // Filtros por data-filter (Todas/Positivas/Alertas/Neutras)
+  if (grp) {
+    const grpClone = grp.cloneNode(true);         // remove listeners antigos
+    grp.replaceWith(grpClone);
+
+    grpClone.addEventListener('click', (ev) => {
+      const btn = ev.target.closest('button[data-filter]');
+      if (!btn) return;
+      const f = btn.getAttribute('data-filter');  // all|positiva|alerta|neutra|geral
+
+      // UI: marca ativo
+      grpClone.querySelectorAll('button[data-filter]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+
+      filtroCategoria = (f === 'all') ? '' : f;   // "" = todas
+      carregarHistorico(20);
+    });
+  }
+
+  // carrega ao abrir a página
+  carregarHistorico(20);
+});
+</script>
+
 
 <!-- 📚 Feed adicional -->
 <div class="mt-3 position-relative">
@@ -316,8 +445,9 @@
 
 <!-- Ordem: Chart.js -> dashboard.js -> seus scripts -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+<script src="{% static 'financeiro/historico_ia.js' %}?v=1"></script>
 <script src="{% static 'js/dashboard.js' %}"></script>
-<script src="{% static 'financeiro/historico_ia.js' %}"></script>
+
 
 <!-- Seus scripts já existentes (Mini-IA, feed, etc.) permanecem aqui SEM a lógica de gráficos -->
 <!-- (deixei como estavam; não repito aqui para não alongar mais) -->
