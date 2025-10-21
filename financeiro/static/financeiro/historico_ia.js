@@ -72,6 +72,63 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // === Botão "Ver mais" dentro do modal ===
+  const btnVerMais = document.getElementById("btnVerMais");
+  let historicoOffset = 0;
+  const PAGE_SIZE = 10;
+
+  if (btnVerMais && modalList && list) {
+    btnVerMais.addEventListener("click", async () => {
+      try {
+        const feedUrl =
+          modalList.dataset.feedUrl || list.dataset.feedUrl || null;
+        if (!feedUrl) return;
+
+        historicoOffset += PAGE_SIZE;
+        const qs = new URLSearchParams({
+          limit: PAGE_SIZE,
+          offset: historicoOffset,
+        });
+        const resp = await fetch(`${feedUrl}?${qs.toString()}`);
+       const j = await resp.json();
+
+       // Compat: aceita results, items ou data
+       const itens = Array.isArray(j)
+         ? j
+         : j.results || j.items || j.data || [];
+       if (!Array.isArray(itens) || itens.length === 0) {
+         btnVerMais.disabled = true;
+         btnVerMais.textContent = "Sem mais dicas";
+         return;
+       }
+
+
+        // Adiciona novos cards sem apagar os anteriores
+        const html = itens
+          .map(
+            (i) => `
+        <div class="card mb-2">
+          <div class="card-body">
+            <small class="text-muted">${i.criado_em || ""} • ${
+              i.tipo || ""
+            }</small>
+            <div>${i.texto || ""}</div>
+          </div>
+        </div>`
+          )
+          .join("");
+
+        modalList.insertAdjacentHTML("beforeend", html);
+        if (j.has_next === false) {
+          btnVerMais.disabled = true;
+          btnVerMais.textContent = "Sem mais dicas";
+        }
+      } catch (e) {
+        console.error("Erro ao carregar mais dicas:", e);
+      }
+    });
+  }
+
   // === Botão "Ver mais" mínimo e seguro (sem redeclarar variáveis globais) ===
   (function ensureVerMaisButton() {
     if (!list) return;
