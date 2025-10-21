@@ -50,11 +50,54 @@ document.addEventListener("DOMContentLoaded", () => {
   document.body.dataset.iaHistoricoInit = "1";
 
   // Elementos
-  const list = document.getElementById("listaHistorico");
+  // Alvos (atual + futuros)
+  const list =
+    document.getElementById("listaHistorico") ||
+    document.getElementById("listaHistoricoPreview") ||
+    document.getElementById("listaHistoricoModal");
+
   if (!list) {
-    console.warn("⚠️ #listaHistorico não está presente nesta página.");
+    console.warn(
+      "⚠️ Nenhum container de histórico encontrado (#listaHistorico, #listaHistoricoPreview ou #listaHistoricoModal)."
+    );
     return;
   }
+  // Copia o conteúdo do preview (#listaHistorico) para o modal (#listaHistoricoModal) ao abrir
+  const modalEl = document.getElementById("modalHistoricoIA");
+  const modalList = document.getElementById("listaHistoricoModal");
+
+  if (modalEl && list && modalList) {
+    modalEl.addEventListener("show.bs.modal", function () {
+      modalList.innerHTML = list.innerHTML; // simples e seguro
+    });
+  }
+
+  // === Botão "Ver mais" mínimo e seguro (sem redeclarar variáveis globais) ===
+  (function ensureVerMaisButton() {
+    if (!list) return;
+
+    var btn = document.getElementById("btnVerMais");
+    if (!btn) {
+      btn = document.createElement("button");
+      btn.id = "btnVerMais";
+      btn.className = "btn btn-outline-secondary btn-sm mt-2";
+      btn.textContent = "Ver mais";
+      list.insertAdjacentElement("afterend", btn);
+    }
+
+    btn.onclick = function () {
+      // Se houver modal Bootstrap, apenas abre
+      var modal = document.getElementById("modalHistoricoIA");
+      if (modal && window.bootstrap && typeof bootstrap.Modal === "function") {
+        var m = bootstrap.Modal.getOrCreateInstance(modal);
+        m.show();
+        return;
+      }
+      // Sem modal? Faz um fallback inocente (não quebra nada)
+      window.scrollTo({ top: list.offsetTop, behavior: "smooth" });
+    };
+  })();
+
   const badge = document.getElementById("badgeNovas");
   const badgeCount = document.getElementById("badgeNovasCount");
   const btnReload =
