@@ -300,9 +300,8 @@ def ia_historico_feed(request):
 
         # filtro por categoria
         if categoria:
-            qs = qs.filter(
-                Q(categoria__iexact=categoria) | Q(categoria_dominante__iexact=categoria)
-            )
+         qs = qs.filter(tipo__iexact=categoria)
+
 
         qs = qs.order_by(f"-{date_field}")
 
