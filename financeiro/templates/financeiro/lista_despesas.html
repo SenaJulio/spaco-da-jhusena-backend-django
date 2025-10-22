@@ -1,0 +1,8 @@
+<h2>Lista de Despesas</h2>
+<ul>
+  {% for despesa in despesas %}
+    <li>{{ despesa.tipo }} - R$ {{ despesa.valor }} em {{ despesa.data }}</li>
+  {% empty %}
+    <li>Nenhuma despesa registrada.</li>
+  {% endfor %}
+</ul>
