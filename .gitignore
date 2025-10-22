@@ -11,3 +11,4 @@ db.sqlite3
 pytest_cache/
 .coverage*.http
 teste_api.http
+*.http
