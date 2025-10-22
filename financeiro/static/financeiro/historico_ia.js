@@ -1,6 +1,7 @@
 // static/financeiro/historico_ia.js
 console.log("🔍 historico_ia.js carregado");
 console.log("🕒 Último login do usuário:", new Date().toLocaleString());
+console.log("🕒 Último login do usuário:", new Date().toLocaleString());
 
 
 // ========= Helpers globais =========
