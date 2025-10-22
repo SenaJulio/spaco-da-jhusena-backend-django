@@ -1,5 +1,16 @@
 // 🔥 Teste Spaço da Jhuséna – Mensagem de boas-vindas
 console.log("🐶 Spaço da Jhuséna Dev ativo — Painel carregado com sucesso!");
+// 🧪 Badge Dev: mostra horário de carregamento do painel
+document.addEventListener("DOMContentLoaded", () => {
+  const elBadge = document.getElementById("devBadge");
+  const elText = document.getElementById("devBadgeText");
+  if (elBadge && elText) {
+    const ts = new Date().toLocaleString(); // horário local
+    elText.textContent = `Painel carregado em ${ts}`;
+    elBadge.style.display = "inline-flex";
+  }
+});
+
 
 // static/js/dashboard.js — Spaço da Jhuséna (versão consolidada e corrigida)
 (function () {
