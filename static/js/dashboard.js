@@ -1,3 +1,6 @@
+// 🔥 Teste Spaço da Jhuséna – Mensagem de boas-vindas
+console.log("🐶 Spaço da Jhuséna Dev ativo — Painel carregado com sucesso!");
+
 // static/js/dashboard.js — Spaço da Jhuséna (versão consolidada e corrigida)
 (function () {
   "use strict";
@@ -402,4 +405,3 @@
     }
   });
 })();
- 
