@@ -12,3 +12,5 @@ pytest_cache/
 .coverage*.http
 teste_api.http
 *.http
+NUL
+/NUL

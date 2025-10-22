@@ -1,8 +1,0 @@
-### dados filtrados (GET)
-GET http://127.0.0.1:8000/financeiro/dashboard/dados-filtrados/?inicio=2025-10-01&fim=2025-10-31
-
-### resumo mensal (GET)
-GET http://127.0.0.1:8000/financeiro/ia/resumo-mensal/
-
-### histórico IA (GET)
-GET http://127.0.0.1:8000/financeiro/ia/historico/?limit=10

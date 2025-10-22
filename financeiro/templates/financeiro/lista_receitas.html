@@ -1,8 +1,0 @@
-<h2>Lista de Receitas</h2>
-<ul>
-  {% for receita in receitas %}
-    <li>{{ receita.servico }} - R$ {{ receita.valor }} em {{ receita.data }}</li>
-  {% empty %}
-    <li>Nenhuma receita registrada.</li>
-  {% endfor %}
-</ul>

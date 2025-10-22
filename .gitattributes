@@ -1,5 +1,0 @@
-financeiro/static/** linguist-vendored
-static/** linguist-vendored
-**/*.css linguist-vendored
-**/*.js linguist-vendored
-*.py linguist-language=Python
