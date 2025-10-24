@@ -23,6 +23,8 @@ from .services.ia import generate_tip_last_30d
 from django.utils.dateparse import parse_date
 from django.db.models.functions import TruncDate
 from django.db import DatabaseError
+from .services.ia import _map_tipo
+
 # Pode existir em outro arquivo; mantido aqui para compat com teu projeto
 
 
@@ -41,7 +43,7 @@ except Exception:
 # =============================================================================
 # Helpers
 # =============================================================================
-from django.db.models.functions import TruncDate  # mantenha
+
 
 def _date_range_kwargs(model, field_name: str, start, end, inclusive_end=True):
     """
@@ -78,18 +80,30 @@ def _pick_cor_from_metrics(metrics: dict) -> str:
 
 def _map_tipo(categoria: str, cor: str, metrics: dict) -> str:
     """
-    Mapeia para um tipo válido do seu model RecomendacaoIA.tipo.
-    Tenta ser conservador: 'alerta' para negativo, 'geral' caso contrário.
+    Classifica em: oportunidade | economia | alerta | meta.
+    Regras:
+      - margem < 0  → alerta
+      - margem == 0 → economia
+      - margem > 0  → oportunidade
+      - se for dica de meta, retorna 'meta'
     """
     try:
         margem = float((metrics or {}).get("margem", 0) or 0)
     except Exception:
         margem = 0.0
 
-    if cor == "danger" or margem < 0:
+    cat = (categoria or "").lower()
+
+    if "meta" in cat:
+        return "meta"
+    if margem < 0 or cor == "danger":
         return "alerta"
-    # ajuste para os choices do seu model; se não souber, use 'geral'
-    return "geral"
+    elif margem == 0:
+        return "economia"
+    elif margem > 0 or cor == "success":
+        return "oportunidade"
+
+    return "economia"
 
 
 def _infer_cor(obj) -> str:
@@ -290,7 +304,8 @@ def ia_historico_feed(request):
         except Exception:
             date_field = "criado_em"
 
-        qs = HModel.objects.all()
+        # 🔧 Filtro por usuário autenticado (segurança)
+        qs = HModel.objects.filter(usuario=request.user)
 
         # filtros por data (no campo detectado)
         if inicio:
@@ -300,8 +315,7 @@ def ia_historico_feed(request):
 
         # filtro por categoria
         if categoria:
-         qs = qs.filter(tipo__iexact=categoria)
-
+            qs = qs.filter(tipo__iexact=categoria)
 
         qs = qs.order_by(f"-{date_field}")
 
@@ -331,8 +345,8 @@ def ia_historico_feed(request):
             results.append(
                 {
                     "id": r.id,
-                    "data": data_iso,          # compat
-                    "created_at": data_iso,    # alias padronizado
+                    "data": data_iso,  # compat
+                    "created_at": data_iso,  # alias padronizado
                     "created_at_br": data_br,  # pronto p/ exibir
                     "periodo": {
                         "inicio": str(getattr(r, "period_start", "") or ""),
@@ -359,6 +373,7 @@ def ia_historico_feed(request):
 
     elif IModel:
         qs = IModel.objects.all()
+        # (demais blocos inalterados)
 
         # filtros Insight
         if inicio:
@@ -408,7 +423,23 @@ def ia_historico_feed(request):
                 "count": paginator.count,
             }
         )
+    tipo = request.GET.get("tipo")  # "positiva" | "alerta" | "neutra" | None
+    limit = int(request.GET.get("limit", 20))
 
+    qs = RecomendacaoIA.objects.filter(usuario=request.user).order_by("-criado_em")
+
+    if tipo in {"positiva", "alerta", "neutra"}:
+        qs = qs.filter(tipo=tipo)
+
+    items = [
+        {
+            "id": rec.id,
+            "texto": rec.texto,
+            "tipo": rec.tipo or "neutra",
+            "criado_em": rec.criado_em.strftime("%Y-%m-%d %H:%M:%S"),
+        }
+        for rec in qs[:limit]
+    ]
     # se nenhum dos modelos existir
     return JsonResponse({"ok": True, "items": [], "page": 1, "has_next": False, "count": 0})
 
@@ -548,18 +579,6 @@ def _parse_ymd(s: str):
     except Exception:
         return None
 
-
-# --- Helper: filtro seguro por data (DateField ou DateTimeField) ---
-def _date_range_kwargs(model, field_name: str, start, end, inclusive_end=True):
-    """
-    Monta kwargs corretos para filtrar por data, independente do tipo do campo.
-    inclusive_end=True usa __lte; False usa __lt.
-    """
-    f = model._meta.get_field(field_name)
-    end_op = "lte" if inclusive_end else "lt"
-    if f.get_internal_type() == "DateTimeField":
-        return {f"{field_name}__date__gte": start, f"{field_name}__date__{end_op}": end}
-    return {f"{field_name}__gte": start, f"{field_name}__{end_op}": end}
 
 # --- Aliases de tipo que cobrimos (ajuste se precisar) ---
 TIPO_RECEITA = ("receita", "Receita", "R")
@@ -844,3 +863,105 @@ def diag_transacao(request):
         })
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=200)
+
+
+@login_required
+def ia_historico_feed_v2(request):
+    tipo_param = request.GET.get("tipo")  # "positiva" | "alerta" | "neutra" | None
+    limit = int(request.GET.get("limit", 20))
+
+    # Compat: pega do usuário e também registros antigos sem usuário
+    qs = RecomendacaoIA.objects.filter(Q(usuario=request.user) | Q(usuario__isnull=True)).order_by(
+        "-criado_em"
+    )
+
+    def _fallback_classify(txt: str) -> str:
+        """Fallback simples caso _map_tipo antigo não pegue palavras óbvias."""
+        t = (txt or "").lower()
+        alertas = [
+            "alerta",
+            "atenção",
+            "risco",
+            "evite",
+            "corte",
+            "reduza",
+            "atraso",
+            "déficit",
+            "negativo",
+            "queda",
+            "abaixo",
+            "gasto excessivo",
+            "gastos excessivos",
+            "estouro de caixa",
+            "inadimpl",
+        ]
+        positivas = [
+            "saldo positivo",
+            "positivo",
+            "ótimo",
+            "excelente",
+            "parabéns",
+            "superávit",
+            "acima da meta",
+            "margem",
+            "reforce a reserva",
+            "aporte extra",
+            "continue assim",
+        ]
+        if any(k in t for k in alertas):
+            return "alerta"
+        if any(k in t for k in positivas):
+            return "positiva"
+        return "neutra"
+
+    items = []
+    for rec in qs:
+        texto = rec.texto or getattr(rec, "title", "") or ""
+        raw_tipo = (rec.tipo or "").strip().lower()
+
+        # 1) Normaliza: se vier "geral"/vazio/desconhecido => recalcula
+        if raw_tipo not in {"positiva", "alerta", "neutra"}:
+            try:
+                tipo_calc = _map_tipo(texto) or "neutra"
+            except Exception:
+                tipo_calc = _fallback_classify(texto)
+        else:
+            tipo_calc = raw_tipo
+
+        # 2) Fallback extra: se ficou "neutra" mas tem sinais positivos/negativos óbvios
+        if tipo_calc == "neutra":
+            tipo_calc = _fallback_classify(texto)
+
+        # 3) Aplica filtro ?tipo= (se pedido)
+        if tipo_param in {"positiva", "alerta", "neutra"} and tipo_calc != tipo_param:
+            continue
+
+        items.append(
+            {
+                "id": rec.id,
+                "texto": texto,
+                "text": texto,  # compat front antigo
+                "tipo": tipo_calc,  # agora SEMPRE vem normalizado
+                "categoria": tipo_calc.title(),  # compat visual
+                "title": "Dica da IA",
+                "criado_em": rec.criado_em.strftime("%Y-%m-%d %H:%M:%S"),
+            }
+        )
+
+        if len(items) >= limit:
+            break
+
+    return JsonResponse({"ok": True, "count": len(items), "items": items})
+
+
+
+    #@login_required
+    # def metrics_despesas_por_categoria_view(request):
+        # Placeholder seguro: devolve estrutura vazia para o gráfico
+    #    return JsonResponse(
+    #        {
+    #           "ok": True,
+    #          "labels": [],
+    #         "values": [],
+        #    }
+        #)

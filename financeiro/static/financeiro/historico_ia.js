@@ -47,6 +47,11 @@ function parseStamp(s) {
   return new Date(y, mo - 1, d, h, i);
 }
 
+
+const PREVIEW_LIMIT = 5;     // quantos itens no preview do card verde
+const MODAL_PAGE_SIZE = 10;  // quantos itens por página no modal
+const MORE_INCREMENT = 10;   // quanto carregar a mais no "Ver mais"
+
 // ========= Histórico de Dicas (OFICIAL) =========
 document.addEventListener("DOMContentLoaded", () => {
   // evita rodar duas vezes se incluído por engano em duplicidade
@@ -181,7 +186,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const elCountNeutra = document.getElementById("countNeutra");
 
   // URL do feed (preferir data-feed-url vindo do template)
-  const FEED_URL = list.dataset.feedUrl || "/financeiro/ia/historico-feed/";
+  const FEED_URL = list.dataset.feedUrl || "/financeiro/ia/historico/feed/";
 
   // Estado
   const KEY_LAST_SEEN = "iaHistoricoLastSeenAt";
@@ -413,13 +418,13 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Init
-  (async () => {
-    await window.carregarHistorico(10);
+  + (async () => {
+    await window.carregarHistorico(PREVIEW_LIMIT);
     startAutoRefresh();
   })();
-  let _limitAtual = 10;
+  let _limitAtual = PREVIEW_LIMIT;
   document.getElementById("btnVerMais")?.addEventListener("click", async () => {
-    _limitAtual += 10;
+    _limitAtual += MORE_INCREMENT;
     await window.carregarHistorico(_limitAtual);
   });
 });
@@ -534,6 +539,57 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     });
 });
+// IDs esperados no HTML: btnTodas, btnPositivas, btnAlertas, btnNeutras, listaHistorico
+const API_HIST_V2 = "/financeiro/ia/historico/feed/v2/";
+
+async function carregarHistorico(tipo=null, limit=20) {
+  const url = new URL(API_HIST_V2, window.location.origin);
+  if (tipo) url.searchParams.set("tipo", tipo);
+  url.searchParams.set("limit", limit);
+
+  const res = await fetch(url, { credentials: "same-origin" });
+  const j = await res.json();
+
+  const elList = document.getElementById("listaHistorico");
+  if (!elList) return;
+
+  elList.innerHTML = "";
+  if (!j.ok || !j.items || j.items.length === 0) {
+    elList.innerHTML = `<div class="card p-3 text-muted">Nenhuma dica encontrada.</div>`;
+    return;
+  }
+
+  for (const it of j.items) {
+    const tipo = (it.tipo || "neutra").toLowerCase();
+    const badge =
+      tipo === "positiva" ? '<span class="badge bg-success">Positiva</span>' :
+      tipo === "alerta"   ? '<span class="badge bg-danger">Alerta</span>' :
+                            '<span class="badge bg-secondary">Neutra</span>';
+
+    elList.insertAdjacentHTML("beforeend", `
+      <div class="card mb-2">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <strong>Dica da IA</strong>
+            ${badge}
+          </div>
+          <div class="small text-muted">${it.criado_em || ""}</div>
+          <p class="mb-0">${it.texto || it.text || ""}</p>
+        </div>
+      </div>
+    `);
+  }
+}
+
+// Liga os botões
+document.getElementById("btnTodas")?.addEventListener("click", () => carregarHistorico(null));
+document.getElementById("btnPositivas")?.addEventListener("click", () => carregarHistorico("positiva"));
+document.getElementById("btnAlertas")?.addEventListener("click", () => carregarHistorico("alerta"));
+document.getElementById("btnNeutras")?.addEventListener("click", () => carregarHistorico("neutra"));
+
+// Carrega padrão ao abrir (todas)
+carregarHistorico(null);
+
 
 // ========= Modo Turbo (Gerar Dica 30d) =========
 function getCsrfToken() {
@@ -625,4 +681,106 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     };
   }
+  // ---- Histórico IA (V2) ----
+  const API_HIST_V2 = "/financeiro/ia/historico/feed/v2/";
+
+  async function carregarHistorico(tipo = null, limit = 20) {
+    const url = new URL(API_HIST_V2, window.location.origin);
+    if (tipo && tipo !== "all") url.searchParams.set("tipo", tipo);
+    url.searchParams.set("limit", limit);
+
+    const res = await fetch(url, { credentials: "same-origin" });
+    const j = await res.json();
+
+    const elList = document.getElementById("listaHistorico");
+    if (!elList) return;
+
+    elList.innerHTML = "";
+    if (!j.ok || !j.items || j.items.length === 0) {
+      elList.innerHTML = `<div class="card p-3 text-muted">Nenhuma dica encontrada.</div>`;
+      atualizarContadores(0, 0, 0, 0);
+      return;
+    }
+
+    let total = 0,
+      pos = 0,
+      alertas = 0,
+      neutras = 0;
+
+    for (const it of j.items) {
+      const tipoItem = (it.tipo || "neutra").toLowerCase();
+      total++;
+      if (tipoItem === "positiva") pos++;
+      else if (tipoItem === "alerta") alertas++;
+      else neutras++;
+
+      const badge =
+        tipoItem === "positiva"
+          ? '<span class="badge bg-success">Positiva</span>'
+          : tipoItem === "alerta"
+          ? '<span class="badge bg-warning text-dark">Alerta</span>'
+          : '<span class="badge bg-secondary">Neutra</span>';
+
+      elList.insertAdjacentHTML(
+        "beforeend",
+        `
+        <div class="card mb-2">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center">
+              <strong>Dica da IA</strong>
+              ${badge}
+            </div>
+            <div class="small text-muted">${it.criado_em || ""}</div>
+            <p class="mb-0">${(it.texto || it.text || "").toString()}</p>
+          </div>
+        </div>
+      `
+      );
+    }
+
+    atualizarContadores(total, pos, alertas, neutras);
+  }
+
+  function atualizarContadores(total, pos, alertas, neutras) {
+    const set = (id, v) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = v;
+    };
+    set("countAll", total);
+    set("countPos", pos);
+    set("countAlerta", alertas);
+    set("countNeutra", neutras);
+  }
+
+  // Liga os botões por data-filter (HTML que você mostrou)
+  document.querySelectorAll("[data-filter]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document
+        .querySelectorAll("[data-filter]")
+        .forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      const tipo = btn.getAttribute("data-filter");
+      carregarHistorico(tipo === "all" ? null : tipo);
+    });
+  });
+
+  // Carrega padrão (todas)
+  carregarHistorico(null);
+
+  // Botões (use estes IDs no HTML)
+  document
+    .getElementById("btnTodas")
+    ?.addEventListener("click", () => carregarHistorico(null));
+  document
+    .getElementById("btnPositivas")
+    ?.addEventListener("click", () => carregarHistorico("positiva"));
+  document
+    .getElementById("btnAlertas")
+    ?.addEventListener("click", () => carregarHistorico("alerta"));
+  document
+    .getElementById("btnNeutras")
+    ?.addEventListener("click", () => carregarHistorico("neutra"));
+
+  // Carrega padrão (todas)
+  carregarHistorico(null);
 });

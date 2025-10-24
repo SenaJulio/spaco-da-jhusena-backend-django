@@ -2,7 +2,64 @@
 from datetime import timedelta
 
 from django.db.models import Sum
-from django.utils import timezone
+from django.utils import timezone 
+from django.contrib.auth import get_user_model
+
+from usuarios.models import Usuario
+User = get_user_model()
+
+import re
+
+
+def _map_tipo(texto: str) -> str:
+    """
+    Classifica a dica em 'positiva', 'alerta' ou 'neutra' usando
+    correspondência por palavras-chave tolerante.
+    """
+    if not texto:
+        return "neutra"
+
+    t = texto.lower()
+
+    # ALERTA — qualquer ocorrência classifica
+    alertas = [
+        "alerta",
+        "atenção",
+        "risco",
+        "evite",
+        "corte",
+        "reduza",
+        "atraso",
+        "déficit",
+        "negativo",
+        "queda",
+        "abaixo",
+        "gasto excessivo",
+        "gastos excessivos",
+        "estouro de caixa",
+        "inadimpl",  # cobre inadimplência/inadimplente
+    ]
+
+    # POSITIVA — qualquer ocorrência classifica
+    positivas = [
+        "saldo positivo",
+        "positivo",
+        "ótimo",
+        "excelente",
+        "parabéns",
+        "superávit",
+        "acima da meta",
+        "margem",
+        "reforce a reserva",
+        "aporte extra",
+        "continue assim",
+    ]
+
+    if any(k in t for k in alertas):
+        return "alerta"
+    if any(k in t for k in positivas):
+        return "positiva"
+    return "neutra"
 
 
 def _moeda(v):
@@ -79,4 +136,12 @@ def generate_tip_last_30d(Transacao):
         "top_categoria": top_categoria,
         "top_categoria_total": float(top_categoria_total or 0),
     }
+    # Classificar a dica gerada
+    tipo = _map_tipo(dica)
+
+    # Salvar automaticamente no histórico da IA
+    
+
+   
+
     return dica, metrics

@@ -3,6 +3,7 @@ from django.urls import path
 from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
+from .views_insights import metrics_despesas_por_categoria_view
 
 from .views_financeiro import (
     dashboard_financeiro,
@@ -13,22 +14,19 @@ from .views_financeiro import (
     gerar_dica_sob_demanda,
     dados_grafico_filtrados,  # usado pelo dashboard.js
     diag_transacao,  # diagnóstico opcional
+    ia_historico_feed_v2,   
 )
 
 from .views_insights_api import api_criar_insight_simples
 
 # Se/Quando você criar a view real de categorias:
-# from .views_insights import metrics_despesas_por_categoria_view
+
 
 app_name = "financeiro"
 
 
 def ping(request):
     return HttpResponse("pong")
-
-
-def metrics_despesas_por_categoria_view(request):
-    return JsonResponse({"labels": [], "valores": []})
 
 
 urlpatterns = [
@@ -43,13 +41,19 @@ urlpatterns = [
         name="api_criar_insight_simples",
     ),
     path(
-        "api/insights/gerar/", login_required(gerar_dica_sob_demanda), name="gerar_dica_sob_demanda"
+        "api/insights/gerar/",
+        login_required(gerar_dica_sob_demanda),
+        name="gerar_dica_sob_demanda",
     ),
-    # Histórico/Feeds/Resumo
+    # Histórico / Feeds / Resumo
     path("ia/historico/", login_required(ia_historico), name="insights_historico"),
-    path("ia/historico-feed/", login_required(ia_historico_feed), name="ia_historico_feed"),
-    # compat: aceita também /ia/historico/feed/ para o JS antigo
-    path("ia/historico/feed/", login_required(ia_historico_feed), name="ia_historico_feed_compat"),
+    # 🔹 Endpoints de histórico da IA (com compatibilidade)
+    path("ia/historico/feed/", login_required(ia_historico_feed), name="ia_historico_feed"),
+    path("ia/historico-feed/", login_required(ia_historico_feed)),  # compatibilidade
+    path(
+        "ia/historico/feed/v2/", login_required(ia_historico_feed_v2), name="ia_historico_feed_v2"
+    ),
+
     path("ia/resumo-mensal/", login_required(ia_resumo_mensal), name="ia_resumo_mensal"),
     # Dados para gráficos do dashboard
     path(
@@ -64,11 +68,6 @@ urlpatterns = [
     ),
     # Diagnóstico de modelo
     path("diag/transacao/", login_required(diag_transacao), name="diag_transacao"),
-    # Quando tiver categorias reais:
-    # path("metrics/despesas-por-categoria/", login_required(metrics_despesas_por_categoria_view), name="metrics_despesas_por_categoria"),
-    path(
-        "metrics/despesas-por-categoria/",
-        login_required(metrics_despesas_por_categoria_view),
-        name="metrics_despesas_por_categoria",
-    ),
+    # (opcional futuro)
+    path("metrics/despesas-por-categoria/", login_required(metrics_despesas_por_categoria_view), name="metrics_despesas_por_categoria"),
 ]

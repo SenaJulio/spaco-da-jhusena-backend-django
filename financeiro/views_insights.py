@@ -13,13 +13,18 @@ from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_GET, require_http_methods, require_POST
 
 from . import models as mdl  # acesso seguro aos modelos
+Transacao = mdl.Transacao
 
 # Models e serviços
-from .services.insights import generate_simple_insight
+from .services.insights import generate_simple_insight 
+from .utils import _normalize_period, _to_float  # Funções auxiliares de período e conversão 
+from .models import Transacao
+
 
 # Referências obrigatórias
-Receita = mdl.Receita
-Despesa = mdl.Despesa
+# Receita = mdl.Receita
+# Despesa = mdl.Despesa
+Transacao = mdl.Transacao
 Insight = mdl.Insight
 
 # Referências opcionais (fallback)
@@ -207,7 +212,7 @@ def export_receitas_csv(request):
     df = _parse_ymd(request.GET.get("data_fim"))
     categoria = request.GET.get("categoria")
 
-    qs = Receita.objects.order_by("-data")
+    qs = Transacao.objects.order_by("-data")
     if di:
         qs = qs.filter(data__gte=di)
     if df:
@@ -238,7 +243,7 @@ def export_despesas_csv(request):
     df = _parse_ymd(request.GET.get("data_fim"))
     categoria = request.GET.get("categoria")
 
-    qs = Despesa.objects.order_by("-data")
+    qs = Transacao.objects.order_by("-data")
     if di:
         qs = qs.filter(data__gte=di)
     if df:
@@ -291,8 +296,8 @@ def metrics_resumo_view(request):
     di, df = _normalize_period(request)
 
     # período atual
-    r_now = _sum_decimal(Receita.objects.filter(data__gte=di, data__lte=df))
-    d_now = _sum_decimal(Despesa.objects.filter(data__gte=di, data__lte=df))
+    r_now = _sum_decimal(Transacao.objects.filter(data__gte=di, data__lte=df))
+    d_now = _sum_decimal(Transacao.objects.filter(data__gte=di, data__lte=df))
     s_now = r_now - d_now
 
     # período anterior (mesmo nº de dias)
@@ -300,8 +305,8 @@ def metrics_resumo_view(request):
     prev_end = di - timedelta(days=1)
     prev_start = prev_end - timedelta(days=dias - 1)
 
-    r_prev = _sum_decimal(Receita.objects.filter(data__gte=prev_start, data__lte=prev_end))
-    d_prev = _sum_decimal(Despesa.objects.filter(data__gte=prev_start, data__lte=prev_end))
+    r_prev = _sum_decimal(Transacao.objects.filter(data__gte=prev_start, data__lte=prev_end))
+    d_prev = _sum_decimal(Transacao.objects.filter(data__gte=prev_start, data__lte=prev_end))
     s_prev = r_prev - d_prev
 
     def pct(curr, prev):
@@ -352,14 +357,14 @@ def metrics_serie_diaria_view(request):
     d_map = defaultdict(Decimal)
 
     for row in (
-        Receita.objects.filter(data__gte=di, data__lte=df)
+        Transacao.objects.filter(data__gte=di, data__lte=df)
         .values("data")
         .annotate(total=Sum("valor"))
     ):
         r_map[row["data"]] = row["total"] or Decimal("0")
 
     for row in (
-        Despesa.objects.filter(data__gte=di, data__lte=df)
+        Transacao.objects.filter(data__gte=di, data__lte=df)
         .values("data")
         .annotate(total=Sum("valor"))
     ):
@@ -390,15 +395,19 @@ def metrics_serie_diaria_view(request):
 def metrics_despesas_por_categoria_view(request):
     di, df = _normalize_period(request)
 
-    labels, values = [], []
+    # Se seu modelo tiver "categoria", use values("categoria") e row.get("categoria")
+    AGRUPADOR = "descricao"  # altere para "categoria" se existir esse campo
+
     qs = (
-        Despesa.objects.filter(data__gte=di, data__lte=df)
-        .values("categoria")
+        Transacao.objects.filter(tipo="despesa", data__gte=di, data__lte=df)
+        .values(AGRUPADOR)
         .annotate(total=Sum("valor"))
         .order_by("-total")
     )
+
+    labels, values = [], []
     for row in qs:
-        labels.append(row.get("categoria") or "Outros")
+        labels.append(row.get(AGRUPADOR) or "Outros")
         values.append(_to_float(row.get("total") or 0))
 
     return JsonResponse({"ok": True, "labels": labels, "values": values})
@@ -444,7 +453,7 @@ def metrics_metas_status_view(request):
     gastos = {}
     rotulos = {}
     for row in (
-        Despesa.objects.filter(data__gte=di, data__lte=df)
+        Transacao.objects.filter(data__gte=di, data__lte=df)
         .values("categoria")
         .annotate(total=Sum("valor"))
     ):

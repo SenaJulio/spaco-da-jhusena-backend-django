@@ -2,8 +2,7 @@ from collections import defaultdict
 from datetime import date
 from decimal import Decimal
 
-from .models import HistoricoIA  # proxy do RecomendacaoIA (mesma tabela/campos)
-
+from .models import RecomendacaoIA as HistoricoIA  # alias compatível
 
 # Helper para pegar atributo com nomes diferentes (categoria|tipo, valor|amount...)
 def _attr(obj, *names):
@@ -153,3 +152,36 @@ def processar_dica_e_salvar(receitas, despesas, source="manual"):
     )
     rec.save()
     return dica  # se quiser, retorne também rec.id
+
+# --- utils de período e conversão (usados em views_insights.py) ---
+from datetime import date
+from django.utils.dateparse import parse_date
+
+
+def _normalize_period(request):
+    """
+    Lê ?inicio=YYYY-MM-DD e ?fim=YYYY-MM-DD do request.
+    Se não vierem, usa 1º dia do mês atual até hoje.
+    Retorna (di, df) como objetos date.
+    """
+    hoje = date.today()
+    di_str = request.GET.get("inicio")
+    df_str = request.GET.get("fim")
+
+    di = parse_date(di_str) if di_str else hoje.replace(day=1)
+    df = parse_date(df_str) if df_str else hoje
+
+    # Fallbacks seguros se parse falhar
+    if di is None:
+        di = hoje.replace(day=1)
+    if df is None:
+        df = hoje
+
+    return di, df
+
+
+def _to_float(x):
+    try:
+        return float(x)
+    except Exception:
+        return 0.0

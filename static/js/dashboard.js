@@ -516,28 +516,49 @@ document.addEventListener("DOMContentLoaded", () => {
     wrap.parentNode.appendChild(btn);
 
     // render simples dos itens
+    // renderiza usando cards bonitos dentro do card verde
     function renderItems(items, append = true) {
-      const html = items
+      // helper local p/ escapar HTML
+      const esc = (s) =>
+        String(s ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+
+      const arr = Array.isArray(items) ? items : [];
+      const html = arr
         .map((i) => {
-          const quando = i.created_at_br || i.created_at || "";
-          const cat = i.categoria || "Geral";
+          const quando = i.created_at_br || i.created_at || i.data || "";
+          const cat = i.categoria || i.tipo || "Geral";
           const titulo = i.title || "Dica da IA";
-          const txt = (i.texto || i.text || "").replace(/\n/g, "<br>");
+          const texto = (i.texto || i.text || "").toString();
+
           return `
-        <div class="mt-3">
-          <div class="text-muted small mb-1">${cat}</div>
-          <div class="fw-semibold">${quando}</div>
-          <div class="fw-semibold">${titulo}</div>
-          <div>${txt}</div>
-        </div>
-      `;
+        <div class="card border-success mb-3 shadow-sm">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="badge bg-success-subtle text-success border border-success-subtle">${esc(
+                cat
+              )}</span>
+              <small class="text-muted">${esc(quando)}</small>
+            </div>
+            <h6 class="card-title text-success mb-1">${esc(titulo)}</h6>
+            <p class="card-text mb-0" style="white-space: pre-wrap">${esc(
+              texto
+            )}</p>
+          </div>
+        </div>`;
         })
         .join("");
 
       if (append) {
         wrap.insertAdjacentHTML("beforeend", html);
       } else {
-        wrap.innerHTML = html;
+        wrap.innerHTML =
+          html ||
+          `<div class="alert alert-secondary mb-2">Nenhuma dica encontrada.</div>`;
       }
     }
 
@@ -807,142 +828,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // dispara quando a categoria mudar
     catInput.addEventListener("change", reloadFromStart);
   });
-  // 🧠 Histórico — Badge "Novas" (conta itens desde a última visita)
-  // Armazena no localStorage o momento da última visualização do histórico.
-  document.addEventListener("DOMContentLoaded", () => {
-    const LIST_SEL = "listaHistorico";
-    const wrap = document.getElementById(LIST_SEL);
-    if (!wrap) return; // só ativa na página que tem o histórico completo
-
-    const KEY_LAST_SEEN = "iaHistoricoLastSeenAt"; // ISO string
-    const PER_PAGE_CHECK = 50; // limite máximo para contagem rápida (ajuste se quiser)
-
-    // cria (ou reaproveita) o badge e um botão "Marcar como visto"
-    function ensureBadgeUI() {
-      let holder = document.getElementById("historicoBadgeHolder");
-      if (!holder) {
-        holder = document.createElement("div");
-        holder.id = "historicoBadgeHolder";
-        holder.className = "d-flex align-items-center gap-2 mb-2";
-
-        // posiciona acima da lista
-        const wrap = document.getElementById("listaHistorico");
-        if (wrap && wrap.parentNode) {
-          wrap.parentNode.insertBefore(holder, wrap);
-        }
-
-        // título
-        const title = document.createElement("span");
-        title.className = "fw-semibold";
-        title.textContent = "🧠 Histórico de Dicas — novidades";
-        holder.appendChild(title);
-
-        // badge de novas
-        const badge = document.createElement("span");
-        badge.id = "badgeNovasIA";
-        badge.className = "badge text-bg-success";
-        badge.style.display = "none"; // inicia oculto
-        holder.appendChild(badge);
-
-        // botão marcar como visto
-        const btnSeen = document.createElement("button");
-        btnSeen.id = "btnMarcarVistoIA";
-        btnSeen.className = "btn btn-link btn-sm text-decoration-none";
-        btnSeen.type = "button"; // <-- evita submit em forms
-        btnSeen.textContent = "Marcar como visto";
-        holder.appendChild(btnSeen);
-
-        // handler do clique
-        btnSeen.addEventListener("click", (e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          try {
-            localStorage.setItem(
-              "iaHistoricoLastSeenAt",
-              new Date().toISOString()
-            );
-          } catch (_) {}
-          // esconde o badge imediatamente
-          badge.style.display = "none";
-          console.log("✅ Marcado como visto (badge ocultado).");
-        });
-      }
-      return holder;
-    }
-
-    // calcula quantas são mais novas que lastSeen
-    function countNew(items, lastSeenIso) {
-      if (!lastSeenIso) return items.length; // primeira visita: tudo é "novo" (até PER_PAGE_CHECK)
-      const last = Date.parse(lastSeenIso);
-      let n = 0;
-      for (const it of items) {
-        const iso = it.created_at || it.data || "";
-        if (!iso) continue;
-        const t = Date.parse(iso);
-        if (!Number.isNaN(t) && t > last) n++;
-      }
-      return n;
-    }
-
-    async function updateBadge() {
-      ensureBadgeUI();
-
-      // pega última visualização
-      let lastSeen = null;
-      try {
-        lastSeen = localStorage.getItem(KEY_LAST_SEEN) || null;
-      } catch (e) {}
-
-      // busca até PER_PAGE_CHECK itens mais recentes (página 1)
-      try {
-        const url = `/financeiro/ia/historico/feed/?page=1&per_page=${PER_PAGE_CHECK}`;
-        const r = await fetch(url);
-        const j = await r.json();
-        const items = Array.isArray(j.items) ? j.items : [];
-        const qtd = countNew(items, lastSeen);
-
-        const badge = document.getElementById("badgeNovasIA");
-        if (!badge) return;
-
-        if (qtd > 0) {
-          badge.textContent =
-            qtd >= PER_PAGE_CHECK ? `+${PER_PAGE_CHECK}` : `${qtd} novas`;
-          badge.style.display = "inline-block";
-        } else {
-          badge.style.display = "none";
-        }
-      } catch (e) {
-        console.error("Badge Novas IA — falha ao atualizar:", e);
-      }
-    }
-
-    // Define uma convenção: quando o usuário rolar até o histórico, marcamos como visto
-    // (opcional; o botão "Marcar como visto" já resolve)
-    const obs = new IntersectionObserver(
-      (entries) => {
-        const v = entries.some((en) => en.isIntersecting);
-        if (v) {
-          // não marcamos automaticamente como visto para não sumir sem o usuário querer.
-          // Se quiser marcar automático, descomente:
-          // localStorage.setItem(KEY_LAST_SEEN, new Date().toISOString());
-        }
-      },
-      { threshold: 0.1 }
-    );
-    obs.observe(wrap);
-
-    // quando clicar no "Ver mais", depois do carregamento, atualiza o badge
-    const btnMore = document.getElementById("btnVerMaisHistorico");
-    if (btnMore) {
-      btnMore.addEventListener("click", () => {
-        // pequeno atraso para deixar carregar
-        setTimeout(updateBadge, 800);
-      });
-    }
-
-    // atualiza badge ao abrir a página
-    updateBadge();
-  });
+  
   // 🧠 Histórico — salvar e restaurar posição de rolagem
   document.addEventListener("DOMContentLoaded", () => {
     const wrap = document.getElementById("listaHistorico"); // contêiner do histórico

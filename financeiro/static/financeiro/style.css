@@ -325,3 +325,37 @@ section.painel li {
     width: 100%;
   }
 }
+
+/* === Histórico de Dicas da IA (cards verdes) === */
+#listaHistorico .card.border-success {
+  border-width: 1px;
+  border-radius: 12px;
+  margin-bottom: 0.75rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+#listaHistorico .card.border-success:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+}
+#listaHistorico .card-body {
+  padding: 0.75rem 1rem;
+}
+#listaHistorico .badge {
+  font-size: 0.75rem;
+}
+#listaHistorico .card-title {
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+#listaHistorico .card-text {
+  font-size: 0.85rem;
+  color: #333;
+}
+
+/* opcional: animações suaves usadas pelos scripts */
+#listaHistorico .fade-in { animation: fadeIn .25s ease-out; }
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: none; }
+}
