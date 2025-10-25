@@ -232,7 +232,7 @@ def gerar_dica_30d(request):
 
     # 5) Salva no modelo do painel (RecomendacaoIA)
     try:
-        tipo_escolhido = _map_tipo(categoria, cor, metrics)
+        tipo_escolhido = _map_tipo(dica)
         RecomendacaoIA.objects.create(
             usuario=request.user,
             texto=(dica or "").strip(),  # compat: seu model usa 'texto'

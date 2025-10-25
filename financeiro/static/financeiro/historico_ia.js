@@ -1,9 +1,15 @@
-// static/financeiro/historico_ia.js
-console.log("🔍 historico_ia.js carregado");
-console.log("🕒 Último login do usuário:", new Date().toLocaleString());
-console.log("🕒 Último login do usuário:", new Date().toLocaleString());
-console.log("🕒 Último login do usuário:", new Date().toLocaleString());
+// ======================================================
+// historico_ia.js — versão “clean” (uma passada só)
+// ======================================================
 
+// ---- Guardião: impede rodar duas vezes o mesmo script
+if (window.__IA_HIST_INIT_DONE__) {
+  console.warn("⚠️ historico_ia.js já inicializado — abortando segunda carga.");
+  throw new Error("historico_ia.js: init duplicado");
+}
+window.__IA_HIST_INIT_DONE__ = true;
+
+console.log("🔍 historico_ia.js carregado");
 
 // ========= Helpers globais =========
 function escapeHtml(s) {
@@ -46,19 +52,33 @@ function parseStamp(s) {
   const [, d, mo, y, h, i] = m.map(Number);
   return new Date(y, mo - 1, d, h, i);
 }
+function _normalizeTipo(v) {
+  if (!v) return null;
+  const s = String(v).toLowerCase();
+  if (["positivo", "positivos", "positiva", "positivas"].includes(s))
+    return "positiva";
+  if (["alerta", "alertas"].includes(s)) return "alerta";
+  if (["neutro", "neutros", "neutra", "neutras"].includes(s)) return "neutra";
+  if (["all", "tudo", "todas", "todos"].includes(s)) return null;
+  return s;
+}
+function getCsrfToken() {
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  if (meta && meta.content) return meta.content;
+  const match = document.cookie.match(/(^|;\s*)csrftoken=([^;]+)/);
+  return match ? decodeURIComponent(match[2]) : "";
+}
 
+// ========= Constantes =========
+const PREVIEW_LIMIT = 5; // quantos itens no preview do card verde
+const MORE_INCREMENT = 10; // quanto carregar a mais no "Ver mais"
 
-const PREVIEW_LIMIT = 5;     // quantos itens no preview do card verde
-const MODAL_PAGE_SIZE = 10;  // quantos itens por página no modal
-const MORE_INCREMENT = 10;   // quanto carregar a mais no "Ver mais"
-
-// ========= Histórico de Dicas (OFICIAL) =========
+// ========= Main =========
 document.addEventListener("DOMContentLoaded", () => {
   // evita rodar duas vezes se incluído por engano em duplicidade
   if (document.body.dataset.iaHistoricoInit === "1") return;
   document.body.dataset.iaHistoricoInit = "1";
 
-  // Elementos
   // Alvos (atual + futuros)
   const list =
     document.getElementById("listaHistorico") ||
@@ -71,78 +91,38 @@ document.addEventListener("DOMContentLoaded", () => {
     );
     return;
   }
-  // Copia o conteúdo do preview (#listaHistorico) para o modal (#listaHistoricoModal) ao abrir
+
+  // FEED_URL (preferir data-feed-url). Força /v2/
+  let FEED_URL =
+    (list.dataset.feedUrl && list.dataset.feedUrl.trim()) ||
+    "/financeiro/ia/historico/feed/v2/";
+  if (
+    FEED_URL.includes("/financeiro/ia/historico/feed/") &&
+    !FEED_URL.includes("/v2/")
+  ) {
+    FEED_URL = FEED_URL.replace(
+      "/financeiro/ia/historico/feed/",
+      "/financeiro/ia/historico/feed/v2/"
+    );
+  }
+  console.log("[Historico] FEED_URL =", FEED_URL);
+
+  // Elementos adicionais
   const modalEl = document.getElementById("modalHistoricoIA");
   const modalList = document.getElementById("listaHistoricoModal");
+  const btnVerMais = document.getElementById("btnVerMais");
 
+  // Copia o preview para o modal ao abrir
   if (modalEl && list && modalList) {
     modalEl.addEventListener("show.bs.modal", function () {
-      modalList.innerHTML = list.innerHTML; // simples e seguro
+      modalList.innerHTML = list.innerHTML;
     });
   }
 
-  // === Botão "Ver mais" dentro do modal ===
-  const btnVerMais = document.getElementById("btnVerMais");
-  let historicoOffset = 0;
-  const PAGE_SIZE = 10;
-
-  if (btnVerMais && modalList && list) {
-    btnVerMais.addEventListener("click", async () => {
-      try {
-        const feedUrl =
-          modalList.dataset.feedUrl || list.dataset.feedUrl || null;
-        if (!feedUrl) return;
-
-        historicoOffset += PAGE_SIZE;
-        const qs = new URLSearchParams({
-          limit: PAGE_SIZE,
-          offset: historicoOffset,
-        });
-        const resp = await fetch(`${feedUrl}?${qs.toString()}`);
-       const j = await resp.json();
-
-       // Compat: aceita results, items ou data
-       const itens = Array.isArray(j)
-         ? j
-         : j.results || j.items || j.data || [];
-       if (!Array.isArray(itens) || itens.length === 0) {
-         btnVerMais.disabled = true;
-         btnVerMais.textContent = "Sem mais dicas";
-         return;
-       }
-
-
-        // Adiciona novos cards sem apagar os anteriores
-        const html = itens
-          .map(
-            (i) => `
-        <div class="card mb-2">
-          <div class="card-body">
-            <small class="text-muted">${i.criado_em || ""} • ${
-              i.tipo || ""
-            }</small>
-            <div>${i.texto || ""}</div>
-          </div>
-        </div>`
-          )
-          .join("");
-
-        modalList.insertAdjacentHTML("beforeend", html);
-        if (j.has_next === false) {
-          btnVerMais.disabled = true;
-          btnVerMais.textContent = "Sem mais dicas";
-        }
-      } catch (e) {
-        console.error("Erro ao carregar mais dicas:", e);
-      }
-    });
-  }
-
-  // === Botão "Ver mais" mínimo e seguro (sem redeclarar variáveis globais) ===
+  // Garante botão Ver mais (fallback)
   (function ensureVerMaisButton() {
     if (!list) return;
-
-    var btn = document.getElementById("btnVerMais");
+    let btn = document.getElementById("btnVerMais");
     if (!btn) {
       btn = document.createElement("button");
       btn.id = "btnVerMais";
@@ -150,20 +130,20 @@ document.addEventListener("DOMContentLoaded", () => {
       btn.textContent = "Ver mais";
       list.insertAdjacentElement("afterend", btn);
     }
-
     btn.onclick = function () {
       // Se houver modal Bootstrap, apenas abre
-      var modal = document.getElementById("modalHistoricoIA");
+      const modal = document.getElementById("modalHistoricoIA");
       if (modal && window.bootstrap && typeof bootstrap.Modal === "function") {
-        var m = bootstrap.Modal.getOrCreateInstance(modal);
+        const m = bootstrap.Modal.getOrCreateInstance(modal);
         m.show();
         return;
       }
-      // Sem modal? Faz um fallback inocente (não quebra nada)
+      // Sem modal? Faz um fallback inocente
       window.scrollTo({ top: list.offsetTop, behavior: "smooth" });
     };
   })();
 
+  // Badge/contadores/overlay
   const badge = document.getElementById("badgeNovas");
   const badgeCount = document.getElementById("badgeNovasCount");
   const btnReload =
@@ -173,36 +153,50 @@ document.addEventListener("DOMContentLoaded", () => {
   const btnHistoricoIA = document.getElementById("btnHistoricoIA");
   const elOvl = document.getElementById("ovlHistorico");
 
-  // Filtros
-  const btnTodas = document.getElementById("btnFiltroTodas");
-  const btnNeutra = document.getElementById("btnFiltroNeutra");
-  const btnGeral = document.getElementById("btnFiltroGeral");
-  const filterButtons = document.querySelectorAll("[data-filter]");
-
-  // Contadores
   const elCountAll = document.getElementById("countAll");
   const elCountPos = document.getElementById("countPos");
   const elCountAlerta = document.getElementById("countAlerta");
   const elCountNeutra = document.getElementById("countNeutra");
 
-  // URL do feed (preferir data-feed-url vindo do template)
-  const FEED_URL = list.dataset.feedUrl || "/financeiro/ia/historico/feed/";
+  // Filtros
+  const filterButtons = document.querySelectorAll("[data-filter]");
+  const btnFiltroIDs = {
+    todas: document.getElementById("btnTodas"),
+    positivas: document.getElementById("btnPositivas"),
+    alertas: document.getElementById("btnAlertas"),
+    neutras: document.getElementById("btnNeutras"),
+  };
 
   // Estado
   const KEY_LAST_SEEN = "iaHistoricoLastSeenAt";
   let lastSeenAt = localStorage.getItem(KEY_LAST_SEEN) || null;
   let allItems = [];
   let filtroCategoria = ""; // ""=todas | neutra | positiva | alerta
-  let isRefreshing = false;
   let refreshTimer = null;
+  let BUSY = false;
 
-  // API
-  async function fetchHistorico(limit = 20, tipo = "") {
+  // ===== API: fetch histórico (assinatura flexível) =====
+  async function fetchHistorico(a = 20, b = "") {
+    // aceita fetchHistorico(20,"positiva") OU fetchHistorico("positiva")
+    let limit = 20;
+    let tipo = "";
+
+    if (typeof a === "number" && Number.isFinite(a)) limit = a;
+    else if (typeof a === "string" && isNaN(Number(a))) tipo = a;
+
+    if (typeof b === "number" && Number.isFinite(b)) limit = b;
+    else if (typeof b === "string" && isNaN(Number(b))) tipo = b;
+
+    if (!Number.isFinite(limit) || limit <= 0) limit = 20;
+
     const qs = new URLSearchParams();
     qs.set("limit", String(limit));
-    if (tipo) qs.set("tipo", tipo); // a view espera "tipo"
+    const t = _normalizeTipo(tipo);
+    if (t) qs.set("tipo", t); // positiva | alerta | neutra
 
-    const r = await fetch(`${FEED_URL}?${qs.toString()}`, {
+    const finalUrl = `${FEED_URL}?${qs.toString()}`;
+    console.log("[Historico] GET", finalUrl);
+    const r = await fetch(finalUrl, {
       headers: { Accept: "application/json" },
       credentials: "same-origin",
     });
@@ -235,12 +229,12 @@ document.addEventListener("DOMContentLoaded", () => {
       };
     });
 
-    // Ordena mais recente primeiro
+    // Ordena do mais recente
     items.sort((a, b) => b._stamp - a._stamp);
     return items;
   }
 
-  // Render
+  // ===== Render =====
   function cardHTML(it) {
     const quando = escapeHtml(it.criado_em || "");
     const tag = escapeHtml(it.tipo.charAt(0).toUpperCase() + it.tipo.slice(1));
@@ -264,27 +258,6 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>`;
   }
 
-  function renderLista(items) {
-    // aplica filtro atual
-    const filtered = filtroCategoria
-      ? items.filter((i) => i.tipo === filtroCategoria)
-      : items;
-    if (!filtered.length) {
-      list.innerHTML = `<div class="alert alert-secondary mb-2">Nenhuma dica encontrada.</div>`;
-      if (badge) badge.classList.add("d-none");
-      return;
-    }
-    list.innerHTML = filtered.map(cardHTML).join("");
-    requestAnimationFrame(() =>
-      list
-        .querySelectorAll(".ia-card")
-        .forEach((el) => el.classList.add("fade-in"))
-    );
-    atualizarBadge(filtered);
-    atualizarContadoresUI(items);
-  }
-
-  // Badge “Novas”
   function atualizarBadge(itemsMostrados) {
     if (!badge || !badgeCount) return;
     if (!lastSeenAt) {
@@ -320,96 +293,114 @@ document.addEventListener("DOMContentLoaded", () => {
       );
   }
 
-  // Toggle loading
   function toggleLoading(show) {
     if (!elOvl) return;
     elOvl.classList.toggle("d-none", !show);
   }
 
-  // API pública p/ console e outros scripts
-  window.carregarHistorico = async function carregarHistorico(limit = 20) {
+  function renderLista(items) {
+    const filtered = filtroCategoria
+      ? items.filter((i) => i.tipo === filtroCategoria)
+      : items;
+    if (!filtered.length) {
+      list.innerHTML = `<div class="alert alert-secondary mb-2">Nenhuma dica encontrada.</div>`;
+      if (badge) badge.classList.add("d-none");
+      atualizarContadoresUI(items);
+      return;
+    }
+    list.innerHTML = filtered.map(cardHTML).join("");
+    requestAnimationFrame(() =>
+      list
+        .querySelectorAll(".ia-card")
+        .forEach((el) => el.classList.add("fade-in"))
+    );
+    atualizarBadge(filtered);
+    atualizarContadoresUI(items);
+  }
+
+  // ===== API pública (uma só) =====
+  window.carregarHistorico = async function carregarHistorico(
+    limit = 20,
+    tipo = null
+  ) {
+    if (BUSY) return;
+    BUSY = true;
     try {
-      if (btnReload) btnReload.disabled = true;
       toggleLoading(true);
+      if (btnReload) btnReload.disabled = true;
+      filtroCategoria = _normalizeTipo(tipo) || "";
       allItems = await fetchHistorico(limit, filtroCategoria);
       renderLista(allItems);
-      // auto scroll p/ primeira nova
+      // auto scroll p/ primeira "nova"
       if (lastSeenAt) {
         const firstNew = list.querySelector(".ia-card.is-new");
         if (firstNew)
           firstNew.scrollIntoView({ behavior: "smooth", block: "center" });
       }
     } catch (e) {
-      console.error("Falha ao buscar histórico:", e);
+      console.error("Falha ao carregar histórico:", e);
       list.innerHTML = `<div class="alert alert-danger">Falha ao carregar histórico.</div>`;
     } finally {
-      toggleLoading(false);
       if (btnReload) btnReload.disabled = false;
+      toggleLoading(false);
+      BUSY = false;
     }
   };
 
-  // Eventos
-  if (btnReload) {
-    btnReload.addEventListener("click", () => window.carregarHistorico(20));
-  }
-  if (btnMarcarLidas) {
-    btnMarcarLidas.addEventListener("click", () => {
-      const newest = allItems[0]?.criado_em;
-      if (newest) {
-        localStorage.setItem(KEY_LAST_SEEN, parseStamp(newest).toISOString());
-        lastSeenAt = localStorage.getItem(KEY_LAST_SEEN);
-        renderLista(allItems);
-      }
-    });
-  }
-  if (btnHistoricoIA) {
-    btnHistoricoIA.addEventListener("click", async () => {
-      await window.carregarHistorico(20);
-      const newest = allItems[0]?.criado_em;
-      if (newest) {
-        localStorage.setItem(KEY_LAST_SEEN, parseStamp(newest).toISOString());
-        lastSeenAt = localStorage.getItem(KEY_LAST_SEEN);
-        if (badge) badge.classList.add("d-none");
-      }
-    });
-  }
+  // ===== Ações / eventos =====
+  btnReload?.addEventListener("click", () =>
+    window.carregarHistorico(20, filtroCategoria)
+  );
+  btnMarcarLidas?.addEventListener("click", () => {
+    const newest = allItems[0]?.criado_em;
+    if (newest) {
+      localStorage.setItem(KEY_LAST_SEEN, parseStamp(newest).toISOString());
+      lastSeenAt = localStorage.getItem(KEY_LAST_SEEN);
+      renderLista(allItems);
+    }
+  });
+  btnHistoricoIA?.addEventListener("click", async () => {
+    await window.carregarHistorico(20, filtroCategoria);
+    const newest = allItems[0]?.criado_em;
+    if (newest) {
+      localStorage.setItem(KEY_LAST_SEEN, parseStamp(newest).toISOString());
+      lastSeenAt = localStorage.getItem(KEY_LAST_SEEN);
+      badge?.classList.add("d-none");
+    }
+  });
 
-  // Filtros por categoria (IDs específicos)
-  if (btnTodas)
-    btnTodas.addEventListener("click", () => {
-      filtroCategoria = "";
-      window.carregarHistorico(20);
-    });
-  if (btnNeutra)
-    btnNeutra.addEventListener("click", () => {
-      filtroCategoria = "neutra";
-      window.carregarHistorico(20);
-    });
-  if (btnGeral)
-    btnGeral.addEventListener("click", () => {
-      filtroCategoria = "geral";
-      window.carregarHistorico(20);
-    });
-
-  // Filtros genéricos [data-filter]
+  // Filtros por data-filter (recomendado — mantenha só esse)
   if (filterButtons && filterButtons.length) {
     filterButtons.forEach((btn) => {
       btn.addEventListener("click", () => {
         filterButtons.forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
-        const f = btn.getAttribute("data-filter") || "all";
-        filtroCategoria = f === "all" ? "" : f; // "" => todas
-        window.carregarHistorico(20);
+        const f = _normalizeTipo(btn.getAttribute("data-filter"));
+        window.carregarHistorico(20, f);
       });
     });
   }
+
+  // Compat: botões por ID (se existirem)
+  btnFiltroIDs.todas?.addEventListener("click", () =>
+    window.carregarHistorico(20, null)
+  );
+  btnFiltroIDs.positivas?.addEventListener("click", () =>
+    window.carregarHistorico(20, "positiva")
+  );
+  btnFiltroIDs.alertas?.addEventListener("click", () =>
+    window.carregarHistorico(20, "alerta")
+  );
+  btnFiltroIDs.neutras?.addEventListener("click", () =>
+    window.carregarHistorico(20, "neutra")
+  );
 
   // Auto-refresh a cada 60s (pausa quando aba oculta)
   function startAutoRefresh() {
     stopAutoRefresh();
     refreshTimer = setInterval(() => {
       if (document.hidden) return;
-      window.carregarHistorico(20);
+      window.carregarHistorico(20, filtroCategoria);
     }, 60000);
   }
   function stopAutoRefresh() {
@@ -417,199 +408,28 @@ document.addEventListener("DOMContentLoaded", () => {
     refreshTimer = null;
   }
 
-  // Init
-  + (async () => {
-    await window.carregarHistorico(PREVIEW_LIMIT);
+  // Init (uma chamada só)
+  (async () => {
+    await window.carregarHistorico(PREVIEW_LIMIT, null);
     startAutoRefresh();
   })();
+
+  // “Ver mais” no preview (aumenta limit local)
   let _limitAtual = PREVIEW_LIMIT;
   document.getElementById("btnVerMais")?.addEventListener("click", async () => {
     _limitAtual += MORE_INCREMENT;
-    await window.carregarHistorico(_limitAtual);
+    await window.carregarHistorico(_limitAtual, filtroCategoria);
   });
-});
 
-// ========= Resumo Mensal da IA (gráfico + stats) =========
-document.addEventListener("DOMContentLoaded", function () {
-  const elCanvas = document.getElementById("chartResumoIA");
-  if (!elCanvas) return;
-
-  fetch("/financeiro/ia/resumo-mensal/", {
-    headers: { Accept: "application/json" },
-    credentials: "same-origin",
-  })
-    .then(async (r) => {
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const text = await r.text();
-      try {
-        return JSON.parse(text);
-      } catch {
-        throw new Error("Resposta não é JSON");
-      }
-    })
-    .then((data) => {
-      const hasSerie =
-        Array.isArray(data?.labels) &&
-        Array.isArray(data?.receitas) &&
-        Array.isArray(data?.despesas);
-
-      const labels = hasSerie
-        ? data.labels.map((s) => String(s).slice(0, 7))
-        : ["Receitas", "Despesas", "Saldo"];
-      const serieReceitas = hasSerie
-        ? data.receitas
-        : [Number(data?.receitas) || 0, 0, 0];
-      const serieDespesas = hasSerie
-        ? data.despesas
-        : [0, Number(data?.despesas) || 0, 0];
-      const serieSaldo = hasSerie
-        ? Array.isArray(data?.saldo)
-          ? data.saldo
-          : []
-        : [
-            0,
-            0,
-            Number(data?.saldo) ||
-              (Number(data?.receitas) || 0) - (Number(data?.despesas) || 0),
-          ];
-
-      const ctx = elCanvas.getContext("2d");
-      if (window._chartResumoIA instanceof Chart) {
-        const ch = window._chartResumoIA;
-        ch.data.labels = labels;
-        ch.data.datasets[0].data = serieReceitas;
-        ch.data.datasets[1].data = serieDespesas;
-        if (ch.data.datasets[2])
-          ch.data.datasets[2].data = serieSaldo.length
-            ? serieSaldo
-            : labels.map(() => null);
-        ch.update("none");
-        return;
-      }
-
-      window._chartResumoIA = new Chart(ctx, {
-        type: "line",
-        data: {
-          labels,
-          datasets: [
-            {
-              label: "Receitas",
-              data: serieReceitas,
-              tension: 0.3,
-              fill: false,
-            },
-            {
-              label: "Despesas",
-              data: serieDespesas,
-              tension: 0.3,
-              fill: false,
-            },
-            {
-              label: "Saldo",
-              data: serieSaldo.length ? serieSaldo : labels.map(() => null),
-              tension: 0.3,
-              fill: false,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          animation: false,
-          plugins: {
-            legend: { position: "top" },
-            title: {
-              display: true,
-              text: hasSerie
-                ? "Resumo IA (série mensal)"
-                : "Resumo IA (snapshot do mês)",
-            },
-          },
-          scales: { y: { beginAtZero: true } },
-        },
-      });
-    })
-    .catch((e) => {
-      console.error("Falha ao carregar resumo mensal:", e);
-      const box = document.getElementById("boxResumoMensal");
-      if (box) {
-        box.classList.remove("d-none");
-        box.classList.add("alert-warning");
-        box.innerHTML = "Não foi possível carregar o resumo mensal agora.";
-      }
-    });
-});
-// IDs esperados no HTML: btnTodas, btnPositivas, btnAlertas, btnNeutras, listaHistorico
-const API_HIST_V2 = "/financeiro/ia/historico/feed/v2/";
-
-async function carregarHistorico(tipo=null, limit=20) {
-  const url = new URL(API_HIST_V2, window.location.origin);
-  if (tipo) url.searchParams.set("tipo", tipo);
-  url.searchParams.set("limit", limit);
-
-  const res = await fetch(url, { credentials: "same-origin" });
-  const j = await res.json();
-
-  const elList = document.getElementById("listaHistorico");
-  if (!elList) return;
-
-  elList.innerHTML = "";
-  if (!j.ok || !j.items || j.items.length === 0) {
-    elList.innerHTML = `<div class="card p-3 text-muted">Nenhuma dica encontrada.</div>`;
-    return;
-  }
-
-  for (const it of j.items) {
-    const tipo = (it.tipo || "neutra").toLowerCase();
-    const badge =
-      tipo === "positiva" ? '<span class="badge bg-success">Positiva</span>' :
-      tipo === "alerta"   ? '<span class="badge bg-danger">Alerta</span>' :
-                            '<span class="badge bg-secondary">Neutra</span>';
-
-    elList.insertAdjacentHTML("beforeend", `
-      <div class="card mb-2">
-        <div class="card-body">
-          <div class="d-flex justify-content-between align-items-center">
-            <strong>Dica da IA</strong>
-            ${badge}
-          </div>
-          <div class="small text-muted">${it.criado_em || ""}</div>
-          <p class="mb-0">${it.texto || it.text || ""}</p>
-        </div>
-      </div>
-    `);
-  }
-}
-
-// Liga os botões
-document.getElementById("btnTodas")?.addEventListener("click", () => carregarHistorico(null));
-document.getElementById("btnPositivas")?.addEventListener("click", () => carregarHistorico("positiva"));
-document.getElementById("btnAlertas")?.addEventListener("click", () => carregarHistorico("alerta"));
-document.getElementById("btnNeutras")?.addEventListener("click", () => carregarHistorico("neutra"));
-
-// Carrega padrão ao abrir (todas)
-carregarHistorico(null);
-
-
-// ========= Modo Turbo (Gerar Dica 30d) =========
-function getCsrfToken() {
-  const meta = document.querySelector('meta[name="csrf-token"]');
-  if (meta && meta.content) return meta.content;
-  const match = document.cookie.match(/(^|;\s*)csrftoken=([^;]+)/);
-  return match ? decodeURIComponent(match[2]) : "";
-}
-
-document.addEventListener("DOMContentLoaded", () => {
-  const elList = document.getElementById("listaHistorico");
-  // Se não estiver na página de histórico, ainda assim ligamos o Turbo
-  const btn = document.getElementById("btnTurbo");
+  // ========= Modo Turbo (Gerar Dica 30d) =========
+  const btnTurbo = document.getElementById("btnTurbo");
   const st = document.getElementById("turboStatus");
   const box = document.getElementById("turboResult");
   const dica = document.getElementById("turboDica");
 
-  if (btn && st && box && dica) {
-    btn.onclick = async () => {
-      btn.disabled = true;
+  if (btnTurbo && st && box && dica) {
+    btnTurbo.onclick = async () => {
+      btnTurbo.disabled = true;
       st.textContent = "Analisando…";
       st.classList.remove("d-none");
       box.classList.add("d-none");
@@ -669,6 +489,9 @@ document.addEventListener("DOMContentLoaded", () => {
               if (detailsEl) detailsEl.open = false;
             }
           }
+
+          // recarrega lista pra já aparecer a dica nova (se a API salvar)
+          await window.carregarHistorico(PREVIEW_LIMIT, filtroCategoria);
         } else {
           st.textContent = "⚠️ Não consegui gerar a dica.";
         }
@@ -676,111 +499,119 @@ document.addEventListener("DOMContentLoaded", () => {
         console.error(e);
         st.textContent = "Erro na solicitação.";
       } finally {
-        btn.disabled = false;
+        btnTurbo.disabled = false;
         setTimeout(() => st.classList.add("d-none"), 2000);
       }
     };
   }
-  // ---- Histórico IA (V2) ----
-  const API_HIST_V2 = "/financeiro/ia/historico/feed/v2/";
 
-  async function carregarHistorico(tipo = null, limit = 20) {
-    const url = new URL(API_HIST_V2, window.location.origin);
-    if (tipo && tipo !== "all") url.searchParams.set("tipo", tipo);
-    url.searchParams.set("limit", limit);
+  // ========= Resumo Mensal da IA (gráfico + stats) =========
+  (function resumoMensalIA() {
+    const elCanvas = document.getElementById("chartResumoIA");
+    if (!elCanvas) return;
 
-    const res = await fetch(url, { credentials: "same-origin" });
-    const j = await res.json();
+    fetch("/financeiro/ia/resumo-mensal/", {
+      headers: { Accept: "application/json" },
+      credentials: "same-origin",
+    })
+      .then(async (r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const text = await r.text();
+        try {
+          return JSON.parse(text);
+        } catch {
+          throw new Error("Resposta não é JSON");
+        }
+      })
+      .then((data) => {
+        const hasSerie =
+          Array.isArray(data?.labels) &&
+          Array.isArray(data?.receitas) &&
+          Array.isArray(data?.despesas);
 
-    const elList = document.getElementById("listaHistorico");
-    if (!elList) return;
+        const labels = hasSerie
+          ? data.labels.map((s) => String(s).slice(0, 7))
+          : ["Receitas", "Despesas", "Saldo"];
+        const serieReceitas = hasSerie
+          ? data.receitas
+          : [Number(data?.receitas) || 0, 0, 0];
+        const serieDespesas = hasSerie
+          ? data.despesas
+          : [0, Number(data?.despesas) || 0, 0];
+        const serieSaldo = hasSerie
+          ? Array.isArray(data?.saldo)
+            ? data.saldo
+            : []
+          : [
+              0,
+              0,
+              (Number(data?.receitas) || 0) - (Number(data?.despesas) || 0),
+            ];
 
-    elList.innerHTML = "";
-    if (!j.ok || !j.items || j.items.length === 0) {
-      elList.innerHTML = `<div class="card p-3 text-muted">Nenhuma dica encontrada.</div>`;
-      atualizarContadores(0, 0, 0, 0);
-      return;
-    }
+        const ctx = elCanvas.getContext("2d");
+        if (window._chartResumoIA instanceof Chart) {
+          const ch = window._chartResumoIA;
+          ch.data.labels = labels;
+          ch.data.datasets[0].data = serieReceitas;
+          ch.data.datasets[1].data = serieDespesas;
+          if (ch.data.datasets[2])
+            ch.data.datasets[2].data = serieSaldo.length
+              ? serieSaldo
+              : labels.map(() => null);
+          ch.update("none");
+          return;
+        }
 
-    let total = 0,
-      pos = 0,
-      alertas = 0,
-      neutras = 0;
-
-    for (const it of j.items) {
-      const tipoItem = (it.tipo || "neutra").toLowerCase();
-      total++;
-      if (tipoItem === "positiva") pos++;
-      else if (tipoItem === "alerta") alertas++;
-      else neutras++;
-
-      const badge =
-        tipoItem === "positiva"
-          ? '<span class="badge bg-success">Positiva</span>'
-          : tipoItem === "alerta"
-          ? '<span class="badge bg-warning text-dark">Alerta</span>'
-          : '<span class="badge bg-secondary">Neutra</span>';
-
-      elList.insertAdjacentHTML(
-        "beforeend",
-        `
-        <div class="card mb-2">
-          <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center">
-              <strong>Dica da IA</strong>
-              ${badge}
-            </div>
-            <div class="small text-muted">${it.criado_em || ""}</div>
-            <p class="mb-0">${(it.texto || it.text || "").toString()}</p>
-          </div>
-        </div>
-      `
-      );
-    }
-
-    atualizarContadores(total, pos, alertas, neutras);
-  }
-
-  function atualizarContadores(total, pos, alertas, neutras) {
-    const set = (id, v) => {
-      const el = document.getElementById(id);
-      if (el) el.textContent = v;
-    };
-    set("countAll", total);
-    set("countPos", pos);
-    set("countAlerta", alertas);
-    set("countNeutra", neutras);
-  }
-
-  // Liga os botões por data-filter (HTML que você mostrou)
-  document.querySelectorAll("[data-filter]").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      document
-        .querySelectorAll("[data-filter]")
-        .forEach((b) => b.classList.remove("active"));
-      btn.classList.add("active");
-      const tipo = btn.getAttribute("data-filter");
-      carregarHistorico(tipo === "all" ? null : tipo);
-    });
-  });
-
-  // Carrega padrão (todas)
-  carregarHistorico(null);
-
-  // Botões (use estes IDs no HTML)
-  document
-    .getElementById("btnTodas")
-    ?.addEventListener("click", () => carregarHistorico(null));
-  document
-    .getElementById("btnPositivas")
-    ?.addEventListener("click", () => carregarHistorico("positiva"));
-  document
-    .getElementById("btnAlertas")
-    ?.addEventListener("click", () => carregarHistorico("alerta"));
-  document
-    .getElementById("btnNeutras")
-    ?.addEventListener("click", () => carregarHistorico("neutra"));
-
-  // Carrega padrão (todas)
-  carregarHistorico(null);
+        window._chartResumoIA = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels,
+            datasets: [
+              {
+                label: "Receitas",
+                data: serieReceitas,
+                tension: 0.3,
+                fill: false,
+              },
+              {
+                label: "Despesas",
+                data: serieDespesas,
+                tension: 0.3,
+                fill: false,
+              },
+              {
+                label: "Saldo",
+                data: serieSaldo.length ? serieSaldo : labels.map(() => null),
+                tension: 0.3,
+                fill: false,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            plugins: {
+              legend: { position: "top" },
+              title: {
+                display: true,
+                text: hasSerie
+                  ? "Resumo IA (série mensal)"
+                  : "Resumo IA (snapshot do mês)",
+              },
+            },
+            scales: { y: { beginAtZero: true } },
+          },
+        });
+      })
+      .catch((e) => {
+        console.error("Falha ao carregar resumo mensal:", e);
+        const box = document.getElementById("boxResumoMensal");
+        if (box) {
+          box.classList.remove("d-none");
+          box.classList.add("alert-warning");
+          box.innerHTML = "Não foi possível carregar o resumo mensal agora.";
+        }
+      });
+  })();
 });
