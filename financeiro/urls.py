@@ -3,7 +3,8 @@ from django.urls import path
 from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-from .views_insights import metrics_despesas_por_categoria_view
+from .views_insights import metrics_despesas_por_categoria_view 
+from . import views_financeiro
 
 from .views_financeiro import (
     dashboard_financeiro,
@@ -70,4 +71,5 @@ urlpatterns = [
     path("diag/transacao/", login_required(diag_transacao), name="diag_transacao"),
     # (opcional futuro)
     path("metrics/despesas-por-categoria/", login_required(metrics_despesas_por_categoria_view), name="metrics_despesas_por_categoria"),
+    path("ia/gerar_dica_30d/", views_financeiro.gerar_dica_30d, name="api_generate_tip_30d"),
 ]

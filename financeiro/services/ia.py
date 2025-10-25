@@ -3,7 +3,10 @@ from datetime import timedelta
 
 from django.db.models import Sum
 from django.utils import timezone 
+from django.db import transaction
 from django.contrib.auth import get_user_model
+from financeiro.models import RecomendacaoIA
+
 
 from usuarios.models import Usuario
 User = get_user_model()
@@ -66,10 +69,11 @@ def _moeda(v):
     return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-def generate_tip_last_30d(Transacao):
+def generate_tip_last_30d(Transacao, usuario=None, auto_save=True):
     """
     Analisa os últimos 30 dias usando o modelo Transacao (campos: valor, data, tipo, [categoria?]).
-    Retorna (dica:str, metrics:dict).
+    Se `usuario` for informado e `auto_save=True`, salva a dica em RecomendacaoIA.
+    Retorna: (dica: str, metrics: dict, saved_id: int|None)
     """
     hoje = timezone.localdate()
     inicio = hoje - timedelta(days=30)
@@ -99,7 +103,7 @@ def generate_tip_last_30d(Transacao):
     except Exception:
         pass
 
-    # Heurísticas
+    # Heurísticas -> texto da dica
     if total_receitas == 0 and total_despesas == 0:
         dica = "Sem movimentos nos últimos 30 dias. Registre entradas e saídas para a IA aprender com seus dados."
     elif saldo < 0 and top_categoria_total > 0:
@@ -136,12 +140,19 @@ def generate_tip_last_30d(Transacao):
         "top_categoria": top_categoria,
         "top_categoria_total": float(top_categoria_total or 0),
     }
+
     # Classificar a dica gerada
     tipo = _map_tipo(dica)
 
-    # Salvar automaticamente no histórico da IA
-    
+    # Salvar automaticamente no histórico da IA (se houver usuário)
+    saved_id = None
+    if auto_save and usuario is not None:
+        with transaction.atomic():
+            rec = RecomendacaoIA.objects.create(
+                usuario=usuario,
+                texto=dica,
+                tipo=tipo,
+            )
+            saved_id = rec.id
 
-   
-
-    return dica, metrics
+    return dica, metrics, saved_id

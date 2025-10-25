@@ -1,10 +1,10 @@
 # Stdlib
-import hashlib
-import logging
+
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 import builtins
+import re
 
 # Django
 from django.apps import apps  # fallback para modelos
@@ -16,16 +16,19 @@ from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_http_methods
+from django.utils.dateparse import parse_date
+from django.db.models.functions import TruncDate
+from django.db import DatabaseError
+
+import hashlib
+import logging
+
 
 # App local
 from .models import Insight, Transacao
 from .services.ia import generate_tip_last_30d
-from django.utils.dateparse import parse_date
-from django.db.models.functions import TruncDate
-from django.db import DatabaseError
-from .services.ia import _map_tipo
-
-# Pode existir em outro arquivo; mantido aqui para compat com teu projeto
+from .services.ia import generate_tip_last_30d, _map_tipo
 
 
 # --- Modelos opcionais/legados ---
@@ -35,49 +38,17 @@ except Exception:
     RecomendacaoIA = apps.get_model("financeiro", "RecomendacaoIA")
 
 try:
-    HistoricoIA = apps.get_model("financeiro", "RecomendacaoIA")  # pode ser o mesmo
+    from .models import HistoricoIA
 except Exception:
-    HistoricoIA = None
-
-
-# =============================================================================
-# Helpers
-# =============================================================================
-
-
-def _date_range_kwargs(model, field_name: str, start, end, inclusive_end=True):
-    """
-    Retorna kwargs corretos para filtrar por faixa de datas,
-    independente se o campo é DateField ou DateTimeField.
-    inclusive_end=True => usa __lte / __date__lte
-    """
-    f = model._meta.get_field(field_name)
-    end_op = "lte" if inclusive_end else "lt"
-    if f.get_internal_type() == "DateTimeField":
-        return {f"{field_name}__date__gte": start, f"{field_name}__date__{end_op}": end}
-    # DateField
-    return {f"{field_name}__gte": start, f"{field_name}__{end_op}": end}
-
-def _parse_date(s: str):
     try:
-        return datetime.strptime(s, "%Y-%m-%d").date()
+        HistoricoIA = apps.get_model("financeiro", "HistoricoIA")
     except Exception:
-        return None
+        HistoricoIA = None
 
 
-def _pick_cor_from_metrics(metrics: dict) -> str:
-    """Escolhe uma cor (bootstrap-like) de forma segura a partir das métricas."""
-    try:
-        saldo = float((metrics or {}).get("saldo", 0))
-        if saldo > 0:
-            return "success"
-        if saldo < 0:
-            return "danger"
-        return "secondary"
-    except Exception:
-        return "secondary"
-
-
+# -----------------------------------------------------------------------------
+# Classificadores
+# -----------------------------------------------------------------------------
 def _map_tipo(categoria: str, cor: str, metrics: dict) -> str:
     """
     Classifica em: oportunidade | economia | alerta | meta.
@@ -106,6 +77,130 @@ def _map_tipo(categoria: str, cor: str, metrics: dict) -> str:
     return "economia"
 
 
+def _map_tipo_texto(texto: str) -> str:
+    """
+    Classificação textual simplificada para dicas salvas no histórico:
+      - positiva: elogios, superávit, sucesso
+      - alerta  : risco, atenção, negativo, déficit
+      - neutra  : demais casos
+    """
+    t = (texto or "").lower()
+    positivas = (
+        "ótimo",
+        "excelente",
+        "superávit",
+        "superavit",
+        "positivo",
+        "acima da meta",
+        "lucro",
+        "margem positiva",
+        "continue assim",
+        "reforce a reserva",
+        "aporte",
+    )
+    alertas = (
+        "alerta",
+        "atenção",
+        "atencao",
+        "risco",
+        "queda",
+        "negativo",
+        "déficit",
+        "deficit",
+        "evite",
+        "abaixo da meta",
+        "corte",
+        "reduza",
+        "atraso",
+        "inadimpl",
+    )
+    if any(k in t for k in alertas):
+        return "alerta"
+    if any(k in t for k in positivas):
+        return "positiva"
+    # heurística: número/percentual com sinal negativo
+    if re.search(r"(-\s*\d+([.,]\d+)?%?)", t):
+        return "alerta"
+    return "neutra"
+
+
+def _fallback_classify(txt: str) -> str:
+    """Fallback bem simples caso a heurística principal não pegue."""
+    t = (txt or "").lower()
+    alertas = [
+        "alerta",
+        "atenção",
+        "risco",
+        "evite",
+        "corte",
+        "reduza",
+        "atraso",
+        "déficit",
+        "negativo",
+        "queda",
+        "abaixo",
+        "gasto excessivo",
+        "gastos excessivos",
+        "estouro de caixa",
+        "inadimpl",
+    ]
+    positivas = [
+        "saldo positivo",
+        "positivo",
+        "ótimo",
+        "excelente",
+        "parabéns",
+        "superávit",
+        "acima da meta",
+        "margem",
+        "reforce a reserva",
+        "aporte extra",
+        "continue assim",
+    ]
+    if any(k in t for k in alertas):
+        return "alerta"
+    if any(k in t for k in positivas):
+        return "positiva"
+    return "neutra"
+
+
+# -----------------------------------------------------------------------------
+# Helpers
+# -----------------------------------------------------------------------------
+def _date_range_kwargs(model, field_name: str, start, end, inclusive_end=True):
+    """
+    Retorna kwargs corretos para filtrar por faixa de datas,
+    independente se o campo é DateField ou DateTimeField.
+    inclusive_end=True => usa __lte / __date__lte
+    """
+    f = model._meta.get_field(field_name)
+    end_op = "lte" if inclusive_end else "lt"
+    if f.get_internal_type() == "DateTimeField":
+        return {f"{field_name}__date__gte": start, f"{field_name}__date__{end_op}": end}
+    # DateField
+    return {f"{field_name}__gte": start, f"{field_name}__{end_op}": end}
+
+
+def _parse_date_local(s: str):
+    try:
+        return datetime.strptime(s, "%Y-%m-%d").date()
+    except Exception:
+        return None
+
+
+def _pick_cor_from_metrics(metrics: dict) -> str:
+    """Escolhe uma cor (bootstrap-like) de forma segura a partir das métricas."""
+    try:
+        saldo = float((metrics or {}).get("saldo", 0))
+        if saldo > 0:
+            return "success"
+        if saldo < 0:
+            return "danger"
+        return "secondary"
+    except Exception:
+        return "secondary"
+
+
 def _infer_cor(obj) -> str:
     """Infere cor com base em campos comuns dos modelos/legados."""
     m = getattr(obj, "metrics", {}) or {}
@@ -116,9 +211,7 @@ def _infer_cor(obj) -> str:
     if cor_alt:
         return cor_alt
     cat = (
-        getattr(obj, "categoria", None)
-        or getattr(obj, "categoria_dominante", "")  # legado
-        or ""
+        getattr(obj, "categoria", None) or getattr(obj, "categoria_dominante", "") or ""  # legado
     ).lower()
     if cat in ("alerta", "vermelho"):
         return "vermelho"
@@ -129,9 +222,9 @@ def _infer_cor(obj) -> str:
     return "cinza"
 
 
-# =============================================================================
+# -----------------------------------------------------------------------------
 # Dashboard
-# =============================================================================
+# -----------------------------------------------------------------------------
 @login_required(login_url="/admin/login/")
 def dashboard_financeiro(request):
     if not getattr(request.user, "is_authenticated", False):
@@ -157,14 +250,28 @@ def dashboard_financeiro(request):
     )
 
 
-# =============================================================================
+# -----------------------------------------------------------------------------
 # Mini-IA: Gerar dica dos últimos 30 dias
-# =============================================================================
-@require_POST
+# -----------------------------------------------------------------------------
+@require_http_methods(["GET", "POST"])
 @login_required
 def gerar_dica_30d(request):
     # 1) roda a Mini-IA existente
-    dica, metrics = generate_tip_last_30d(Transacao)
+    # 1) roda a Mini-IA existente (compatível com 2 ou 3 retornos)
+    rec_id = None
+    try:
+        # tenta assinatura nova (com auto_save no services/ia.py)
+        out = generate_tip_last_30d(Transacao, usuario=request.user, auto_save=True)
+    except TypeError:
+        # fallback para assinatura antiga
+        out = generate_tip_last_30d(Transacao)
+
+    # desempacota de forma segura
+    if isinstance(out, tuple) and len(out) == 3:
+        dica, metrics, rec_id = out
+    else:
+        dica, metrics = out
+        rec_id = None
 
     # 2) período (seguro)
     ps_str = (metrics.get("periodo") or {}).get("inicio") if isinstance(metrics, dict) else None
@@ -184,6 +291,9 @@ def gerar_dica_30d(request):
 
     saved = False
     rec_id = None
+
+    saved = False if 'saved' not in locals() else bool(saved)  # ✅ garante existência
+    rec_id = None if 'rec_id' not in locals() else rec_id      # ✅ garante existência
 
     # 4) Persistência opcional em HistoricoIA (se existir)
     if HistoricoIA is not None:
@@ -231,16 +341,42 @@ def gerar_dica_30d(request):
             logging.getLogger(__name__).exception("Falha ao salvar em HistoricoIA")
 
     # 5) Salva no modelo do painel (RecomendacaoIA)
+        # 5) Salva no modelo do painel (RecomendacaoIA) — tolerante a duplicatas
     try:
-        tipo_escolhido = _map_tipo(dica)
-        RecomendacaoIA.objects.create(
-            usuario=request.user,
-            texto=(dica or "").strip(),  # compat: seu model usa 'texto'
-            tipo=tipo_escolhido,
-        )
-        if not saved:
-            saved = True
-    except Exception:
+        texto_limpo = (dica or "").strip()
+        print("DEBUG salvar dica | texto:", repr(texto_limpo))
+        print("DEBUG model RecomendacaoIA:", RecomendacaoIA)
+
+        rec_id = None  # garanta que exista
+
+        if texto_limpo:
+            # Resolve tipo (suporta _map_tipo(texto) ou _map_tipo(texto, cor, metrics))
+            try:
+                tipo_escolhido = _map_tipo(texto_limpo)
+            except TypeError:
+                tipo_escolhido = _map_tipo(texto_limpo, cor, metrics)
+
+            # 1) Tenta reusar uma existente (pega a mais recente)
+            rec = (
+                RecomendacaoIA.objects.filter(usuario=request.user, texto=texto_limpo)
+                .order_by("-id")
+                .first()
+            )
+
+            if rec is None:
+                # 2) Se não existe, cria uma nova
+                rec = RecomendacaoIA.objects.create(
+                    usuario=request.user,
+                    texto=texto_limpo,
+                    tipo=tipo_escolhido,
+                )
+
+            rec_id = rec.id
+            print("DEBUG rec_id:", rec_id, "| tipo:", getattr(rec, "tipo", None))
+        else:
+            print("DEBUG texto vazio, não salvou")
+    except Exception as e:
+        print("DEBUG erro ao salvar:", repr(e))
         logging.getLogger(__name__).exception("Falha ao salvar em RecomendacaoIA")
 
     # 6) Resposta
@@ -248,10 +384,10 @@ def gerar_dica_30d(request):
     return JsonResponse(
         {
             "ok": True,
-            "saved": saved,
-            "id": rec_id,
+            "saved": bool(locals().get("rec_id")),
+            "id": locals().get("rec_id"),  # ✅ pega o id capturado
             "dica": dica,
-            "text": (dica or "").strip(),   # compat com front
+            "text": (dica or "").strip(),  # compat com front
             "texto": (dica or "").strip(),  # compat com front
             "metrics": metrics,
             "categoria": categoria,
@@ -262,9 +398,9 @@ def gerar_dica_30d(request):
     )
 
 
-# =============================================================================
-# Feed do painel (JSON) com filtros e paginação
-# =============================================================================
+# -----------------------------------------------------------------------------
+# Feed do painel (JSON) com filtros e paginação) — legado compatível
+# -----------------------------------------------------------------------------
 @require_GET
 @login_required
 def ia_historico_feed(request):
@@ -280,8 +416,8 @@ def ia_historico_feed(request):
         except Exception:
             pass
 
-    inicio = _parse_date(request.GET.get("inicio", "") or "")
-    fim = _parse_date(request.GET.get("fim", "") or "")
+    inicio = _parse_date_local(request.GET.get("inicio", "") or "")
+    fim = _parse_date_local(request.GET.get("fim", "") or "")
     categoria = (request.GET.get("categoria") or "").strip()
 
     HModel = IModel = None
@@ -373,7 +509,6 @@ def ia_historico_feed(request):
 
     elif IModel:
         qs = IModel.objects.all()
-        # (demais blocos inalterados)
 
         # filtros Insight
         if inicio:
@@ -381,9 +516,7 @@ def ia_historico_feed(request):
         if fim:
             qs = qs.filter(created_at__date__lte=fim)
         if categoria:
-            qs = qs.filter(
-                Q(kind__iexact=categoria) | Q(categoria_dominante__iexact=categoria)
-            )
+            qs = qs.filter(Q(kind__iexact=categoria) | Q(categoria_dominante__iexact=categoria))
 
         qs = qs.order_by("-created_at")
         paginator = Paginator(qs, per_page)
@@ -423,30 +556,14 @@ def ia_historico_feed(request):
                 "count": paginator.count,
             }
         )
-    tipo = request.GET.get("tipo")  # "positiva" | "alerta" | "neutra" | None
-    limit = int(request.GET.get("limit", 20))
 
-    qs = RecomendacaoIA.objects.filter(usuario=request.user).order_by("-criado_em")
-
-    if tipo in {"positiva", "alerta", "neutra"}:
-        qs = qs.filter(tipo=tipo)
-
-    items = [
-        {
-            "id": rec.id,
-            "texto": rec.texto,
-            "tipo": rec.tipo or "neutra",
-            "criado_em": rec.criado_em.strftime("%Y-%m-%d %H:%M:%S"),
-        }
-        for rec in qs[:limit]
-    ]
     # se nenhum dos modelos existir
     return JsonResponse({"ok": True, "items": [], "page": 1, "has_next": False, "count": 0})
 
 
-# =============================================================================
+# -----------------------------------------------------------------------------
 # Histórico textual (lista simples)
-# =============================================================================
+# -----------------------------------------------------------------------------
 @require_GET
 @login_required
 def ia_historico(request):
@@ -462,7 +579,7 @@ def ia_historico(request):
         {
             "id": r.id,
             "criado_em": r.criado_em.strftime("%d/%m/%Y %H:%M"),
-            "tipo": r.get_tipo_display(),
+            "tipo": getattr(r, "get_tipo_display", lambda: r.tipo)(),
             "texto": r.texto,
         }
         for r in qs
@@ -471,9 +588,9 @@ def ia_historico(request):
     return JsonResponse({"ok": True, "items": items})
 
 
-# =============================================================================
+# -----------------------------------------------------------------------------
 # Resumo mensal — SÉRIE (para gráficos históricos)  [opcional]
-# ============================================================================
+# -----------------------------------------------------------------------------
 @login_required
 def ia_resumo_mensal_series(request):
     """Mantido caso você utilize este endpoint para Chart.js com série histórica."""
@@ -492,9 +609,7 @@ def ia_resumo_mensal_series(request):
     inicio_janela = _primeiro_dia_mes(hoje) - timedelta(days=31 * 6)
     inicio_janela = _primeiro_dia_mes(inicio_janela)
 
-    rows = Insight.objects.filter(created_at__gte=inicio_janela).values_list(
-        "created_at", "kind"
-    )
+    rows = Insight.objects.filter(created_at__gte=inicio_janela).values_list("created_at", "kind")
 
     agg = defaultdict(lambda: {"positiva": 0, "alerta": 0, "neutra": 0, "total": 0})
     for created_at, kind in rows:
@@ -552,12 +667,13 @@ def ia_resumo_mensal_series(request):
     )
 
 
-# =============================================================================
+# -----------------------------------------------------------------------------
 # Resumo mensal — SIMPLES (usado pelo dashboard.html)
-# =============================================================================
+# -----------------------------------------------------------------------------
 def _parse_date_safely(s, default=None):
     d = parse_date(s) if s else None
     return d or default
+
 
 def _month_bounds(d):
     first = d.replace(day=1)
@@ -569,11 +685,7 @@ def _month_bounds(d):
 
 
 def _parse_ymd(s: str):
-    """
-    Converte uma string 'YYYY-MM-DD' para date.
-    Retorna None se a string for inválida.
-    """
-    from datetime import datetime
+    """Converte 'YYYY-MM-DD' para date; retorna None se inválida."""
     try:
         return datetime.strptime(s, "%Y-%m-%d").date()
     except Exception:
@@ -583,6 +695,7 @@ def _parse_ymd(s: str):
 # --- Aliases de tipo que cobrimos (ajuste se precisar) ---
 TIPO_RECEITA = ("receita", "Receita", "R")
 TIPO_DESPESA = ("despesa", "Despesa", "D")
+
 
 @login_required
 def dados_financeiros_filtrados(request):
@@ -594,7 +707,9 @@ def dados_financeiros_filtrados(request):
         inicio = request.GET.get("inicio")
         fim = request.GET.get("fim")
         if not inicio or not fim:
-            return JsonResponse({"error": "Parâmetros 'inicio' e 'fim' são obrigatórios."}, status=400)
+            return JsonResponse(
+                {"error": "Parâmetros 'inicio' e 'fim' são obrigatórios."}, status=400
+            )
 
         dt_inicio = _parse_ymd(inicio)
         dt_fim = _parse_ymd(fim)
@@ -622,7 +737,6 @@ def dados_financeiros_filtrados(request):
             .order_by("dia")
         )
 
-        # TruncDate já devolve 'date'; não use .date()
         rec_map = {row["dia"]: float(row["total"] or 0) for row in rec_qs}
         dep_map = {row["dia"]: float(row["total"] or 0) for row in dep_qs}
 
@@ -653,7 +767,8 @@ def dados_financeiros_filtrados(request):
 
 @login_required
 def ia_resumo_mensal(request):
-    ano = request.GET.get("ano"); mes = request.GET.get("mes")
+    ano = request.GET.get("ano")
+    mes = request.GET.get("mes")
     today = date.today()
     try:
         ano = int(ano) if ano else today.year
@@ -664,8 +779,10 @@ def ia_resumo_mensal(request):
     dt_inicio = date(ano, mes, 1)
     dt_fim = date(ano + (1 if mes == 12 else 0), (mes % 12) + 1, 1)  # exclusivo
 
-    # 🔧 usa fim exclusivo (mais correto pra mês)
-    base = Transacao.objects.filter(**_date_range_kwargs(Transacao, "data", dt_inicio, dt_fim, inclusive_end=False))
+    # fim exclusivo (mais correto pra mês)
+    base = Transacao.objects.filter(
+        **_date_range_kwargs(Transacao, "data", dt_inicio, dt_fim, inclusive_end=False)
+    )
 
     rec_total = float(base.filter(tipo="receita").aggregate(soma=Sum("valor")).get("soma") or 0)
     dep_total = float(base.filter(tipo="despesa").aggregate(soma=Sum("valor")).get("soma") or 0)
@@ -676,15 +793,25 @@ def ia_resumo_mensal(request):
         f"Receitas: R$ {rec_total:,.2f} | Despesas: R$ {dep_total:,.2f} | "
         f"Saldo: R$ {saldo:,.2f} | Margem: {perc_pos}%"
     )
-    dica = "Ótimo! Saldo POSITIVO — reforce a reserva e considere um aporte no Tesouro Selic." if saldo >= 0 else \
-           "Alerta! Saldo NEGATIVO — revise despesas e adie gastos não essenciais."
+    dica = (
+        "Ótimo! Saldo POSITIVO — reforce a reserva e considere um aporte no Tesouro Selic."
+        if saldo >= 0
+        else "Alerta! Saldo NEGATIVO — revise despesas e adie gastos não essenciais."
+    )
 
-    return JsonResponse({
-        "ano": ano, "mes": mes,
-        "total_receitas": rec_total, "total_despesas": dep_total,
-        "saldo": saldo, "percentual_positivo": perc_pos,
-        "resumo": resumo, "dica": dica,
-    }, status=200)
+    return JsonResponse(
+        {
+            "ano": ano,
+            "mes": mes,
+            "total_receitas": rec_total,
+            "total_despesas": dep_total,
+            "saldo": saldo,
+            "percentual_positivo": perc_pos,
+            "resumo": resumo,
+            "dica": dica,
+        },
+        status=200,
+    )
 
 
 @login_required
@@ -697,12 +824,12 @@ def dados_grafico_filtrados(request):
     try:
         hoje = timezone.localdate()
         inicio_str = request.GET.get("inicio") or request.GET.get("data_inicio")
-        fim_str    = request.GET.get("fim")    or request.GET.get("data_fim")
-        categoria  = (request.GET.get("categoria") or "").strip()
+        fim_str = request.GET.get("fim") or request.GET.get("data_fim")
+        categoria = (request.GET.get("categoria") or "").strip()
 
         inicio_default, fim_default = _month_bounds(hoje)
         inicio = _parse_date_safely(inicio_str, inicio_default)
-        fim    = _parse_date_safely(fim_str,    _month_bounds(inicio)[1])
+        fim = _parse_date_safely(fim_str, _month_bounds(inicio)[1])
 
         # eixo X: lista 'dd'
         cur = inicio
@@ -713,7 +840,6 @@ def dados_grafico_filtrados(request):
 
         qs = Transacao.objects.filter(data__range=(inicio, fim))
         if categoria:
-            # Troque o campo caso seu model use outro nome
             qs = qs.filter(Q(categoria__iexact=categoria) | Q(categoria__icontains=categoria))
 
         agreg = qs.values("data", "tipo").annotate(total=Sum("valor")).order_by("data")
@@ -733,25 +859,28 @@ def dados_grafico_filtrados(request):
         saldo = []
         acc = 0.0
         for r, de in zip(receitas, despesas):
-            acc += (r - de)
+            acc += r - de
             saldo.append(acc)
 
-        return JsonResponse({
-            "dias": dias,
-            "receitas": receitas,
-            "despesas": despesas,
-            "saldo": saldo,
-            "inicio": inicio.strftime("%Y-%m-%d"),
-            "fim": fim.strftime("%Y-%m-%d"),
-            "categoria": categoria,
-        })
+        return JsonResponse(
+            {
+                "dias": dias,
+                "receitas": receitas,
+                "despesas": despesas,
+                "saldo": saldo,
+                "inicio": inicio.strftime("%Y-%m-%d"),
+                "fim": fim.strftime("%Y-%m-%d"),
+                "categoria": categoria,
+            }
+        )
     except Exception as e:
         logging.exception("Erro em dados_grafico_filtrados")
         return JsonResponse({"ok": False, "error": str(e)}, status=500)
 
-# =============================================================================
+
+# -----------------------------------------------------------------------------
 # Geração sob demanda (opção simples)
-# =============================================================================
+# -----------------------------------------------------------------------------
 @login_required
 @require_POST
 def gerar_dica_sob_demanda(request):
@@ -772,17 +901,17 @@ def gerar_dica_sob_demanda(request):
         return JsonResponse({"ok": False, "error": "Falha ao salvar"}, status=500)
 
 
-# =============================================================================
+# -----------------------------------------------------------------------------
 # Fallback seguro de gerar_texto_dica (se não existir em outro módulo)
-# =============================================================================
-# no topo do fallback (logo antes de gerar os textos), adicione:
+# -----------------------------------------------------------------------------
 def _brl(val: Decimal) -> str:
     q = val.quantize(Decimal("0.01"))
-    s = f"{q:,.2f}"              # 1,234.56
-    s = s.replace(",", "X")      # 1X234.56
-    s = s.replace(".", ",")      # 1X234,56
-    s = s.replace("X", ".")      # 1.234,56
+    s = f"{q:,.2f}"  # 1,234.56
+    s = s.replace(",", "X")  # 1X234.56
+    s = s.replace(".", ",")  # 1X234,56
+    s = s.replace("X", ".")  # 1.234,56
     return f"R$ {s}"
+
 
 if not hasattr(builtins, "gerar_texto_dica"):
 
@@ -838,130 +967,116 @@ if not hasattr(builtins, "gerar_texto_dica"):
         if saldo > 0:
             aporte = (saldo * Decimal("0.20")).quantize(Decimal("0.01"))
             return (
-                f"✅ Superávit de  {_brl(saldo)}. Sugestão: aportar ~R$ {aporte} no Tesouro Selic.",
+                f"✅ Superávit de {_brl(saldo)}. Sugestão: aportar ~{_brl(aporte)} no Tesouro Selic.",
                 "oportunidade",
             )
 
         return (
-            f"🔻 Déficit de R$ {abs(saldo):.2f}. Tente cortar 10% nas 3 maiores despesas.",
+            f"🔻 Déficit de {_brl(abs(saldo))}. Tente cortar 10% nas 3 maiores despesas.",
             "economia",
         )
 
 
+# -----------------------------------------------------------------------------
+# Diagnóstico Transacao
+# -----------------------------------------------------------------------------
 @login_required
 def diag_transacao(request):
     try:
         m = Transacao
         fields = [f.name for f in m._meta.get_fields()]
-        sample = m.objects.order_by('-id').values().first()
-        tipo_field = 'tipo' in fields
-        cat_field  = 'categoria' in fields
-        data_field = m._meta.get_field('data').get_internal_type()  # "DateField" ou "DateTimeField"
-        return JsonResponse({
-            "ok": True, "fields": fields, "data_field": data_field,
-            "has_tipo": tipo_field, "has_categoria": cat_field, "sample": sample
-        })
+        sample = m.objects.order_by("-id").values().first()
+        tipo_field = "tipo" in fields
+        cat_field = "categoria" in fields
+        data_field = m._meta.get_field("data").get_internal_type()  # "DateField" ou "DateTimeField"
+        return JsonResponse(
+            {
+                "ok": True,
+                "fields": fields,
+                "data_field": data_field,
+                "has_tipo": tipo_field,
+                "has_categoria": cat_field,
+                "sample": sample,
+            }
+        )
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=200)
 
 
+# -----------------------------------------------------------------------------
+# Feed histórico v2 (com filtro textual e contadores)
+# -----------------------------------------------------------------------------
 @login_required
 def ia_historico_feed_v2(request):
-    tipo_param = request.GET.get("tipo")  # "positiva" | "alerta" | "neutra" | None
-    limit = int(request.GET.get("limit", 20))
+    """
+    Feed de histórico da IA com filtro por tipo de dica.
+    Exemplo: /financeiro/ia/historico/feed/v2/?limit=20&tipo=alerta
+    """
+    tipo_param = (request.GET.get("tipo") or "").lower().strip()  # positiva|alerta|neutra|""
+    try:
+        limit = int(request.GET.get("limit", 20))
+    except ValueError:
+        limit = 20
+    limit = max(1, min(limit, 100))
 
-    # Compat: pega do usuário e também registros antigos sem usuário
+    # Compat: inclui registros do usuário e antigos sem usuário
     qs = RecomendacaoIA.objects.filter(Q(usuario=request.user) | Q(usuario__isnull=True)).order_by(
         "-criado_em"
     )
 
-    def _fallback_classify(txt: str) -> str:
-        """Fallback simples caso _map_tipo antigo não pegue palavras óbvias."""
-        t = (txt or "").lower()
-        alertas = [
-            "alerta",
-            "atenção",
-            "risco",
-            "evite",
-            "corte",
-            "reduza",
-            "atraso",
-            "déficit",
-            "negativo",
-            "queda",
-            "abaixo",
-            "gasto excessivo",
-            "gastos excessivos",
-            "estouro de caixa",
-            "inadimpl",
-        ]
-        positivas = [
-            "saldo positivo",
-            "positivo",
-            "ótimo",
-            "excelente",
-            "parabéns",
-            "superávit",
-            "acima da meta",
-            "margem",
-            "reforce a reserva",
-            "aporte extra",
-            "continue assim",
-        ]
-        if any(k in t for k in alertas):
-            return "alerta"
-        if any(k in t for k in positivas):
-            return "positiva"
-        return "neutra"
-
     items = []
-    for rec in qs:
+    c_pos = c_alt = c_neu = 0
+
+    for rec in qs[:500]:  # pega até 500 para contar/filtrar
         texto = rec.texto or getattr(rec, "title", "") or ""
-        raw_tipo = (rec.tipo or "").strip().lower()
 
-        # 1) Normaliza: se vier "geral"/vazio/desconhecido => recalcula
-        if raw_tipo not in {"positiva", "alerta", "neutra"}:
+        # Usa o tipo salvo; se não houver, classifica pelo texto
+        tipo_calc = (rec.tipo or "").strip().lower()
+        if tipo_calc not in {"positiva", "alerta", "neutra"}:
             try:
-                tipo_calc = _map_tipo(texto) or "neutra"
-            except Exception:
-                tipo_calc = _fallback_classify(texto)
+                tipo_calc = _map_tipo(texto)
+            except TypeError:
+                # compat: se sua _map_tipo exigir (texto, cor, metrics)
+                tipo_calc = _map_tipo(texto, None, None)
+
+        # Contadores globais
+        if tipo_calc == "positiva":
+            c_pos += 1
+        elif tipo_calc == "alerta":
+            c_alt += 1
         else:
-            tipo_calc = raw_tipo
+            tipo_calc = "neutra"
+            c_neu += 1
 
-        # 2) Fallback extra: se ficou "neutra" mas tem sinais positivos/negativos óbvios
-        if tipo_calc == "neutra":
-            tipo_calc = _fallback_classify(texto)
-
-        # 3) Aplica filtro ?tipo= (se pedido)
-        if tipo_param in {"positiva", "alerta", "neutra"} and tipo_calc != tipo_param:
+        # Filtro ?tipo=
+        if tipo_param and tipo_calc != tipo_param:
             continue
+
+        try:
+            criado_fmt = timezone.localtime(rec.criado_em).strftime("%d/%m/%Y %H:%M")
+        except Exception:
+            criado_fmt = ""
 
         items.append(
             {
                 "id": rec.id,
                 "texto": texto,
-                "text": texto,  # compat front antigo
-                "tipo": tipo_calc,  # agora SEMPRE vem normalizado
-                "categoria": tipo_calc.title(),  # compat visual
-                "title": "Dica da IA",
-                "criado_em": rec.criado_em.strftime("%Y-%m-%d %H:%M:%S"),
+                "tipo": tipo_calc,
+                "criado_em": criado_fmt,
             }
         )
 
         if len(items) >= limit:
             break
 
-    return JsonResponse({"ok": True, "count": len(items), "items": items})
-
-
-
-    #@login_required
-    # def metrics_despesas_por_categoria_view(request):
-        # Placeholder seguro: devolve estrutura vazia para o gráfico
-    #    return JsonResponse(
-    #        {
-    #           "ok": True,
-    #          "labels": [],
-    #         "values": [],
-        #    }
-        #)
+    data = {
+        "ok": True,
+        "count": {
+            "positiva": c_pos,
+            "alerta": c_alt,
+            "neutra": c_neu,
+            "total": c_pos + c_alt + c_neu,
+        },
+        "items": items,
+    }
+    return JsonResponse(data)
