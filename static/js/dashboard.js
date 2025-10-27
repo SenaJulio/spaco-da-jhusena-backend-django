@@ -905,6 +905,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (data.ok) {
           st.textContent = `✅ ${data.tipo?.toUpperCase()}: ${data.dica}`;
+          // 🔄 atualiza o histórico automaticamente
+          document.getElementById("btnReloadDicas")?.click();
         } else {
           st.textContent = "⚠️ Não consegui gerar a dica.";
         }
