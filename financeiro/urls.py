@@ -6,6 +6,7 @@ from django.http import JsonResponse
 from .views_insights import metrics_despesas_por_categoria_view 
 from . import views_financeiro
 from .views_ia import ia_gerar_dica_30d
+from .views_insights import gerar_insight_view
 
 from .views_financeiro import (
     dashboard_financeiro,
@@ -77,4 +78,5 @@ urlpatterns = [
     ),
     path("ia/gerar_dica_30d/", views_financeiro.gerar_dica_30d, name="api_generate_tip_30d"),
     path("ia/dica30d/", ia_gerar_dica_30d, name="ia_dica30d"),
+    path("insights/gerar/", gerar_insight_view, name="gerar_insight"),
 ]

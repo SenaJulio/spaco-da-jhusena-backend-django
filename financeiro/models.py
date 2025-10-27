@@ -33,6 +33,9 @@ class Insight(models.Model):
     categoria_dominante = models.CharField(max_length=50, blank=True, default="")
     score = models.DecimalField(max_digits=5, decimal_places=2, default=0)
 
+    # ✅ novo campo para compatibilidade com o teste
+    generated_by = models.CharField(max_length=16, default="manual")
+
     def __str__(self):
         return f"[{self.kind}] {self.title} ({self.created_at:%d/%m/%Y %H:%M})"
 
