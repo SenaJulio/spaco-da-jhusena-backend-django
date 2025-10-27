@@ -5,6 +5,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from .views_insights import metrics_despesas_por_categoria_view 
 from . import views_financeiro
+from .views_ia import ia_gerar_dica_30d
 
 from .views_financeiro import (
     dashboard_financeiro,
@@ -54,7 +55,6 @@ urlpatterns = [
     path(
         "ia/historico/feed/v2/", login_required(ia_historico_feed_v2), name="ia_historico_feed_v2"
     ),
-
     path("ia/resumo-mensal/", login_required(ia_resumo_mensal), name="ia_resumo_mensal"),
     # Dados para gráficos do dashboard
     path(
@@ -70,6 +70,11 @@ urlpatterns = [
     # Diagnóstico de modelo
     path("diag/transacao/", login_required(diag_transacao), name="diag_transacao"),
     # (opcional futuro)
-    path("metrics/despesas-por-categoria/", login_required(metrics_despesas_por_categoria_view), name="metrics_despesas_por_categoria"),
+    path(
+        "metrics/despesas-por-categoria/",
+        login_required(metrics_despesas_por_categoria_view),
+        name="metrics_despesas_por_categoria",
+    ),
     path("ia/gerar_dica_30d/", views_financeiro.gerar_dica_30d, name="api_generate_tip_30d"),
+    path("ia/dica30d/", ia_gerar_dica_30d, name="ia_dica30d"),
 ]

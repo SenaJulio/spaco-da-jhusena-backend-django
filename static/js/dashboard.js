@@ -828,7 +828,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // dispara quando a categoria mudar
     catInput.addEventListener("change", reloadFromStart);
   });
-  
+
   // 🧠 Histórico — salvar e restaurar posição de rolagem
   document.addEventListener("DOMContentLoaded", () => {
     const wrap = document.getElementById("listaHistorico"); // contêiner do histórico
@@ -876,4 +876,46 @@ document.addEventListener("DOMContentLoaded", () => {
     // pequena espera para garantir que a lista já foi montada
     setTimeout(restore, 120);
   });
+  // === 💡 IA: Gerar Nova Dica (últimos 30 dias) ===
+  document.addEventListener("DOMContentLoaded", function () {
+    const btn = document.getElementById("btnGerarDica30d");
+    const st = document.getElementById("stDica30d");
+    if (!btn) return; // evita erro se o botão não existir no DOM
+
+    // pega o token CSRF
+    function getCookie(name) {
+      const value = `; ${document.cookie}`;
+      const parts = value.split(`; ${name}=`);
+      if (parts.length === 2) return parts.pop().split(";").shift();
+    }
+
+    btn.addEventListener("click", async () => {
+      console.log("⚡ [Dica30d] clique detectado");
+      try {
+        btn.disabled = true;
+        if (st) st.textContent = "Gerando dica...";
+
+        const resp = await fetch("/financeiro/ia/dica30d/", {
+          method: "POST",
+          headers: { "X-CSRFToken": getCookie("csrftoken") },
+        });
+
+        const data = await resp.json();
+        console.log("✅ [Dica30d] resposta:", data);
+
+        if (data.ok) {
+          st.textContent = `✅ ${data.tipo?.toUpperCase()}: ${data.dica}`;
+        } else {
+          st.textContent = "⚠️ Não consegui gerar a dica.";
+        }
+      } catch (e) {
+        console.error("💥 [Dica30d] erro:", e);
+        st.textContent = "Erro ao gerar dica.";
+      } finally {
+        setTimeout(() => (st.textContent = ""), 4000);
+        btn.disabled = false;
+      }
+    });
+  });
 })();
+

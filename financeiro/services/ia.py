@@ -8,60 +8,81 @@ from django.contrib.auth import get_user_model
 from financeiro.models import RecomendacaoIA
 
 
-from usuarios.models import Usuario
-User = get_user_model()
-
 import re
+import unicodedata
+
+
+def _norm(s: str) -> str:
+    # normaliza para comparação robusta: minúsculas e sem acento
+    s = s.lower()
+    s = unicodedata.normalize("NFD", s)
+    s = "".join(ch for ch in s if unicodedata.category(ch) != "Mn")
+    return s
 
 
 def _map_tipo(texto: str) -> str:
     """
     Classifica a dica em 'positiva', 'alerta' ou 'neutra' usando
-    correspondência por palavras-chave tolerante.
+    palavras-chave + detecção de percentual no texto.
     """
     if not texto:
         return "neutra"
 
-    t = texto.lower()
+    t = _norm(texto)
 
     # ALERTA — qualquer ocorrência classifica
     alertas = [
         "alerta",
-        "atenção",
+        "atencao",
         "risco",
         "evite",
         "corte",
         "reduza",
         "atraso",
-        "déficit",
+        "deficit",
         "negativo",
         "queda",
         "abaixo",
         "gasto excessivo",
         "gastos excessivos",
         "estouro de caixa",
-        "inadimpl",  # cobre inadimplência/inadimplente
+        "inadimpl",  # cobre inadimplencia/inadimplente
     ]
 
     # POSITIVA — qualquer ocorrência classifica
     positivas = [
         "saldo positivo",
         "positivo",
-        "ótimo",
+        "otimo",
         "excelente",
-        "parabéns",
-        "superávit",
+        "parabens",
+        "superavit",
         "acima da meta",
         "margem",
         "reforce a reserva",
         "aporte extra",
         "continue assim",
+        "sobrou",
+        "lucro",
     ]
 
     if any(k in t for k in alertas):
         return "alerta"
     if any(k in t for k in positivas):
         return "positiva"
+
+    # Heurística por percentual no texto (ex.: "12,3%")
+    m = re.search(r"(-?\d+[.,]?\d*)\s*%", t)
+    if m:
+        try:
+            val = float(m.group(1).replace(",", "."))
+            if val >= 5:  # margem ≥ +5% => positiva
+                return "positiva"
+            if val <= -1:  # margem ≤ -1% => alerta
+                return "alerta"
+        except ValueError:
+            pass
+
     return "neutra"
 
 
