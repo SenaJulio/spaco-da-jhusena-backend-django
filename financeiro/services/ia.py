@@ -8,29 +8,48 @@ from django.contrib.auth import get_user_model
 from financeiro.models import RecomendacaoIA
 
 
+# financeiro/services/ia.py (topo)
 import re
 import unicodedata
 
 
 def _norm(s: str) -> str:
-    # normaliza para comparação robusta: minúsculas e sem acento
-    s = s.lower()
+    """
+    Normaliza texto: minúsculas, remove acentos, colapsa espaços e
+    tira pontuações básicas pra facilitar a detecção por palavra-chave.
+    """
+    if not s:
+        return ""
+    s = s.strip().lower()
+    # remove acentos
     s = unicodedata.normalize("NFD", s)
     s = "".join(ch for ch in s if unicodedata.category(ch) != "Mn")
-    return s
+    # troca separadores por espaço
+    s = re.sub(r"[\n\r\t]+", " ", s)
+    # remove pontuações comuns (mantém % e , . para detectar percentuais)
+    s = re.sub(r"[!?:;()\\[\\]{}\"'«»“”’·•…]", " ", s)
+    # colapsa espaços
+    s = re.sub(r"\\s+", " ", s)
+    return s.strip()
 
 
 def _map_tipo(texto: str) -> str:
     """
     Classifica a dica em 'positiva', 'alerta' ou 'neutra' usando
-    palavras-chave + detecção de percentual no texto.
+    palavras-chave + heurística por percentual no texto.
     """
     if not texto:
         return "neutra"
 
     t = _norm(texto)
 
-    # ALERTA — qualquer ocorrência classifica
+    # Frases que devem ser neutras explicitamente
+    neutras = [
+        "sem movimentos",
+        "poucos dados",
+        "continue registrando",
+    ]
+
     alertas = [
         "alerta",
         "atencao",
@@ -46,10 +65,9 @@ def _map_tipo(texto: str) -> str:
         "gasto excessivo",
         "gastos excessivos",
         "estouro de caixa",
-        "inadimpl",  # cobre inadimplencia/inadimplente
+        "inadimpl",  # inadimplencia / inadimplente
     ]
 
-    # POSITIVA — qualquer ocorrência classifica
     positivas = [
         "saldo positivo",
         "positivo",
@@ -66,19 +84,24 @@ def _map_tipo(texto: str) -> str:
         "lucro",
     ]
 
+    # neutras explícitas primeiro
+    if any(k in t for k in neutras):
+        return "neutra"
+
     if any(k in t for k in alertas):
         return "alerta"
+
     if any(k in t for k in positivas):
         return "positiva"
 
-    # Heurística por percentual no texto (ex.: "12,3%")
-    m = re.search(r"(-?\d+[.,]?\d*)\s*%", t)
+    # Heurística de percentual no texto (ex.: "57,1%")
+    m = re.search(r"(-?\\d+[.,]?\\d*)\\s*%", t)
     if m:
         try:
             val = float(m.group(1).replace(",", "."))
-            if val >= 5:  # margem ≥ +5% => positiva
+            if val >= 5:  # margem >= +5% => positiva
                 return "positiva"
-            if val <= -1:  # margem ≤ -1% => alerta
+            if val <= -1:  # margem <= -1% => alerta
                 return "alerta"
         except ValueError:
             pass

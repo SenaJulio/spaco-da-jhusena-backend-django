@@ -159,7 +159,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const elCountNeutra = document.getElementById("countNeutra");
 
   // Filtros
-  const filterButtons = document.querySelectorAll("[data-filter]");
+  // >>>>>>>>> ALTERAÇÃO 1: aceitar data-ia-filtro também
+  const filterButtons = document.querySelectorAll(
+    "[data-ia-filtro],[data-filter]"
+  );
   const btnFiltroIDs = {
     todas: document.getElementById("btnTodas"),
     positivas: document.getElementById("btnPositivas"),
@@ -369,13 +372,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // Filtros por data-filter (recomendado — mantenha só esse)
+  // Filtros por atributo (recomendado — mantém compat)
   if (filterButtons && filterButtons.length) {
     filterButtons.forEach((btn) => {
       btn.addEventListener("click", () => {
         filterButtons.forEach((b) => b.classList.remove("active"));
         btn.classList.add("active");
-        const f = _normalizeTipo(btn.getAttribute("data-filter"));
+        // >>>>>>>>> ALTERAÇÃO 2: tentar data-ia-filtro e cair para data-filter
+        const f = _normalizeTipo(
+          btn.getAttribute("data-ia-filtro") || btn.getAttribute("data-filter")
+        );
         window.carregarHistorico(20, f);
       });
     });
@@ -615,3 +621,96 @@ document.addEventListener("DOMContentLoaded", () => {
       });
   })();
 });
+// === PATCH: Diagnóstico e wire dos botões ===
+(function () {
+  // 1) Diagnóstico: confira se os elementos existem
+  const req = {
+    listaHistorico: !!document.getElementById("listaHistorico"),
+    btnTurbo:       !!document.getElementById("btnTurbo"),
+    btnReloadDicas: !!document.getElementById("btnReloadDicas"),
+    filtros:        !!document.querySelectorAll("[data-ia-filtro],[data-filter]").length,
+  };
+  console.log("🔎 Diagnóstico elementos:", req);
+
+  // 2) Corrigir a URL do botão “Gerar dica 30d”
+  //    >>> Estávamos usando /financeiro/modo-turbo/dica30d/, mas no seu backend está OK com /financeiro/ia/dica30d/
+  const __BTN_TURBO_FIX__ = document.getElementById("btnTurbo");
+  if (__BTN_TURBO_FIX__) {
+    __BTN_TURBO_FIX__.onclick = async (ev) => {
+      ev.preventDefault();
+      const st  = document.getElementById("turboStatus");
+      const box = document.getElementById("turboResult");
+      const dica = document.getElementById("turboDica");
+      try {
+        __BTN_TURBO_FIX__.disabled = true;
+        if (st) { st.textContent = "Analisando…"; st.classList.remove("d-none"); }
+        if (box) box.classList.add("d-none");
+
+        const r = await fetch("/financeiro/ia/dica30d/", {  // <<< URL corrigida
+          method: "POST",
+          headers: {
+            "X-Requested-With": "XMLHttpRequest",
+            "X-CSRFToken": (function () {
+              const m = document.cookie.match(/(^|;\s*)csrftoken=([^;]+)/);
+              return m ? decodeURIComponent(m[2]) : "";
+            })(),
+            "Accept": "application/json",
+          },
+          credentials: "same-origin",
+        });
+
+        const j = await r.json();
+        console.log("✅ [Dica30d] resposta:", j);
+        if (j && j.ok) {
+          if (dica) {
+            const titulo = j.title || "Dica dos últimos 30 dias";
+            const texto  = j.text || j.dica || "(sem texto)";
+            const quando = j.created_at || new Date().toLocaleString("pt-BR");
+            dica.textContent = `${titulo} — ${texto}\n(Insight • ${quando})`;
+          }
+          if (box) box.classList.remove("d-none");
+          if (st)  st.textContent = "✅ Pronto! Nova dica gerada.";
+          // recarrega histórico para aparecer a dica recém-salva
+          window.__HistoricoIA?.recarregar?.();
+        } else {
+          if (st) st.textContent = "⚠️ Não consegui gerar a dica.";
+        }
+      } catch (e) {
+        console.error("💥 [Dica30d] erro:", e);
+        if (st) st.textContent = "Erro na solicitação.";
+      } finally {
+        __BTN_TURBO_FIX__.disabled = false;
+        setTimeout(() => { if (st) st.classList.add("d-none"); }, 2000);
+      }
+    };
+  }
+
+  // 3) “Atualizar histórico” → chama o carregador público
+  const __BTN_RELOAD__ = document.getElementById("btnReloadDicas") || document.getElementById("btnReloadFeed");
+  if (__BTN_RELOAD__) {
+    __BTN_RELOAD__.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      console.log("🔄 [Historico] recarregar()");
+      window.__HistoricoIA?.recarregar?.();
+    });
+  }
+
+  // 4) Filtros “Todas / Positivas / Alertas / Neutras”
+  document.querySelectorAll("[data-ia-filtro],[data-filter]").forEach((btn) => {
+    btn.addEventListener("click", (ev) => {
+      ev.preventDefault();
+      const tipo = (btn.getAttribute("data-ia-filtro") || btn.getAttribute("data-filter") || "").toLowerCase();
+      console.log("[Historico] filtro:", tipo || "(todas)");
+      window.__HistoricoIA?.filtrar?.(tipo);
+    });
+  });
+
+  // 5) “Ver Histórico” (se existir) → força uma carga antes de abrir
+  const __BTN_VER_HIST__ = document.getElementById("btnHistoricoIA");
+  if (__BTN_VER_HIST__) {
+    __BTN_VER_HIST__.addEventListener("click", () => {
+      console.log("🧠 [Historico] abrir modal + carregar()");
+      window.__HistoricoIA?.recarregar?.();
+    });
+  }
+})();
