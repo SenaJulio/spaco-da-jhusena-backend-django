@@ -919,5 +919,6 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     });
   });
+  
 })();
 

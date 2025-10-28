@@ -193,22 +193,23 @@
 
 
     <!-- ⚙️ Filtros rápidos -->
-    <div class="mt-2">
-      <div class="btn-group" role="group">
-        <button type="button" class="btn btn-sm btn-outline-primary active" data-filter="all">
-          Todas <span class="badge bg-light text-dark ms-1" id="countAll">0</span>
-        </button>
-        <button type="button" class="btn btn-sm btn-outline-success" data-filter="positiva">
-          Positivas <span class="badge bg-light text-dark ms-1" id="countPos">0</span>
-        </button>
-        <button type="button" class="btn btn-sm btn-outline-warning" data-filter="alerta">
-          Alertas <span class="badge bg-light text-dark ms-1" id="countAlerta">0</span>
-        </button>
-        <button type="button" class="btn btn-sm btn-outline-secondary" data-filter="neutra">
-          Neutras <span class="badge bg-light text-dark ms-1" id="countNeutra">0</span>
-        </button>
-      </div>
-    </div>
+   <div class="mt-2">
+  <div class="btn-group" role="group">
+    <button type="button" class="btn btn-sm btn-outline-primary active" data-ia-filtro="">
+      Todas <span class="badge bg-light text-dark ms-1" id="countAll">0</span>
+    </button>
+    <button type="button" class="btn btn-sm btn-outline-success" data-ia-filtro="positiva">
+      Positivas <span class="badge bg-light text-dark ms-1" id="countPos">0</span>
+    </button>
+    <button type="button" class="btn btn-sm btn-outline-warning" data-ia-filtro="alerta">
+      Alertas <span class="badge bg-light text-dark ms-1" id="countAlerta">0</span>
+    </button>
+    <button type="button" class="btn btn-sm btn-outline-secondary" data-ia-filtro="neutra">
+      Neutras <span class="badge bg-light text-dark ms-1" id="countNeutra">0</span>
+    </button>
+  </div>
+</div>
+
 
     <!-- Preview dentro do card -->
     <section class="mt-3">
@@ -372,7 +373,7 @@
 
 <!-- Ordem: Chart.js -> dashboard.js -> seus scripts -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
-<script src="{% static 'financeiro/historico_ia.js' %}?v=1"></script>
+<script src="{% static 'js/historico_ia.js' %}"></script>
 <script src="{% static 'js/dashboard.js' %}"></script>
 
 
