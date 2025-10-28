@@ -1,6 +1,7 @@
 // ======================================================
 // historico_ia.js — versão “clean” (uma passada só)
 // ======================================================
+let __LAST_HIST_URL__ = "";
 
 // ---- Guardião: impede rodar duas vezes o mesmo script
 if (window.__IA_HIST_INIT_DONE__) {
@@ -198,6 +199,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (t) qs.set("tipo", t); // positiva | alerta | neutra
 
     const finalUrl = `${FEED_URL}?${qs.toString()}`;
+    // Evita chamadas duplicadas para a mesma URL
+    // Evita chamadas duplicadas para a mesma URL
+    if (window.__LAST_HIST_URL__ === finalUrl) return;
+    window.__LAST_HIST_URL__ = finalUrl;
+
     console.log("[Historico] GET", finalUrl);
     const r = await fetch(finalUrl, {
       headers: { Accept: "application/json" },
@@ -710,7 +716,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (__BTN_VER_HIST__) {
     __BTN_VER_HIST__.addEventListener("click", () => {
       console.log("🧠 [Historico] abrir modal + carregar()");
-      window.__HistoricoIA?.recarregar?.();
+      window.carregarHistorico(20, "");
     });
   }
 })();
