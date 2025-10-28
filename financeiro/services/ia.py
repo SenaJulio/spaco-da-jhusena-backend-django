@@ -200,3 +200,131 @@ def generate_tip_last_30d(Transacao, usuario=None, auto_save=True):
             saved_id = rec.id
 
     return dica, metrics, saved_id
+
+# --- Classificador de tipo de dica ---
+import re
+from typing import Optional
+
+_PCT_RE = re.compile(r"(?<![\w])(-?\d{1,3}(?:[.,]\d+)?)\s*%")
+
+_POS_KW = {
+    "ótimo",
+    "otimo",
+    "excelente",
+    "bom",
+    "muito bom",
+    "saldo positivo",
+    "lucro",
+    "acima da meta",
+    "margem positiva",
+    "superávit",
+    "superavit",
+    "sobra",
+    "crescimento",
+    "recuperação",
+    "recuperacao",
+    "reforce a reserva",
+}
+_ALERT_KW = {
+    "alerta",
+    "atenção",
+    "atencao",
+    "cuidado",
+    "risco",
+    "queda",
+    "abaixo",
+    "déficit",
+    "deficit",
+    "prejuízo",
+    "prejuizo",
+    "negativo",
+    "gasto alto",
+    "estouro",
+    "acima do orçamento",
+    "aperto de caixa",
+    "corte de gastos",
+    "priorize despesas essenciais",
+}
+_NEU_KW = {
+    "neutro",
+    "estável",
+    "estavel",
+    "sem mudança",
+    "sem mudanca",
+    "manter",
+    "regular",
+    "estável no mês",
+    "estavel no mes",
+}
+
+
+def _extract_percent(texto: str) -> Optional[float]:
+    """
+    Retorna o primeiro percentual encontrado no texto como float (ex: '57,1%' -> 57.1).
+    Aceita sinal negativo. Se não houver %, retorna None.
+    """
+    if not texto:
+        return None
+    m = _PCT_RE.search(texto)
+    if not m:
+        return None
+    raw = m.group(1).replace(",", ".")
+    try:
+        return float(raw)
+    except ValueError:
+        return None
+
+
+def _score_by_keywords(texto_low: str) -> int:
+    score = 0
+    for kw in _POS_KW:
+        if kw in texto_low:
+            score += 2
+    for kw in _ALERT_KW:
+        if kw in texto_low:
+            score -= 2
+    for kw in _NEU_KW:
+        if kw in texto_low:
+            score += 0  # neutras não pesam, só ajudam desempate se não houver %.
+    # Sinais fortes
+    if "saldo positivo" in texto_low or "margem positiva" in texto_low:
+        score += 3
+    if "saldo negativo" in texto_low or "margem negativa" in texto_low:
+        score -= 3
+    return score
+
+
+def _map_tipo(texto: str) -> str:
+    """
+    Classifica a dica em 'positiva', 'alerta' ou 'neutra'.
+    Regras:
+      1) Palavras-chave somam pontos (positivas) ou subtraem (alertas).
+      2) Percentual (se existir) refina:
+         - >= 20%  -> forte POSITIVA
+         - 5%..20% -> NEUTRA (ou segue keywords se houver forte sinal)
+         - < 5%    -> ALERTA/NEUTRA conforme keywords
+         - percentual negativo -> ALERTA
+    """
+    if not texto:
+        return "neutra"
+
+    tlow = texto.lower().strip()
+    score = _score_by_keywords(tlow)
+
+    pct = _extract_percent(tlow)
+    if pct is not None:
+        if pct < 0:
+            score -= 4  # negativo é forte alerta
+        elif pct >= 20:
+            score += 4  # margem forte positiva
+        elif 5 <= pct < 20:
+            score += 1  # leve positivo (pende a neutra se sem outras evidências)
+        else:  # 0 <= pct < 5
+            score += 0  # pouco impacto, deixa keywords decidirem
+
+    # Decisão final com faixas e desempate conservador
+    if score >= 2:
+        return "positiva"
+    if score <= -1:
+        return "alerta"
+    return "neutra"

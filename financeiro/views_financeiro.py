@@ -20,6 +20,7 @@ from django.views.decorators.http import require_http_methods
 from django.utils.dateparse import parse_date
 from django.db.models.functions import TruncDate
 from django.db import DatabaseError
+from django.db.models import Count
 
 import hashlib
 import logging
@@ -292,8 +293,8 @@ def gerar_dica_30d(request):
     saved = False
     rec_id = None
 
-    saved = False if 'saved' not in locals() else bool(saved)  # ✅ garante existência
-    rec_id = None if 'rec_id' not in locals() else rec_id      # ✅ garante existência
+    saved = False if "saved" not in locals() else bool(saved)  # ✅ garante existência
+    rec_id = None if "rec_id" not in locals() else rec_id  # ✅ garante existência
 
     # 4) Persistência opcional em HistoricoIA (se existir)
     if HistoricoIA is not None:
@@ -341,7 +342,7 @@ def gerar_dica_30d(request):
             logging.getLogger(__name__).exception("Falha ao salvar em HistoricoIA")
 
     # 5) Salva no modelo do painel (RecomendacaoIA)
-        # 5) Salva no modelo do painel (RecomendacaoIA) — tolerante a duplicatas
+    # 5) Salva no modelo do painel (RecomendacaoIA) — tolerante a duplicatas
     try:
         texto_limpo = (dica or "").strip()
         print("DEBUG salvar dica | texto:", repr(texto_limpo))
@@ -1006,77 +1007,50 @@ def diag_transacao(request):
 # -----------------------------------------------------------------------------
 # Feed histórico v2 (com filtro textual e contadores)
 # -----------------------------------------------------------------------------
+
+
 @login_required
+@require_GET
 def ia_historico_feed_v2(request):
     """
     Feed de histórico da IA com filtro por tipo de dica.
     Exemplo: /financeiro/ia/historico/feed/v2/?limit=20&tipo=alerta
     """
-    tipo_param = (request.GET.get("tipo") or "").lower().strip()  # positiva|alerta|neutra|""
+    tipo_param = (
+        (request.GET.get("tipo") or "").lower().strip()
+    )  # "positiva" | "alerta" | "neutra" | ""
     try:
         limit = int(request.GET.get("limit", 20))
     except ValueError:
         limit = 20
     limit = max(1, min(limit, 100))
 
-    # Compat: inclui registros do usuário e antigos sem usuário
-    qs = RecomendacaoIA.objects.filter(Q(usuario=request.user) | Q(usuario__isnull=True)).order_by(
-        "-criado_em"
+    qs = RecomendacaoIA.objects.filter(usuario=request.user).order_by("-criado_em")
+
+    # Filtro por tipo (apenas se for um valor válido)
+    if tipo_param in ("positiva", "alerta", "neutra"):
+        qs = qs.filter(tipo=tipo_param)
+
+    # Paginação simples por limite
+    itens = list(qs[:limit].values("id", "texto", "tipo", "criado_em"))
+
+    # Contadores por tipo (sempre úteis para os botões/GUI)
+    agg = (
+        RecomendacaoIA.objects.filter(usuario=request.user).values("tipo").annotate(qtd=Count("id"))
     )
+    counts = {"positiva": 0, "alerta": 0, "neutra": 0}
+    total = 0
+    for row in agg:
+        t = (row.get("tipo") or "").lower()
+        if t in counts:
+            counts[t] = int(row["qtd"])
+            total += int(row["qtd"])
 
-    items = []
-    c_pos = c_alt = c_neu = 0
-
-    for rec in qs[:500]:  # pega até 500 para contar/filtrar
-        texto = rec.texto or getattr(rec, "title", "") or ""
-
-        # Usa o tipo salvo; se não houver, classifica pelo texto
-        tipo_calc = (rec.tipo or "").strip().lower()
-        if tipo_calc not in {"positiva", "alerta", "neutra"}:
-            try:
-                tipo_calc = _map_tipo(texto)
-            except TypeError:
-                # compat: se sua _map_tipo exigir (texto, cor, metrics)
-                tipo_calc = _map_tipo(texto, None, None)
-
-        # Contadores globais
-        if tipo_calc == "positiva":
-            c_pos += 1
-        elif tipo_calc == "alerta":
-            c_alt += 1
-        else:
-            tipo_calc = "neutra"
-            c_neu += 1
-
-        # Filtro ?tipo=
-        if tipo_param and tipo_calc != tipo_param:
-            continue
-
-        try:
-            criado_fmt = timezone.localtime(rec.criado_em).strftime("%d/%m/%Y %H:%M")
-        except Exception:
-            criado_fmt = ""
-
-        items.append(
-            {
-                "id": rec.id,
-                "texto": texto,
-                "tipo": tipo_calc,
-                "criado_em": criado_fmt,
-            }
-        )
-
-        if len(items) >= limit:
-            break
-
-    data = {
-        "ok": True,
-        "count": {
-            "positiva": c_pos,
-            "alerta": c_alt,
-            "neutra": c_neu,
-            "total": c_pos + c_alt + c_neu,
-        },
-        "items": items,
-    }
-    return JsonResponse(data)
+    return JsonResponse(
+        {
+            "ok": True,
+            "tipo_aplicado": tipo_param if tipo_param in counts else "",
+            "count": {**counts, "total": total},
+            "results": itens,
+        }
+    )

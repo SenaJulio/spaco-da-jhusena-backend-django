@@ -1,0 +1,158 @@
+// static/financeiro/historico_ia.js
+console.log("🔍 historico_ia.js carregado");
+
+document.addEventListener("DOMContentLoaded", function () {
+  // Evita rodar duas vezes se o script for incluído duplicado
+  if (document.body.dataset.iaHistoricoInit === "1") return;
+  document.body.dataset.iaHistoricoInit = "1";
+
+  // ------ Config ------
+  const BASE_URL = "/financeiro/ia/historico/feed/v2/"; // endpoint do backend
+  const LIMIT_PADRAO = 20;
+
+  // ------ Elementos (todos opcionais: o código não quebra se algum não existir) ------
+  const elLista = document.querySelector("#listaHistorico"); // UL/Div onde listar as dicas
+  const elStatus = document.querySelector("#statusHistorico"); // span pequeno de status (opcional)
+  const elBtnPos = document.querySelector("#btnFiltroPositivas"); // botão "Positivas"
+  const elBtnAle = document.querySelector("#btnFiltroAlertas"); // botão "Alertas"
+  const elBtnNeu = document.querySelector("#btnFiltroNeutras"); // botão "Neutras"
+  const elBtnAll = document.querySelector("#btnFiltroGeral"); // botão "Geral/Todas"
+
+  // Badges/contadores (se existirem, serão atualizados)
+  const badgePos = document.querySelector("#badgePositivas");
+  const badgeAle = document.querySelector("#badgeAlertas");
+  const badgeNeu = document.querySelector("#badgeNeutras");
+  const badgeTot = document.querySelector("#badgeTotal");
+
+  // ------ Estado ------
+  let estado = {
+    tipo: "", // "", "positiva", "alerta", "neutra"
+    limit: LIMIT_PADRAO,
+    carregando: false,
+  };
+
+  // ------ Util ------
+  function setStatus(msg) {
+    if (elStatus) {
+      elStatus.textContent = msg || "";
+      elStatus.classList.toggle("d-none", !msg);
+    }
+  }
+
+  function limparLista() {
+    if (!elLista) return;
+    elLista.innerHTML = "";
+  }
+
+  function renderItem(item) {
+    // item: {id, texto, tipo, criado_em}
+    const li = document.createElement("li");
+    li.className = "list-group-item d-flex flex-column gap-1";
+    const tipo = (item.tipo || "").toLowerCase();
+    let badgeClass =
+      tipo === "positiva"
+        ? "bg-success"
+        : tipo === "alerta"
+        ? "bg-danger"
+        : "bg-secondary";
+
+    li.innerHTML = `
+      <div class="d-flex align-items-center justify-content-between">
+        <span class="badge ${badgeClass}">${tipo || "geral"}</span>
+        <small class="text-muted">${new Date(
+          item.criado_em
+        ).toLocaleString()}</small>
+      </div>
+      <div>${escapeHtml(item.texto || "")}</div>
+    `;
+    return li;
+  }
+
+  function escapeHtml(s) {
+    return String(s)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;");
+  }
+
+  function atualizarBadges(counts) {
+    if (badgePos) badgePos.textContent = counts?.positiva ?? 0;
+    if (badgeAle) badgeAle.textContent = counts?.alerta ?? 0;
+    if (badgeNeu) badgeNeu.textContent = counts?.neutra ?? 0;
+    if (badgeTot) badgeTot.textContent = counts?.total ?? 0;
+  }
+
+  function marcarBotaoAtivo(tipo) {
+    // Adiciona/remover classe 'active' conforme o filtro aplicado (se existirem)
+    const m = (btn, ativo) => btn && btn.classList.toggle("active", !!ativo);
+    m(elBtnAll, !tipo);
+    m(elBtnPos, tipo === "positiva");
+    m(elBtnAle, tipo === "alerta");
+    m(elBtnNeu, tipo === "neutra");
+  }
+
+  // ------ Core ------
+  async function carregarHistorico({ tipo = "", limit = LIMIT_PADRAO } = {}) {
+    if (estado.carregando) return;
+    estado.carregando = true;
+    setStatus("Carregando histórico…");
+    marcarBotaoAtivo(tipo);
+
+    try {
+      const url = new URL(BASE_URL, window.location.origin);
+      url.searchParams.set("limit", String(limit));
+      if (tipo) url.searchParams.set("tipo", tipo);
+
+      const resp = await fetch(url.toString(), { credentials: "same-origin" });
+      if (!resp.ok) throw new Error("Falha na requisição do histórico");
+      const data = await resp.json();
+
+      atualizarBadges(data?.count || {});
+      limparLista();
+
+      const itens = Array.isArray(data?.results) ? data.results : [];
+      if (!itens.length) {
+        if (elLista) {
+          const li = document.createElement("li");
+          li.className = "list-group-item text-muted";
+          li.textContent = "Nenhuma dica encontrada.";
+          elLista.appendChild(li);
+        }
+        setStatus("");
+        estado.carregando = false;
+        return;
+      }
+
+      if (elLista) {
+        for (const it of itens) elLista.appendChild(renderItem(it));
+      }
+      setStatus("");
+    } catch (e) {
+      console.error("Erro ao carregar histórico:", e);
+      setStatus("Erro ao carregar histórico.");
+    } finally {
+      estado.carregando = false;
+      estado.tipo = tipo;
+      estado.limit = limit;
+    }
+  }
+
+  // ------ Eventos ------
+  if (elBtnAll)
+    elBtnAll.addEventListener("click", () => carregarHistorico({ tipo: "" }));
+  if (elBtnPos)
+    elBtnPos.addEventListener("click", () =>
+      carregarHistorico({ tipo: "positiva" })
+    );
+  if (elBtnAle)
+    elBtnAle.addEventListener("click", () =>
+      carregarHistorico({ tipo: "alerta" })
+    );
+  if (elBtnNeu)
+    elBtnNeu.addEventListener("click", () =>
+      carregarHistorico({ tipo: "neutra" })
+    );
+
+  // ------ Boot inicial ------
+  carregarHistorico({ tipo: "" });
+});
