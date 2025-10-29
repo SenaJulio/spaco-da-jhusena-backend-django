@@ -1,13 +1,15 @@
 {% extends "base.html" %}
+
+{% csrf_token %}
 {% load moeda %}
 {% load static %}
 
 {% block title %}📊 Painel Financeiro{% endblock %}
 
 {% block content %}
-{% csrf_token %}
+
 <meta name="csrf-token" content="{{ csrf_token }}" />
-<link rel="icon" href="{% static 'favicon.ico' %}">
+
 
 <p style="opacity: 0.6">
   DEBUG: {{ total_receitas }} | {{ total_despesas }} | {{ saldo }}
