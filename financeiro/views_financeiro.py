@@ -1009,48 +1009,97 @@ def diag_transacao(request):
 # -----------------------------------------------------------------------------
 
 
+# financeiro/views_financeiro.py (ou equivalente)
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.http import require_GET
+from django.http import JsonResponse
+from django.db.models import Count, Q
+
+from .models import RecomendacaoIA
+from .services.ia import _map_tipo
+
+
 @login_required
 @require_GET
 def ia_historico_feed_v2(request):
     """
     Feed de histórico da IA com filtro por tipo de dica.
-    Exemplo: /financeiro/ia/historico/feed/v2/?limit=20&tipo=alerta
+    Ex.: /financeiro/ia/historico/feed/v2/?limit=20&tipo=alerta
+         tipo ∈ {"positiva","alerta","neutra"} | vazio => todas
+    Resposta:
+      {
+        "ok": true,
+        "filtro": "alerta" | "positiva" | "neutra" | "todas",
+        "count": {"positiva": X, "alerta": Y, "neutra": Z, "total": T},
+        "items": [
+          {"id": 1, "tipo": "positiva", "texto": "...", "criado_em": "...", "criado_em_fmt": "dd/mm/aaaa HH:MM"},
+          ...
+        ]
+      }
     """
-    tipo_param = (
-        (request.GET.get("tipo") or "").lower().strip()
-    )  # "positiva" | "alerta" | "neutra" | ""
+    user = request.user
+    tipo_param = (request.GET.get("tipo") or "").lower().strip()
     try:
         limit = int(request.GET.get("limit", 20))
     except ValueError:
         limit = 20
     limit = max(1, min(limit, 100))
 
-    qs = RecomendacaoIA.objects.filter(usuario=request.user).order_by("-criado_em")
+    # Backfill leve: classifica registros sem 'tipo'
+    sem_tipo_qs = RecomendacaoIA.objects.filter(usuario=user).filter(
+        Q(tipo__isnull=True) | Q(tipo="")
+    )[
+        :200
+    ]  # pequeno lote
+    updated = []
+    for rec in sem_tipo_qs:
+        novo_tipo = _map_tipo(rec.texto or "")
+        if novo_tipo != (rec.tipo or ""):
+            rec.tipo = novo_tipo
+            updated.append(rec)
+    if updated:
+        RecomendacaoIA.objects.bulk_update(updated, ["tipo"])
 
-    # Filtro por tipo (apenas se for um valor válido)
-    if tipo_param in ("positiva", "alerta", "neutra"):
-        qs = qs.filter(tipo=tipo_param)
-
-    # Paginação simples por limite
-    itens = list(qs[:limit].values("id", "texto", "tipo", "criado_em"))
-
-    # Contadores por tipo (sempre úteis para os botões/GUI)
-    agg = (
-        RecomendacaoIA.objects.filter(usuario=request.user).values("tipo").annotate(qtd=Count("id"))
-    )
-    counts = {"positiva": 0, "alerta": 0, "neutra": 0}
+    # Contadores globais para os botões
+    agg = RecomendacaoIA.objects.filter(usuario=user).values("tipo").annotate(c=Count("id"))
+    count_map = {"positiva": 0, "alerta": 0, "neutra": 0}
     total = 0
     for row in agg:
-        t = (row.get("tipo") or "").lower()
-        if t in counts:
-            counts[t] = int(row["qtd"])
-            total += int(row["qtd"])
+        k = (row["tipo"] or "").lower().strip()
+        if k in count_map:
+            count_map[k] = row["c"]
+            total += row["c"]
+
+    # Query principal com filtro opcional
+    qs = RecomendacaoIA.objects.filter(usuario=user).order_by("-criado_em")
+    if tipo_param in {"positiva", "alerta", "neutra"}:
+        qs = qs.filter(tipo=tipo_param)
+        filtro_label = tipo_param
+    else:
+        filtro_label = "todas"
+
+    items = []
+    for rec in qs[:limit]:
+        items.append(
+            {
+                "id": rec.id,
+                "tipo": (rec.tipo or "neutra"),
+                "texto": rec.texto or "",
+                "criado_em": rec.criado_em.isoformat() if rec.criado_em else "",
+                "criado_em_fmt": rec.criado_em.strftime("%d/%m/%Y %H:%M") if rec.criado_em else "",
+            }
+        )
 
     return JsonResponse(
         {
             "ok": True,
-            "tipo_aplicado": tipo_param if tipo_param in counts else "",
-            "count": {**counts, "total": total},
-            "results": itens,
+            "filtro": filtro_label,
+            "count": {
+                "positiva": count_map["positiva"],
+                "alerta": count_map["alerta"],
+                "neutra": count_map["neutra"],
+                "total": total,
+            },
+            "items": items,
         }
     )

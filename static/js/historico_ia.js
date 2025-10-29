@@ -170,6 +170,10 @@
     let refreshTimer = null;
     let BUSY = false;
     let _limitAtual = PREVIEW_LIMIT;
+    // Coalescing de chamadas simultâneas
+    let _pendingTimer = null;
+    let _pendingArgs = null; // { limit, tipo }
+    let _inFlight = false;
 
     // ===== fetch histórico (assinatura flexível) =====
     async function fetchHistorico(a = 20, b = "") {
@@ -204,6 +208,10 @@
       });
       if (!r.ok) throw new Error(`HTTP ${r.status} @ ${FEED_URL}`);
       const json = await r.json();
+      // atualiza contadores com o que veio do backend (independente do limit)
+      if (json && json.count) {
+        setContadoresBackend(json.count);
+      }
 
       const arr = (json && (json.items || json.results || json.data)) || [];
       const items = (Array.isArray(arr) ? arr : []).map((x) => {
@@ -245,23 +253,31 @@
       const isNew =
         lastSeenAt &&
         parseStamp(it.criado_em)?.getTime() > new Date(lastSeenAt).getTime();
+      const cor =
+        it.tipo === "positiva"
+          ? "success"
+          : it.tipo === "alerta"
+          ? "warning"
+          : "secondary";
+
       return `
-        <div class="card border-success mb-3 shadow-sm ia-card ${
-          isNew ? "is-new" : ""
-        }" data-kind="${it.tipo}">
-          <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <span class="badge bg-success-subtle text-success border border-success-subtle">${tag}</span>
-              <small class="text-muted">${quando}</small>
+    <div class="card border-${cor} mb-3 shadow-sm ia-card ${
+        isNew ? "is-new" : ""
+      }" data-kind="${it.tipo}">
+
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="badge bg-success-subtle text-success border border-success-subtle">${tag}</span>
+                <small class="text-muted">${quando}</small>
+              </div>
+              <h6 class="card-title text-success mb-1">${escapeHtml(
+                it.title
+              )}</h6>
+              <p class="card-text mb-0" style="white-space: pre-wrap">${escapeHtml(
+                it.text
+              )}</p>
             </div>
-            <h6 class="card-title text-success mb-1">${escapeHtml(
-              it.title
-            )}</h6>
-            <p class="card-text mb-0" style="white-space: pre-wrap">${escapeHtml(
-              it.text
-            )}</p>
-          </div>
-        </div>`;
+          </div>`;
     }
 
     function atualizarBadge(itemsMostrados) {
@@ -299,6 +315,23 @@
         );
     }
 
+    function setContadoresBackend(count) {
+      // IDs aceitos no seu HTML:
+      // #countAll, #countPos, #countAlerta, #countNeutra
+      if (!count || typeof count !== "object") return;
+      const toInt = (v) => Number(v) || 0;
+      const map = {
+        countAll: toInt(count.total),
+        countPos: toInt(count.positiva),
+        countAlerta: toInt(count.alerta),
+        countNeutra: toInt(count.neutra),
+      };
+      Object.entries(map).forEach(([id, val]) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = String(val);
+      });
+    }
+
     function toggleLoading(show) {
       if (!elOvl) return;
       elOvl.classList.toggle("d-none", !show);
@@ -325,33 +358,72 @@
     }
 
     // ===== API pública =====
-    window.carregarHistorico = async function carregarHistorico(
+    // Versão coalescida: consolida múltiplas chamadas em uma só (pega a última)
+    window.carregarHistorico = function carregarHistorico(
       limit = 20,
       tipo = null
     ) {
-      if (BUSY) return;
-      BUSY = true;
-      try {
-        toggleLoading(true);
-        if (btnReload) btnReload.disabled = true;
-        filtroCategoria = _normalizeTipo(tipo) || "";
-        const items = await fetchHistorico(limit, filtroCategoria);
-        if (items.length) allItems = items; // só troca se veio algo (evita sumir conteúdo em 304-like)
-        renderLista(allItems);
-        // auto scroll p/ primeira "nova"
-        if (lastSeenAt) {
-          const firstNew = list.querySelector(".ia-card.is-new");
-          if (firstNew)
-            firstNew.scrollIntoView({ behavior: "smooth", block: "center" });
+      // normaliza os args imediatamente
+      const _tipoNorm = _normalizeTipo(tipo) || "";
+      const _limit = Number.isFinite(limit) && limit > 0 ? limit : 20;
+
+      // guarda a chamada mais recente
+      _pendingArgs = { limit: _limit, tipo: _tipoNorm };
+
+      // se já há um timer, reinicia (debounce curto)
+      if (_pendingTimer) clearTimeout(_pendingTimer);
+
+      _pendingTimer = setTimeout(async () => {
+        if (_inFlight) {
+          // se tiver requisição em andamento, espere terminar e dispara depois
+          // (o próximo setTimeout reavalia _pendingArgs novamente)
+          _pendingTimer = setTimeout(
+            () =>
+              window.carregarHistorico(_pendingArgs.limit, _pendingArgs.tipo),
+            50
+          );
+          return;
         }
-      } catch (e) {
-        console.error("Falha ao carregar histórico:", e);
-        list.innerHTML = `<div class="alert alert-danger">Falha ao carregar histórico.</div>`;
-      } finally {
-        if (btnReload) btnReload.disabled = false;
-        toggleLoading(false);
-        BUSY = false;
-      }
+
+        // captura a última intenção e limpa pendências
+        const args = _pendingArgs;
+        _pendingArgs = null;
+        _pendingTimer = null;
+
+        _inFlight = true;
+        BUSY = true;
+        try {
+          toggleLoading(true);
+          if (btnReload) btnReload.disabled = true;
+
+          filtroCategoria = args.tipo;
+          const items = await fetchHistorico(args.limit, filtroCategoria);
+          if (items.length) allItems = items; // só troca se veio algo
+          renderLista(allItems);
+
+          // auto scroll p/ primeira "nova"
+          if (lastSeenAt) {
+            const firstNew = list.querySelector(".ia-card.is-new");
+            if (firstNew)
+              firstNew.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        } catch (e) {
+          console.error("Falha ao carregar histórico:", e);
+          list.innerHTML = `<div class="alert alert-danger">Falha ao carregar histórico.</div>`;
+        } finally {
+          if (btnReload) btnReload.disabled = false;
+          toggleLoading(false);
+          BUSY = false;
+          _inFlight = false;
+
+          // se alguém agendou novos args enquanto rodava, roda de novo com a última intenção
+          if (_pendingArgs) {
+            const next = _pendingArgs;
+            _pendingArgs = null;
+            window.carregarHistorico(next.limit, next.tipo);
+          }
+        }
+      }, 50); // 50ms de debounce já resolve "rajadas" de chamadas
     };
 
     // Objeto utilitário para outras partes do front chamarem
@@ -517,7 +589,7 @@
             }
 
             // recarrega lista pra já aparecer a dica nova (se a API salvar)
-            await window.carregarHistorico(PREVIEW_LIMIT, filtroCategoria);
+            window.carregarHistorico(PREVIEW_LIMIT, filtroCategoria);
           } else {
             st.textContent = "⚠️ Não consegui gerar a dica.";
           }
