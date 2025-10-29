@@ -1,5 +1,6 @@
 // 🔥 Teste Spaço da Jhuséna – Mensagem de boas-vindas
 console.log("🐶 Spaço da Jhuséna Dev ativo — Painel carregado com sucesso!");
+
 // 🧪 Badge Dev: mostra horário de carregamento do painel
 document.addEventListener("DOMContentLoaded", () => {
   const elBadge = document.getElementById("devBadge");
@@ -11,14 +12,11 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-// 🔗 Chamada mínima ao feed do histórico (diagnóstico)
-// objetivo: somente disparar a requisição e logar no console
-// 🔗 Histórico IA — busca + render simples (substitui o bloco de diagnóstico)
+// 🔗 Histórico IA — preview simples (só se a lista completa NÃO existir no template)
 document.addEventListener("DOMContentLoaded", () => {
   fetch("/financeiro/ia/historico/feed/?limit=5")
     .then((r) => r.json())
     .then((data) => {
-      // ✅ Se o histórico completo já existe no template, não cria o card simples
       if (document.getElementById("listaHistorico")) {
         console.log(
           "🧠 Histórico completo detectado — preview simples desativado."
@@ -26,9 +24,7 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
 
-      console.log("🧠 Historico IA (render):", data);
-
-      const items = data && Array.isArray(data.items) ? data.items : [];
+      const items = Array.isArray(data?.items) ? data.items : [];
 
       // garante um container sem depender do template
       let host = document.getElementById("historicoSimples");
@@ -37,21 +33,16 @@ document.addEventListener("DOMContentLoaded", () => {
         host.id = "historicoSimples";
         host.className = "card mb-3";
         host.innerHTML = `
-      <div class="card-body">
-        <h5 class="card-title mb-2">🧠 Histórico (últimas)</h5>
-        <div id="historicoSimplesList"></div>
-      </div>
-    `;
-
-        // tenta ancorar logo após o badge Dev; senão após o <h1>; senão no fim do body
+          <div class="card-body">
+            <h5 class="card-title mb-2">🧠 Histórico (últimas)</h5>
+            <div id="historicoSimplesList"></div>
+          </div>
+        `;
         const anchor =
           document.getElementById("devBadge") || document.querySelector("h1");
-
-        if (anchor && anchor.parentNode) {
+        if (anchor?.parentNode)
           anchor.parentNode.insertBefore(host, anchor.nextSibling);
-        } else {
-          document.body.appendChild(host);
-        }
+        else document.body.appendChild(host);
       }
 
       const wrap = host.querySelector("#historicoSimplesList") || host;
@@ -63,26 +54,27 @@ document.addEventListener("DOMContentLoaded", () => {
       wrap.innerHTML = items
         .map((i) => {
           const quando = i.created_at_br || i.created_at || "";
-          const cat = i.categoria || "Geral";
-          const txt = (i.texto || i.text || "").replace(/\n/g, "<br>");
+          const cat = i.categoria || i.tipo || "Geral";
+          const txt = (i.texto || i.text || "")
+            .toString()
+            .replace(/\n/g, "<br>");
           return `
-      <div class="border-bottom py-2">
-        <small class="text-muted">${quando} • ${cat}</small>
-        <div>${txt}</div>
-      </div>
-    `;
+            <div class="border-bottom py-2">
+              <small class="text-muted">${quando} • ${cat}</small>
+              <div>${txt}</div>
+            </div>
+          `;
         })
         .join("");
     })
-
-    .catch((err) => {
-      console.error("Falha ao buscar/renderizar histórico IA:", err);
-    });
+    .catch((err) =>
+      console.error("Falha ao buscar/renderizar histórico IA:", err)
+    );
 });
 
 // static/js/dashboard.js — Spaço da Jhuséna (versão consolidada e corrigida)
 (function () {
-  ("use strict");
+  "use strict";
 
   // === Evita rodar 2x se o arquivo for incluído de novo ===
   if (window.__SJ_DASH_ONCE__) {
@@ -108,43 +100,20 @@ document.addEventListener("DOMContentLoaded", () => {
     return tamanho ? new Array(tamanho).fill(0) : [];
   }
 
-  // Data local -> 'YYYY-MM-DD' (evita bug de fuso do toISOString)
-  function ymdLocal(dateObj) {
-    const y = dateObj.getFullYear();
-    const m = String(dateObj.getMonth() + 1).padStart(2, "0");
-    const d = String(dateObj.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
-  }
-
   // Helpers para cards/HTML
-  function firstLine(s, max = 60) {
-    if (!s) return "";
-    const str = String(s).trim().split(/\r?\n/)[0];
-    return str.length > max ? str.slice(0, max - 1) + "…" : str;
-  }
-  function capitalize(s) {
-    const t = String(s || "");
-    return t.charAt(0).toUpperCase() + t.slice(1);
-  }
   function escapeHtml(s) {
-    return String(s)
+    return String(s ?? "")
       .replaceAll("&", "&amp;")
       .replaceAll("<", "&lt;")
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
   }
-
-  // Datas padrão (para inputs)
-  function pad2(n) {
-    return String(n).padStart(2, "0");
-  }
-  function fmtYMD(d) {
-    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-  }
-  function firstDayOfMonth(d) {
-    return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-01`;
-  }
+  const pad2 = (n) => String(n).padStart(2, "0");
+  const fmtYMD = (d) =>
+    `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+  const firstDayOfMonth = (d) =>
+    `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-01`;
 
   // --- Fetch JSON com erro detalhado ---
   async function sjFetchJSON(url) {
@@ -163,10 +132,8 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // =============== Charts Helpers ===============
-  // Cache de instâncias (chave lógica)
   const sjCharts = {};
 
-  // Garante criação/atualização única por canvas + chave
   function getOrCreateChart(ctx, key, config) {
     if (sjCharts[key]) {
       sjCharts[key].data = config.data;
@@ -174,10 +141,8 @@ document.addEventListener("DOMContentLoaded", () => {
       sjCharts[key].update();
       return sjCharts[key];
     }
-    // 🔧 destrói qualquer Chart já preso a ESTE canvas
     const prev = Chart.getChart(ctx.canvas);
     if (prev) prev.destroy();
-
     const ch = new Chart(ctx, config);
     sjCharts[key] = ch;
     queueMicrotask(() => {
@@ -271,7 +236,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const ctx = el.getContext("2d");
     return getOrCreateChart(ctx, "sj-categorias", {
-      type: "doughnut", // mude para "bar" se preferir
+      type: "doughnut",
       data: {
         labels: categorias,
         datasets: [{ label: "Total", data: valores, borderWidth: 1 }],
@@ -285,33 +250,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // Atualiza dashboard quando já tiver os dados carregados em memória
-  function atualizarDashboard(dados) {
-    if (!dados) return;
-    let L = Array.isArray(dados.dias) ? dados.dias : [];
-    let R = garantirArray(dados.receitas, L.length).map(_toNumber);
-    let D = garantirArray(dados.despesas, L.length).map(_toNumber);
-    let S = garantirArray(dados.saldo, L.length).map(_toNumber);
-
-    const minLen = Math.min(L.length, R.length, D.length, S.length);
-    if (!minLen) {
-      montarGraficoEvolucao([], [], [], []);
-      return;
-    }
-
-    L = L.slice(0, minLen);
-    R = R.slice(0, minLen);
-    D = D.slice(0, minLen);
-    S = S.slice(0, minLen);
-
-    montarGraficoEvolucao(L, R, D, S);
-
-    if (Array.isArray(dados.categorias) && Array.isArray(dados.valores)) {
-      montarGraficoCategorias(dados.categorias, dados.valores);
-    }
-  }
-
-  // =============== Inicialização e filtros ===============
+  // =============== Dashboard: filtros de período ===============
   document.addEventListener("DOMContentLoaded", async function () {
     const $ini =
       document.querySelector("#filtroInicio") ||
@@ -326,50 +265,50 @@ document.addEventListener("DOMContentLoaded", () => {
     if ($ini && !$ini.value) $ini.value = iniDefault;
     if ($fim && !$fim.value) $fim.value = fimDefault;
 
-    let inicio = $ini && $ini.value ? $ini.value : iniDefault;
-    let fim = $fim && $fim.value ? $fim.value : fimDefault;
+    let inicio = $ini?.value || iniDefault;
+    let fim = $fim?.value || fimDefault;
 
     async function recarregar() {
-      try {
-        const base =
-          window.URL_DADOS_GRAFICO || "/financeiro/dashboard/dados-filtrados/";
-        const url = `${base}?inicio=${encodeURIComponent(
-          inicio
-        )}&fim=${encodeURIComponent(fim)}`;
-        const dados = await sjFetchJSON(url);
+      const base =
+        window.URL_DADOS_GRAFICO || "/financeiro/dashboard/dados-filtrados/";
+      const url = `${base}?inicio=${encodeURIComponent(
+        inicio
+      )}&fim=${encodeURIComponent(fim)}`;
+      const dados = await sjFetchJSON(url);
 
-        if (!dados || !Array.isArray(dados.dias)) {
-          throw new Error(
-            "Payload inválido: esperado {dias, receitas, despesas, saldo}"
-          );
-        }
-
-        montarGraficoEvolucao(
-          dados.dias,
-          dados.receitas,
-          dados.despesas,
-          dados.saldo
+      if (!dados || !Array.isArray(dados.dias)) {
+        throw new Error(
+          "Payload inválido: esperado {dias, receitas, despesas, saldo}"
         );
+      }
 
-        if (Array.isArray(dados.categorias) && Array.isArray(dados.valores)) {
-          montarGraficoCategorias(dados.categorias, dados.valores);
-        } else {
-          montarGraficoCategorias([], []);
-        }
-      } catch (err) {
-        console.error("❌ Erro ao carregar/desenhar gráficos:", err);
-        alert("Erro ao carregar os gráficos. Veja o console para detalhes.");
+      montarGraficoEvolucao(
+        dados.dias,
+        dados.receitas,
+        dados.despesas,
+        dados.saldo
+      );
+
+      if (Array.isArray(dados.categorias) && Array.isArray(dados.valores)) {
+        montarGraficoCategorias(dados.categorias, dados.valores);
+      } else {
+        montarGraficoCategorias([], []);
       }
     }
 
-    await recarregar();
+    try {
+      await recarregar();
+    } catch (err) {
+      console.error("❌ Erro ao carregar/desenhar gráficos:", err);
+      alert("Erro ao carregar os gráficos. Veja o console para detalhes.");
+    }
 
     [$ini, $fim].forEach((el) => {
       if (!el) return;
       el.addEventListener("change", () => {
-        inicio = $ini && $ini.value ? $ini.value : iniDefault;
-        fim = $fim && $fim.value ? $fim.value : fimDefault;
-        recarregar();
+        inicio = $ini?.value || iniDefault;
+        fim = $fim?.value || fimDefault;
+        recarregar().catch((e) => console.error(e));
       });
     });
 
@@ -400,7 +339,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // =============== Botão "Gerar nova dica" ===============
+  // =============== Botão "Gerar nova dica" (simples) ===============
   {
     const btn = document.getElementById("btnGerarDica");
     const st = document.getElementById("statusDica");
@@ -446,7 +385,6 @@ document.addEventListener("DOMContentLoaded", () => {
                     String(texto)
                   )}</p>
                 </div>`;
-
               const placeholder = document.getElementById(
                 "placeholderInsightCard"
               );
@@ -483,13 +421,13 @@ document.addEventListener("DOMContentLoaded", () => {
       b.setAttribute("data-duplicado", "true");
     }
   });
-  // 🧠 Histórico de Dicas da IA — Botão "Ver mais" com paginação
-  // 🧠 Histórico — Período (Início/Fim) + "Ver mais" em um bloco único
+
+  // =============== 🧠 Histórico — Período + Categoria + "Ver mais" (paginado) ===============
   document.addEventListener("DOMContentLoaded", () => {
     const wrap = document.getElementById("listaHistorico");
     if (!wrap || !wrap.parentNode) return;
 
-    // tenta achar campos de período já existentes no template
+    // campos de período (se existirem no template)
     const elIni =
       document.getElementById("filtroInicio") ||
       document.querySelector('input[name="inicio"]') ||
@@ -500,33 +438,41 @@ document.addEventListener("DOMContentLoaded", () => {
       document.querySelector('input[name="fim"]') ||
       document.querySelector('input[data-role="fim"]');
 
+    // campo de categoria (select ou input)
+    const elCat =
+      document.getElementById("filtroCategoria") ||
+      document.querySelector('select[name="categoria"]') ||
+      document.querySelector('input[name="categoria"]');
+
     const PER_PAGE = 10;
     let page = 1;
     let loading = false;
 
-    // remove botão antigo se existir (evita duplicação ao trocar filtros)
-    const oldBtn = document.getElementById("btnVerMaisHistorico");
-    if (oldBtn) oldBtn.remove();
+    // botão único de "Ver mais" (sem duplicar)
+    let btn = document.getElementById("btnVerMaisHistorico");
+    if (!btn) {
+      btn = document.createElement("button");
+      btn.id = "btnVerMaisHistorico";
+      btn.className = "btn btn-outline-secondary btn-sm mt-2";
+      btn.textContent = "Ver mais";
+      wrap.parentNode.appendChild(btn);
+    }
 
-    // cria (ou recria) o botão "Ver mais"
-    let btn = document.createElement("button");
-    btn.id = "btnVerMaisHistorico";
-    btn.className = "btn btn-outline-secondary btn-sm mt-2";
-    btn.textContent = "Ver mais";
-    wrap.parentNode.appendChild(btn);
+    // Normalizador de payload
+    function normItems(payload) {
+      return (
+        (Array.isArray(payload?.items) && payload.items) ||
+        (Array.isArray(payload?.results) && payload.results) ||
+        (Array.isArray(payload?.data?.items) && payload.data.items) ||
+        (Array.isArray(payload?.data) && payload.data) ||
+        (Array.isArray(payload) && payload) ||
+        []
+      );
+    }
 
-    // render simples dos itens
-    // renderiza usando cards bonitos dentro do card verde
+    // Render de cards do histórico
     function renderItems(items, append = true) {
-      // helper local p/ escapar HTML
-      const esc = (s) =>
-        String(s ?? "")
-          .replaceAll("&", "&amp;")
-          .replaceAll("<", "&lt;")
-          .replaceAll(">", "&gt;")
-          .replaceAll('"', "&quot;")
-          .replaceAll("'", "&#039;");
-
+      const esc = (s) => escapeHtml(String(s ?? ""));
       const arr = Array.isArray(items) ? items : [];
       const html = arr
         .map((i) => {
@@ -534,22 +480,21 @@ document.addEventListener("DOMContentLoaded", () => {
           const cat = i.categoria || i.tipo || "Geral";
           const titulo = i.title || "Dica da IA";
           const texto = (i.texto || i.text || "").toString();
-
           return `
-        <div class="card border-success mb-3 shadow-sm">
-          <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-2">
-              <span class="badge bg-success-subtle text-success border border-success-subtle">${esc(
-                cat
-              )}</span>
-              <small class="text-muted">${esc(quando)}</small>
-            </div>
-            <h6 class="card-title text-success mb-1">${esc(titulo)}</h6>
-            <p class="card-text mb-0" style="white-space: pre-wrap">${esc(
-              texto
-            )}</p>
-          </div>
-        </div>`;
+            <div class="card border-success mb-3 shadow-sm">
+              <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                  <span class="badge bg-success-subtle text-success border border-success-subtle">${esc(
+                    cat
+                  )}</span>
+                  <small class="text-muted">${esc(quando)}</small>
+                </div>
+                <h6 class="card-title text-success mb-1">${esc(titulo)}</h6>
+                <p class="card-text mb-0" style="white-space: pre-wrap">${esc(
+                  texto
+                )}</p>
+              </div>
+            </div>`;
         })
         .join("");
 
@@ -567,10 +512,13 @@ document.addEventListener("DOMContentLoaded", () => {
         page: String(nextPage),
         per_page: String(PER_PAGE),
       });
-      const vIni = elIni && elIni.value ? elIni.value.trim() : "";
-      const vFim = elFim && elFim.value ? elFim.value.trim() : "";
+      const vIni = elIni?.value?.trim();
+      const vFim = elFim?.value?.trim();
+      const vCat = elCat?.value?.trim();
+
       if (vIni) params.set("inicio", vIni);
       if (vFim) params.set("fim", vFim);
+      if (vCat && vCat.toLowerCase() !== "todas") params.set("categoria", vCat);
       return params.toString();
     }
 
@@ -578,7 +526,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (loading) return;
       loading = true;
 
-      // cria/mostra um loader simples dentro da lista
+      // loader simples
       let loader = document.getElementById("historicoLoadingRow");
       if (!loader) {
         loader = document.createElement("div");
@@ -586,58 +534,42 @@ document.addEventListener("DOMContentLoaded", () => {
         loader.className = "text-muted small mt-3";
         loader.innerHTML = "Carregando…";
       }
-      if (append) {
-        // aparece no fim da lista quando estiver paginando
-        wrap.appendChild(loader);
-      } else {
-        // aparece logo acima da lista quando estiver recarregando filtro/período
-        if (wrap.parentNode) wrap.parentNode.insertBefore(loader, wrap);
-      }
+      if (append) wrap.appendChild(loader);
+      else wrap.parentNode.insertBefore(loader, wrap);
 
       const prevLabel = btn.textContent;
       btn.disabled = true;
-      if (append) btn.textContent = "Carregando…";
-      else btn.textContent = "Atualizando…";
+      btn.textContent = append ? "Carregando…" : "Atualizando…";
 
       try {
+        // 👉 se seu backend já estiver no /v2/, troque a URL abaixo
         const url = `/financeiro/ia/historico/feed/?${buildParams(nextPage)}`;
-        const r = await fetch(url);
+        const r = await fetch(url, { headers: { Accept: "application/json" } });
         const j = await r.json();
 
-        const items = Array.isArray(j.items) ? j.items : [];
-        console.log("[Histórico] Resposta:", {
-          status: r.status,
-          page: j.page,
-          has_next: j.has_next,
-          items: items.length,
-        });
-
+        const items = normItems(j);
         renderItems(items, append);
-        // 🔎 Destaque visual do último bloco adicionado + rolagem
+
+        // destaque do último item inserido
         try {
-          // pega o último elemento visível da lista após o append
           const last = wrap.lastElementChild;
           if (last) {
-            // aplica um destaque rápido
             last.style.outline = "1px dashed #999";
             last.style.background = "rgba(0,0,0,.03)";
             setTimeout(() => {
               last.style.outline = "";
               last.style.background = "";
             }, 1200);
-
-            // rola até o final da lista para você ver o que entrou
             last.scrollIntoView({ behavior: "smooth", block: "end" });
           }
-        } catch (_) {}
+        } catch {}
 
         page = j.page || nextPage;
 
-        if (!j.has_next || !items.length) {
+        const hasNext = Boolean(j.has_next);
+        if (!hasNext || !items.length) {
           btn.textContent = "Fim";
           btn.disabled = true;
-
-          // mostra mensagem de que acabou (uma vez só)
           let endMsg = document.getElementById("historicoEndMsg");
           if (!endMsg) {
             endMsg = document.createElement("div");
@@ -655,186 +587,43 @@ document.addEventListener("DOMContentLoaded", () => {
         btn.textContent = "Tentar novamente";
         btn.disabled = false;
       } finally {
-        // some com o loader
-        if (loader && loader.parentNode) loader.parentNode.removeChild(loader);
+        if (loader?.parentNode) loader.parentNode.removeChild(loader);
         loading = false;
       }
     }
 
-    // clique em "Ver mais" -> loga e carrega próxima página
+    // clique em "Ver mais"
     btn.onclick = () => {
-      const url = `/financeiro/ia/historico/feed/?${buildParams(page + 1)}`;
+      const dbg = `/financeiro/ia/historico/feed/?${buildParams(page + 1)}`;
       console.log("[Histórico] Ver mais clicado:", {
         currentPage: page,
         nextPage: page + 1,
-        url,
+        url: dbg,
       });
-      loadPage(page + 1, /*append*/ true);
+      loadPage(page + 1, true);
     };
 
-    // quando mudar Início/Fim -> recarrega a página 1 (substitui a lista e reseta o botão)
-    async function onPeriodoChange() {
+    // mudança de período/categoria -> recarrega da página 1
+    async function onFiltersChange() {
       page = 1;
-      // reabilita botão se estava no "Fim"
       btn.disabled = false;
       btn.textContent = "Ver mais";
-      await loadPage(1, /*append*/ false);
+      await loadPage(1, false);
     }
 
-    if (elIni) elIni.addEventListener("change", onPeriodoChange);
-    if (elFim) elFim.addEventListener("change", onPeriodoChange);
+    if (elIni) elIni.addEventListener("change", onFiltersChange);
+    if (elFim) elFim.addEventListener("change", onFiltersChange);
+    if (elCat) elCat.addEventListener("change", onFiltersChange);
+
+    // 🔰 carregamento inicial
+    loadPage(1, false).catch((e) => console.error(e));
   });
 
-  // 🧠 Histórico — Filtro por categoria (reinicia lista e paginação)
+  // =============== 🧠 Histórico — salvar e restaurar posição de rolagem ===============
   document.addEventListener("DOMContentLoaded", () => {
     const wrap = document.getElementById("listaHistorico");
-    if (!wrap) return;
-
-    // Tenta encontrar o campo de categoria já existente no template
-    const catInput =
-      document.getElementById("filtroCategoria") ||
-      document.querySelector('select[name="categoria"]') ||
-      document.querySelector('input[name="categoria"]');
-
-    if (!catInput) return;
-
-    const PER_PAGE = 10;
-    let page = 1;
-    let btn = null;
-
-    // util: monta HTML de itens
-    const renderItems = (items) => {
-      const html = items
-        .map((i) => {
-          const quando = i.created_at_br || i.created_at || "";
-          const cat = i.categoria || "Geral";
-          const titulo = i.title || "Dica da IA";
-          const txt = (i.texto || i.text || "").replace(/\n/g, "<br>");
-          return `
-        <div class="mt-3">
-          <div class="text-muted small mb-1">${cat}</div>
-          <div class="fw-semibold">${quando}</div>
-          <div class="fw-semibold">${titulo}</div>
-          <div>${txt}</div>
-        </div>
-      `;
-        })
-        .join("");
-      wrap.insertAdjacentHTML("beforeend", html);
-    };
-
-    // cria (ou recria) o botão "Ver mais"
-    const ensureButton = (categoriaAtual) => {
-      if (btn && btn.remove) btn.remove();
-      btn = document.createElement("button");
-      btn.id = "btnVerMaisHistorico";
-      btn.className = "btn btn-outline-secondary btn-sm mt-2";
-      btn.textContent = "Ver mais";
-      wrap.parentNode.appendChild(btn);
-
-      const carregarMais = async () => {
-        btn.disabled = true;
-        btn.textContent = "Carregando…";
-        try {
-          const params = new URLSearchParams({
-            page: String(page + 1),
-            per_page: String(PER_PAGE),
-          });
-          const catVal = (categoriaAtual || "").trim();
-          if (catVal && catVal.toLowerCase() !== "todas") {
-            params.set("categoria", catVal);
-          }
-          const r = await fetch(
-            `/financeiro/ia/historico/feed/?${params.toString()}`
-          );
-          const j = await r.json();
-
-          const items = Array.isArray(j.items) ? j.items : [];
-          if (!items.length) {
-            btn.remove();
-            return;
-          }
-
-          renderItems(items);
-          page = j.page || page + 1;
-
-          if (!j.has_next) {
-            btn.remove();
-          } else {
-            btn.disabled = false;
-            btn.textContent = "Ver mais";
-          }
-        } catch (e) {
-          console.error("Erro ao carregar mais histórico:", e);
-          btn.disabled = false;
-          btn.textContent = "Ver mais";
-        }
-      };
-
-      // 👇 Este bloco vem DEPOIS de definir `const carregarMais = async () => { ... }`
-
-      // cria (ou reaproveita) o botão "Ver mais" sem duplicar e com handler correto
-      let btn = document.getElementById("btnVerMaisHistorico");
-      if (!btn) {
-        btn = document.createElement("button");
-        btn.id = "btnVerMaisHistorico";
-        btn.className = "btn btn-outline-secondary btn-sm mt-2";
-        btn.textContent = "Ver mais";
-        if (wrap && wrap.parentNode) {
-          wrap.parentNode.appendChild(btn);
-        }
-      }
-
-      // sempre restaurar estado e re-vincular o mesmo handler
-      btn.disabled = false;
-      btn.textContent = "Ver mais";
-      btn.removeEventListener("click", carregarMais); // evita handlers acumulados
-      btn.addEventListener("click", carregarMais);
-    };
-
-    // carrega a página 1 com a categoria atual
-    const reloadFromStart = async () => {
-      // limpa lista e reinicia paginação
-      wrap.innerHTML = "";
-      page = 1;
-
-      const categoria = (catInput.value || "").trim();
-      const params = new URLSearchParams({
-        page: "1",
-        per_page: String(PER_PAGE),
-      });
-      if (categoria && categoria.toLowerCase() !== "todas") {
-        params.set("categoria", categoria);
-      }
-
-      try {
-        const r = await fetch(
-          `/financeiro/ia/historico/feed/?${params.toString()}`
-        );
-        const j = await r.json();
-        const items = Array.isArray(j.items) ? j.items : [];
-        renderItems(items);
-
-        // (re)cria o botão conforme has_next
-        if (btn && btn.remove) btn.remove();
-        if (j.has_next) {
-          ensureButton(categoria);
-        }
-      } catch (e) {
-        console.error("Erro ao recarregar histórico (filtro):", e);
-      }
-    };
-
-    // dispara quando a categoria mudar
-    catInput.addEventListener("change", reloadFromStart);
-  });
-
-  // 🧠 Histórico — salvar e restaurar posição de rolagem
-  document.addEventListener("DOMContentLoaded", () => {
-    const wrap = document.getElementById("listaHistorico"); // contêiner do histórico
     const KEY = "iaHistoricoScroll:" + location.pathname;
 
-    // restaura posição
     function restore() {
       try {
         const raw = localStorage.getItem(KEY);
@@ -845,10 +634,9 @@ document.addEventListener("DOMContentLoaded", () => {
         } else if (typeof s.win === "number") {
           window.scrollTo(0, s.win);
         }
-      } catch (_) {}
+      } catch {}
     }
 
-    // salva posição (debounced)
     const save = () => {
       try {
         const data = {
@@ -857,7 +645,7 @@ document.addEventListener("DOMContentLoaded", () => {
           win: window.scrollY,
         };
         localStorage.setItem(KEY, JSON.stringify(data));
-      } catch (_) {}
+      } catch {}
     };
     const debounce = (fn, ms = 150) => {
       let t;
@@ -868,21 +656,19 @@ document.addEventListener("DOMContentLoaded", () => {
     };
     const onScroll = debounce(save, 150);
 
-    // listeners
     if (wrap) wrap.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("beforeunload", save);
 
-    // pequena espera para garantir que a lista já foi montada
     setTimeout(restore, 120);
   });
+
   // === 💡 IA: Gerar Nova Dica (últimos 30 dias) ===
   document.addEventListener("DOMContentLoaded", function () {
     const btn = document.getElementById("btnGerarDica30d");
     const st = document.getElementById("stDica30d");
-    if (!btn) return; // evita erro se o botão não existir no DOM
+    if (!btn) return;
 
-    // pega o token CSRF
     function getCookie(name) {
       const value = `; ${document.cookie}`;
       const parts = value.split(`; ${name}=`);
@@ -899,25 +685,26 @@ document.addEventListener("DOMContentLoaded", () => {
           method: "POST",
           headers: { "X-CSRFToken": getCookie("csrftoken") },
         });
-
         const data = await resp.json();
         console.log("✅ [Dica30d] resposta:", data);
 
         if (data.ok) {
-          st.textContent = `✅ ${data.tipo?.toUpperCase()}: ${data.dica}`;
-          // 🔄 atualiza o histórico automaticamente
+          if (st)
+            st.textContent = `✅ ${data.tipo?.toUpperCase()}: ${data.dica}`;
+          // 🔄 atualiza o histórico automaticamente (se existir um botão/trigger)
           document.getElementById("btnReloadDicas")?.click();
         } else {
-          st.textContent = "⚠️ Não consegui gerar a dica.";
+          if (st) st.textContent = "⚠️ Não consegui gerar a dica.";
         }
       } catch (e) {
         console.error("💥 [Dica30d] erro:", e);
-        st.textContent = "Erro ao gerar dica.";
+        if (st) st.textContent = "Erro ao gerar dica.";
       } finally {
-        setTimeout(() => (st.textContent = ""), 4000);
+        setTimeout(() => {
+          if (st) st.textContent = "";
+        }, 4000);
         btn.disabled = false;
       }
     });
   });
 })();
-

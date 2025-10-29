@@ -8,81 +8,238 @@ from django.contrib.auth import get_user_model
 from financeiro.models import RecomendacaoIA
 
 
+# financeiro/services/ia.py (topo)
+# topo do arquivo (garanta imports únicos)
 import re
 import unicodedata
+from typing import Optional
 
 
+# ---------- Normalização ----------
 def _norm(s: str) -> str:
-    # normaliza para comparação robusta: minúsculas e sem acento
-    s = s.lower()
+    if not s:
+        return ""
+    s = s.strip().lower()
     s = unicodedata.normalize("NFD", s)
     s = "".join(ch for ch in s if unicodedata.category(ch) != "Mn")
-    return s
+    s = re.sub(r"[\n\r\t]+", " ", s)
+    s = re.sub(r"[!?:;()\[\]{}\"'«»“”’·•…]", " ", s)  # mantém % , .
+    s = re.sub(r"\s+", " ", s)
+    return s.strip()
+
+
+# ---------- Palavras-chave ----------
+_POS_KW = {
+    "otimo",
+    "excelente",
+    "bom",
+    "muito bom",
+    "saldo positivo",
+    "lucro",
+    "acima da meta",
+    "margem positiva",
+    "superavit",
+    "sobra",
+    "crescimento",
+    "recuperacao",
+    "reforce a reserva",
+    "aporte extra",
+    "continue assim",
+    "recorde",
+}
+_ALERT_KW = {
+    "alerta",
+    "atencao",
+    "cuidado",
+    "risco",
+    "queda",
+    "abaixo",
+    "deficit",
+    "prejuizo",
+    "negativo",
+    "gasto alto",
+    "estouro",
+    "acima do orcamento",
+    "aperto de caixa",
+    "corte",
+    "reduza",
+    "evite",
+    "inadimpl",
+    "atraso",
+}
+_NEU_KW = {"neutro", "estavel", "sem mudanca", "manter", "regular", "ok"}
+
+_PCT_RE = re.compile(r"(?<![\w])(-?\d{1,3}(?:[.,]\d+)?)\s*%")
+
+
+def _extract_percent(texto: str) -> Optional[float]:
+    if not texto:
+        return None
+    m = _PCT_RE.search(texto)
+    if not m:
+        return None
+    try:
+        return float(m.group(1).replace(",", "."))
+    except ValueError:
+        return None
+
+
+def _score_by_keywords(tlow: str) -> int:
+    score = 0
+    for kw in _POS_KW:
+        if kw in tlow:
+            score += 2
+    for kw in _ALERT_KW:
+        if kw in tlow:
+            score -= 2
+    # sinais fortes
+    if "saldo positivo" in tlow or "margem positiva" in tlow:
+        score += 3
+    if "saldo negativo" in tlow or "margem negativa" in tlow:
+        score -= 3
+    return score
+
+
+# ---------- Classificador Único ----------
+# services/ia.py
 
 
 def _map_tipo(texto: str) -> str:
     """
-    Classifica a dica em 'positiva', 'alerta' ou 'neutra' usando
-    palavras-chave + detecção de percentual no texto.
+    Classifica a dica da IA em 'positiva', 'alerta' ou 'neutra' com base em
+    palavras-chave e pistas numéricas (%). Regras priorizam segurança:
+    - qualquer sinal claro de risco/negativo => 'alerta'
+    - sinais claros de bom desempenho => 'positiva'
+    - caso ambíguo => 'neutra'
     """
+
     if not texto:
         return "neutra"
 
-    t = _norm(texto)
+    t = str(texto).lower().strip()
 
-    # ALERTA — qualquer ocorrência classifica
-    alertas = [
-        "alerta",
-        "atencao",
-        "risco",
-        "evite",
-        "corte",
-        "reduza",
-        "atraso",
-        "deficit",
+    # --- Palavras-chave base ---
+    kw_alerta = {
         "negativo",
+        "déficit",
+        "deficit",
+        "prejuízo",
+        "prejuizo",
+        "atraso",
         "queda",
-        "abaixo",
-        "gasto excessivo",
-        "gastos excessivos",
-        "estouro de caixa",
-        "inadimpl",  # cobre inadimplencia/inadimplente
-    ]
-
-    # POSITIVA — qualquer ocorrência classifica
-    positivas = [
-        "saldo positivo",
+        "caiu",
+        "despesa subiu",
+        "despesas subiram",
+        "aumento de despesas",
+        "estourou",
+        "ultrapassou",
+        "acima do previsto",
+        "fora da meta",
+        "risco",
+        "atenção",
+        "alerta",
+        "urgente",
+    }
+    kw_positiva = {
         "positivo",
+        "superávit",
+        "superavit",
+        "lucro",
+        "margem",
+        "cresceu",
+        "subiu",
+        "aumentou receita",
+        "recorde",
+        "ótimo",
         "otimo",
         "excelente",
+        "parabéns",
         "parabens",
-        "superavit",
-        "acima da meta",
-        "margem",
-        "reforce a reserva",
-        "aporte extra",
-        "continue assim",
-        "sobrou",
-        "lucro",
-    ]
+        "saudável",
+        "saudavel",
+    }
+    kw_neutra = {
+        "neutro",
+        "estável",
+        "estavel",
+        "sem variação",
+        "sem variacao",
+        "manteve",
+        "regular",
+        "dentro da meta",
+        "ok",
+    }
 
-    if any(k in t for k in alertas):
+    def has_any(fragmentos: set[str]) -> bool:
+        return any(kw in t for kw in fragmentos)
+
+    # Regras curtas muito assertivas
+    if "saldo negativo" in t or "margem negativa" in t:
         return "alerta"
-    if any(k in t for k in positivas):
+    if "saldo positivo" in t or "margem positiva" in t:
         return "positiva"
 
-    # Heurística por percentual no texto (ex.: "12,3%")
-    m = re.search(r"(-?\d+[.,]?\d*)\s*%", t)
-    if m:
-        try:
-            val = float(m.group(1).replace(",", "."))
-            if val >= 5:  # margem ≥ +5% => positiva
-                return "positiva"
-            if val <= -1:  # margem ≤ -1% => alerta
-                return "alerta"
-        except ValueError:
-            pass
+    # Palavra-chave direta
+    if has_any(kw_alerta):
+        return "alerta"
+    if has_any(kw_positiva):
+        return "positiva"
+    if has_any(kw_neutra):
+        return "neutra"
 
+    # --- Heurísticas com percentual ---
+    # capta valores tipo 12%, -3.5 %, 7,2%
+    pct_matches = re.findall(r"(-?\d+[.,]?\d*)\s*%", t)
+
+    def to_float(s: str) -> Optional[float]:
+        try:
+            return float(s.replace(",", "."))
+        except Exception:
+            return None
+
+    if pct_matches:
+        # Usa o primeiro percentual relevante encontrado
+        pct = next((to_float(s) for s in pct_matches if to_float(s) is not None), None)
+
+        # janelas de contexto simples (500 chars)
+        ctx_len = 500
+        t_ctx = t[:ctx_len]
+
+        if pct is not None:
+            # Margem alta tende a ser positiva
+            if "margem" in t_ctx:
+                if pct >= 5:
+                    return "positiva"
+                elif pct < 0:
+                    return "alerta"
+
+            # Receitas e despesas
+            receita_ref = ("receita" in t_ctx) or ("fatur" in t_ctx)
+            despesa_ref = "despesa" in t_ctx or "cust" in t_ctx
+
+            # Queda / redução de despesas => positivo
+            if despesa_ref and any(x in t_ctx for x in ("queda", "redução", "reducao", "diminuiu")):
+                if pct <= -3:
+                    return "positiva"
+
+            # Aumento forte de despesas => alerta
+            if despesa_ref and any(x in t_ctx for x in ("aumento", "subiu", "cresceu")):
+                if pct >= 5:
+                    return "alerta"
+
+            # Queda de receita => alerta
+            if receita_ref and any(
+                x in t_ctx for x in ("queda", "caiu", "diminuiu", "redução", "reducao")
+            ):
+                if pct <= -3:
+                    return "alerta"
+
+            # Aumento de receita => positivo
+            if receita_ref and any(x in t_ctx for x in ("subiu", "cresceu", "aumentou")):
+                if pct >= 3:
+                    return "positiva"
+
+    # Fallback seguro
     return "neutra"
 
 
