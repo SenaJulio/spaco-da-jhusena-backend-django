@@ -56,6 +56,9 @@ urlpatterns = [
     path(
         "ia/historico/feed/v2/", login_required(ia_historico_feed_v2), name="ia_historico_feed_v2"
     ),
+    path(
+        "ia/historico/feed/v2/", login_required(ia_historico_feed_v2), name="ia_historico_feed_v2"
+    ),
     path("ia/resumo-mensal/", login_required(ia_resumo_mensal), name="ia_resumo_mensal"),
     # Dados para gráficos do dashboard
     path(
