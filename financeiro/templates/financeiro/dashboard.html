@@ -3,6 +3,8 @@
 {% csrf_token %}
 {% load moeda %}
 {% load static %}
+{% load static %}
+<link rel="stylesheet" href="{% static 'financeiro/style.css' %}">
 
 {% block title %}📊 Painel Financeiro{% endblock %}
 
@@ -163,36 +165,35 @@
   </div>
 </div>
 
-<!-- 🧠 Histórico de Dicas da IA -->
-<div class="card border-success mt-4">
-  <div class="card-body">
-    <div class="d-flex align-items-center gap-3">
-      <h4 class="m-0">🧠 Histórico de Dicas da IA</h4>
-      <span id="badgeNovas" class="badge bg-warning text-dark d-none" title="Novas desde sua última visita">
-        Novas dicas: <span id="badgeNovasCount">0</span>
-      </span>
+    <!-- 🧠 Histórico de Dicas da IA -->
+    <div class="card border-success mt-4">
+      <div class="card-body">
+        <div class="d-flex align-items-center gap-3">
+          <h4 class="m-0">🧠 Histórico de Dicas da IA</h4>
+          <span id="badgeNovasDicas" class="badge bg-success d-none" title="Novas desde sua última visita">
+            Novas dicas: 0
+          </span>
+          <button id="btnHistoricoIA"
+                  class="btn btn-sm btn-outline-success ms-auto me-2"
+                  type="button"
+                  data-bs-toggle="modal"
+                  data-bs-target="#modalHistoricoIA">
+            Ver Histórico
+          </button>
 
-      <button id="btnHistoricoIA"
-              class="btn btn-sm btn-outline-success ms-auto me-2"
-              type="button"
-              data-bs-toggle="modal"
-              data-bs-target="#modalHistoricoIA">
-        Ver Histórico
-      </button>
+          <button id="btnReloadDicas" class="btn btn-sm btn-outline-primary me-2" type="button">
+            Atualizar histórico
+          </button>
 
-      <button id="btnReloadDicas" class="btn btn-sm btn-outline-primary me-2" type="button">
-        Atualizar histórico
-      </button>
-
-      <!-- ✅ NOVO BOTÃO -->
-      <button id="btnGerarDica30d" class="btn btn-sm btn-success" type="button">
-        Gerar Nova Dica (30 dias)
-      </button>
-      <small id="stDica30d" class="text-muted ms-2"></small>
-      <!-- ✅ FIM DO NOVO BOTÃO -->
+          <!-- ✅ NOVO BOTÃO -->
+          <button id="btnGerarDica30d" class="btn btn-sm btn-success" type="button">
+            Gerar Nova Dica (30 dias)
+          </button>
+          <small id="stDica30d" class="text-muted ms-2"></small>
+          <!-- ✅ FIM DO NOVO BOTÃO -->
+        </div>
+      </div>
     </div>
-  </div>
-</div>
 
 
     <!-- ⚙️ Filtros rápidos -->
@@ -368,11 +369,9 @@
 <script>
   window.URL_DADOS_GRAFICO = "{% url 'financeiro:dados_grafico_filtrados' %}";
   window.URL_RESUMO_MENSAL = "{% url 'financeiro:ia_resumo_mensal' %}";
-  window.URL_CATEGORIAS = null;
-
-  // Opcional: quando tiver endpoint real de categorias, setar aqui.
-  // window.URL_CATEGORIAS = "{% url 'financeiro:metrics_despesas_por_categoria' %}";
+  window.URL_CATEGORIAS   = "{% url 'financeiro:categorias_transacao' %}";  <!-- ✅ ATIVEI AQUI -->
 </script>
+
 
 <!-- Ordem: Chart.js -> dashboard.js -> seus scripts -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>

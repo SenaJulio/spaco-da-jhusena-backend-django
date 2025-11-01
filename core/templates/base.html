@@ -4,6 +4,7 @@
     
     <meta charset="utf-8" />
     <title>{% block title %}Spaço da Jhuséna{% endblock %}</title>
+    <link rel="icon" href="{% static 'favicon.ico' %}">
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <!-- Bootstrap CDN opcional para ficar bonitinho -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -16,7 +17,7 @@
       </div>
     </nav>
     {% load static %}
-<link rel="icon" href="{% static 'favicon.ico' %}">
+
 
     <main class="container py-4">
       {% block content %}{% endblock %}

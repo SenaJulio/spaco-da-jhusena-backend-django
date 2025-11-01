@@ -1,32 +1,44 @@
-// 🔥 Teste Spaço da Jhuséna – Mensagem de boas-vindas
+/* =========================================================
+ * Spaço da Jhuséna — Dashboard unificado (corrigido)
+ * ========================================================= */
+
+const DEBUG_DASH = false;
+const dlog = (...a) => {
+  if (DEBUG_DASH) console.log(...a);
+};
+
 console.log("🐶 Spaço da Jhuséna Dev ativo — Painel carregado com sucesso!");
 
-// 🧪 Badge Dev: mostra horário de carregamento do painel
+// Badge dev (opcional)
 document.addEventListener("DOMContentLoaded", () => {
   const elBadge = document.getElementById("devBadge");
   const elText = document.getElementById("devBadgeText");
   if (elBadge && elText) {
-    const ts = new Date().toLocaleString(); // horário local
-    elText.textContent = `Painel carregado em ${ts}`;
+    elText.textContent = `Painel carregado em ${new Date().toLocaleString()}`;
     elBadge.style.display = "inline-flex";
   }
 });
 
-// 🔗 Histórico IA — preview simples (só se a lista completa NÃO existir no template)
+// Preview simples do histórico (só se não houver lista completa nem módulo novo)
 document.addEventListener("DOMContentLoaded", () => {
-  fetch("/financeiro/ia/historico/feed/?limit=5")
+  if (document.getElementById("listaHistorico") || window.__HistoricoIA) {
+    dlog("🧠 Histórico completo/módulo novo detectado — preview simples off.");
+    return;
+  }
+
+  fetch("/financeiro/ia/historico/feed/v2/?limit=5", {
+    headers: { Accept: "application/json" },
+  })
     .then((r) => r.json())
     .then((data) => {
-      if (document.getElementById("listaHistorico")) {
-        console.log(
-          "🧠 Histórico completo detectado — preview simples desativado."
-        );
-        return;
-      }
+      const items = Array.isArray(data?.items)
+        ? data.items
+        : Array.isArray(data?.results)
+        ? data.results
+        : Array.isArray(data?.data)
+        ? data.data
+        : [];
 
-      const items = Array.isArray(data?.items) ? data.items : [];
-
-      // garante um container sem depender do template
       let host = document.getElementById("historicoSimples");
       if (!host) {
         host = document.createElement("div");
@@ -45,6 +57,14 @@ document.addEventListener("DOMContentLoaded", () => {
         else document.body.appendChild(host);
       }
 
+      const esc = (s) =>
+        String(s ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+
       const wrap = host.querySelector("#historicoSimplesList") || host;
       if (!items.length) {
         wrap.innerHTML = `<div class="text-muted">Sem dicas ainda.</div>`;
@@ -53,54 +73,34 @@ document.addEventListener("DOMContentLoaded", () => {
 
       wrap.innerHTML = items
         .map((i) => {
-          const quando = i.created_at_br || i.created_at || "";
+          const quando = i.created_at_br || i.created_at || i.criado_em || "";
           const cat = i.categoria || i.tipo || "Geral";
-          const txt = (i.texto || i.text || "")
+          const txt = (i.texto || i.text || i.dica || "")
             .toString()
             .replace(/\n/g, "<br>");
           return `
-            <div class="border-bottom py-2">
-              <small class="text-muted">${quando} • ${cat}</small>
-              <div>${txt}</div>
-            </div>
-          `;
+          <div class="border-bottom py-2">
+            <small class="text-muted">${esc(quando)} • ${esc(cat)}</small>
+            <div>${txt}</div>
+          </div>
+        `;
         })
         .join("");
     })
-    .catch((err) =>
-      console.error("Falha ao buscar/renderizar histórico IA:", err)
-    );
+    .catch((err) => console.error("Falha ao buscar preview histórico:", err));
 });
 
-// static/js/dashboard.js — Spaço da Jhuséna (versão consolidada e corrigida)
 (function () {
   "use strict";
 
-  // === Evita rodar 2x se o arquivo for incluído de novo ===
+  // Evita rodar 2x
   if (window.__SJ_DASH_ONCE__) {
-    console.debug("Dashboard já inicializado — evitando duplicidade.");
+    dlog("Dashboard já inicializado — evitando duplicidade.");
     return;
   }
   window.__SJ_DASH_ONCE__ = true;
 
-  // =============== Utils ===============
-  function _toNumber(v) {
-    if (typeof v === "number") return Number.isFinite(v) ? v : 0;
-    if (typeof v === "string")
-      return Number(v.replace(/\./g, "").replace(",", ".")) || 0;
-    return 0;
-  }
-
-  // Converte valor único em série (se necessário) e ajusta tamanho
-  function garantirArray(valor, tamanho) {
-    if (Array.isArray(valor)) return valor;
-    if (typeof valor === "number" && tamanho > 0) {
-      return new Array(tamanho).fill(valor / tamanho);
-    }
-    return tamanho ? new Array(tamanho).fill(0) : [];
-  }
-
-  // Helpers para cards/HTML
+  /* =============== Utils =============== */
   function escapeHtml(s) {
     return String(s ?? "")
       .replaceAll("&", "&amp;")
@@ -115,7 +115,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const firstDayOfMonth = (d) =>
     `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-01`;
 
-  // --- Fetch JSON com erro detalhado ---
   async function sjFetchJSON(url) {
     const r = await fetch(url, {
       headers: {
@@ -131,9 +130,8 @@ document.addEventListener("DOMContentLoaded", () => {
     return r.json();
   }
 
-  // =============== Charts Helpers ===============
+  /* =============== Chart helpers =============== */
   const sjCharts = {};
-
   function getOrCreateChart(ctx, key, config) {
     if (sjCharts[key]) {
       sjCharts[key].data = config.data;
@@ -153,7 +151,6 @@ document.addEventListener("DOMContentLoaded", () => {
     return ch;
   }
 
-  // =============== Gráficos ===============
   function montarGraficoEvolucao(
     dias = [],
     receitas = [],
@@ -250,7 +247,72 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
-  // =============== Dashboard: filtros de período ===============
+  /* =============== Popular o <select id="filtroCategoria"> com categorias reais =============== */
+  document.addEventListener("DOMContentLoaded", () => {
+    const sel = document.getElementById("filtroCategoria");
+    if (!sel) return;
+
+    const IA_LABELS = [
+      { value: "", label: "Todas" },
+      { value: "Geral", label: "Geral" },
+      { value: "Alerta", label: "Alerta" },
+      { value: "Meta", label: "Meta" },
+      { value: "Dica", label: "Dica" },
+    ];
+
+    if (sel.dataset.hydrated === "1") return;
+
+    sel.innerHTML = "";
+    for (const o of IA_LABELS) {
+      const opt = document.createElement("option");
+      opt.value = o.value;
+      opt.textContent = o.label;
+      sel.appendChild(opt);
+    }
+
+    const url = window.URL_CATEGORIAS || "/financeiro/dashboard/categorias/";
+    fetch(url, {
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+        Accept: "application/json",
+      },
+      credentials: "same-origin",
+    })
+      .then((r) => r.json())
+      .then((j) => {
+        if (
+          !j ||
+          !j.ok ||
+          !Array.isArray(j.categorias) ||
+          !j.categorias.length
+        ) {
+          sel.dataset.hydrated = "1";
+          return;
+        }
+
+        const sep = document.createElement("option");
+        sep.disabled = true;
+        sep.textContent = "──────────";
+        sel.appendChild(sep);
+
+        for (const c of j.categorias) {
+          const opt = document.createElement("option");
+          opt.value = c;
+          opt.textContent = c;
+          sel.appendChild(opt);
+        }
+        sel.dataset.hydrated = "1";
+      })
+      .catch((err) => {
+        console.warn(
+          "Categorias: fallback silencioso (sem campo 'categoria' ou erro).",
+          err
+        );
+        sel.dataset.hydrated = "1";
+      });
+  });
+
+  /* =============== Dashboard — filtros e gráficos =============== */
   document.addEventListener("DOMContentLoaded", async function () {
     const $ini =
       document.querySelector("#filtroInicio") ||
@@ -270,12 +332,27 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function recarregar() {
       const base =
-        window.URL_DADOS_GRAFICO || "/financeiro/dashboard/dados-filtrados/";
-      const url = `${base}?inicio=${encodeURIComponent(
-        inicio
-      )}&fim=${encodeURIComponent(fim)}`;
-      const dados = await sjFetchJSON(url);
+        window.URL_DADOS_GRAFICO || "/financeiro/dados_grafico_filtrados/";
 
+      const _inicio = $ini?.value || iniDefault;
+      const _fim = $fim?.value || fimDefault;
+
+      const $cat = document.getElementById("filtroCategoria");
+      
+      const categoria = $cat && $cat.value ? $cat.value.trim() : "";
+      const IA_LABELS_SET = new Set(["Geral", "Alerta", "Meta", "Dica"]);
+      const qs = new URLSearchParams();
+      qs.set("inicio", _inicio);
+      qs.set("fim", _fim);
+      if (categoria && !IA_LABELS_SET.has(categoria)) {
+        qs.set("categoria", categoria); // só manda se for categoria REAL
+      }
+
+
+      const url = `${base}?${qs.toString()}`;
+      console.log("[Dashboard] GET", url);
+
+      const dados = await sjFetchJSON(url);
       if (!dados || !Array.isArray(dados.dias)) {
         throw new Error(
           "Payload inválido: esperado {dias, receitas, despesas, saldo}"
@@ -312,6 +389,13 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
 
+    const $cat = document.getElementById("filtroCategoria");
+    if ($cat) {
+      $cat.addEventListener("change", () => {
+        recarregar().catch((e) => console.error(e));
+      });
+    }
+
     const btnAplicar =
       document.getElementById("btnAplicarFiltros") ||
       document.getElementById("filtrar-btn");
@@ -339,75 +423,73 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // =============== Botão "Gerar nova dica" (simples) ===============
-  {
+  /* =============== Botão "Gerar nova dica" (simples) =============== */
+  document.addEventListener("DOMContentLoaded", () => {
     const btn = document.getElementById("btnGerarDica");
     const st = document.getElementById("statusDica");
     const csrf = typeof getCsrfToken === "function" ? getCsrfToken : () => "";
 
-    if (btn) {
-      btn.addEventListener("click", async () => {
-        btn.disabled = true;
-        if (st) st.textContent = "Gerando dica...";
+    if (!btn) return;
 
-        try {
-          const r = await fetch("/financeiro/api/insights/criar-simples/", {
-            method: "POST",
-            headers: {
-              "X-Requested-With": "XMLHttpRequest",
-              "X-CSRFToken": csrf(),
-              Accept: "application/json",
-            },
-            credentials: "same-origin",
-          });
-          const j = await r.json();
-
-          if (j.ok) {
-            if (st) st.textContent = "✅ Nova dica gerada!";
-
-            const box =
-              document.getElementById("cardsInsight") ||
-              document.getElementById("listaHistorico");
-            if (box) {
-              const data = j.created_at || new Date().toLocaleString("pt-BR");
-              const titulo = j.title || "Nova dica";
-              const texto = j.text || j.dica || "";
-
-              const card = document.createElement("div");
-              card.className = "card border-success mt-3";
-              card.innerHTML = `
-                <div class="card-body">
-                  <div class="small text-muted">Insight • ${escapeHtml(
-                    String(data)
-                  )}</div>
-                  <h5 class="card-title mb-1">${escapeHtml(String(titulo))}</h5>
-                  <p class="mb-0" style="white-space:pre-wrap">${escapeHtml(
-                    String(texto)
-                  )}</p>
-                </div>`;
-              const placeholder = document.getElementById(
-                "placeholderInsightCard"
-              );
-              if (placeholder) placeholder.replaceWith(card);
-              else box.prepend(card);
-            }
-          } else {
-            if (st) st.textContent = "⚠️ Não consegui gerar a dica.";
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      if (st) st.textContent = "Gerando dica...";
+      try {
+        const r = await fetch("/financeiro/api/insights/criar-simples/", {
+          method: "POST",
+          headers: {
+            "X-Requested-With": "XMLHttpRequest",
+            "X-CSRFToken": csrf(),
+            Accept: "application/json",
+          },
+          credentials: "same-origin",
+        });
+        const j = await r.json();
+        if (j.ok) {
+          if (st) st.textContent = "✅ Nova dica gerada!";
+          const box =
+            document.getElementById("cardsInsight") ||
+            document.getElementById("listaHistorico");
+          if (box) {
+            const data = j.created_at || new Date().toLocaleString("pt-BR");
+            const titulo = j.title || "Nova dica";
+            const texto = j.text || j.dica || "";
+            const card = document.createElement("div");
+            card.className = "card border-success mt-3";
+            card.innerHTML = `
+              <div class="card-body">
+                <div class="small text-muted">Insight • ${escapeHtml(
+                  String(data)
+                )}</div>
+                <h5 class="card-title mb-1">${escapeHtml(String(titulo))}</h5>
+                <p class="mb-0" style="white-space:pre-wrap">${escapeHtml(
+                  String(texto)
+                )}</p>
+              </div>`;
+            const placeholder = document.getElementById(
+              "placeholderInsightCard"
+            );
+            if (placeholder) placeholder.replaceWith(card);
+            else box.prepend(card);
           }
-        } catch (e) {
-          console.error("Erro ao gerar dica simples:", e);
-          if (st) st.textContent = "Erro na solicitação.";
-        } finally {
-          btn.disabled = false;
-          setTimeout(() => {
-            if (st) st.textContent = "";
-          }, 2000);
+          if (window.__HistoricoIA) window.__HistoricoIA.recarregar();
+          else document.getElementById("btnReloadDicas")?.click();
+        } else {
+          if (st) st.textContent = "⚠️ Não consegui gerar a dica.";
         }
-      });
-    }
-  }
+      } catch (e) {
+        console.error("Erro ao gerar dica simples:", e);
+        if (st) st.textContent = "Erro na solicitação.";
+      } finally {
+        btn.disabled = false;
+        setTimeout(() => {
+          if (st) st.textContent = "";
+        }, 2000);
+      }
+    });
+  });
 
-  // =============== Ocultar botões duplicados "Gerar nova dica" ===============
+  // Oculta botões duplicados "Gerar nova dica"
   document.addEventListener("DOMContentLoaded", () => {
     const main = document.getElementById("btnGerarDica");
     if (!main) return;
@@ -422,12 +504,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  // =============== 🧠 Histórico — Período + Categoria + "Ver mais" (paginado) ===============
+  /* =============== LEGACY Histórico (período + categoria + ver mais) =============== */
   document.addEventListener("DOMContentLoaded", () => {
+    if (window.__HistoricoIA) {
+      dlog("LEGACY histórico desativado (módulo novo detectado).");
+      return;
+    }
+
     const wrap = document.getElementById("listaHistorico");
     if (!wrap || !wrap.parentNode) return;
 
-    // campos de período (se existirem no template)
     const elIni =
       document.getElementById("filtroInicio") ||
       document.querySelector('input[name="inicio"]') ||
@@ -438,7 +524,6 @@ document.addEventListener("DOMContentLoaded", () => {
       document.querySelector('input[name="fim"]') ||
       document.querySelector('input[data-role="fim"]');
 
-    // campo de categoria (select ou input)
     const elCat =
       document.getElementById("filtroCategoria") ||
       document.querySelector('select[name="categoria"]') ||
@@ -448,7 +533,6 @@ document.addEventListener("DOMContentLoaded", () => {
     let page = 1;
     let loading = false;
 
-    // botão único de "Ver mais" (sem duplicar)
     let btn = document.getElementById("btnVerMaisHistorico");
     if (!btn) {
       btn = document.createElement("button");
@@ -458,7 +542,6 @@ document.addEventListener("DOMContentLoaded", () => {
       wrap.parentNode.appendChild(btn);
     }
 
-    // Normalizador de payload
     function normItems(payload) {
       return (
         (Array.isArray(payload?.items) && payload.items) ||
@@ -470,41 +553,39 @@ document.addEventListener("DOMContentLoaded", () => {
       );
     }
 
-    // Render de cards do histórico
     function renderItems(items, append = true) {
       const esc = (s) => escapeHtml(String(s ?? ""));
       const arr = Array.isArray(items) ? items : [];
       const html = arr
         .map((i) => {
-          const quando = i.created_at_br || i.created_at || i.data || "";
+          const quando =
+            i.created_at_br || i.created_at || i.criado_em || i.data || "";
           const cat = i.categoria || i.tipo || "Geral";
           const titulo = i.title || "Dica da IA";
-          const texto = (i.texto || i.text || "").toString();
+          const texto = (i.texto || i.text || i.dica || "").toString();
           return `
-            <div class="card border-success mb-3 shadow-sm">
-              <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                  <span class="badge bg-success-subtle text-success border border-success-subtle">${esc(
-                    cat
-                  )}</span>
-                  <small class="text-muted">${esc(quando)}</small>
-                </div>
-                <h6 class="card-title text-success mb-1">${esc(titulo)}</h6>
-                <p class="card-text mb-0" style="white-space: pre-wrap">${esc(
-                  texto
-                )}</p>
+          <div class="card border-success mb-3 shadow-sm">
+            <div class="card-body">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="badge bg-success-subtle text-success border border-success-subtle">${esc(
+                  cat
+                )}</span>
+                <small class="text-muted">${esc(quando)}</small>
               </div>
-            </div>`;
+              <h6 class="card-title text-success mb-1">${esc(titulo)}</h6>
+              <p class="card-text mb-0" style="white-space: pre-wrap">${esc(
+                texto
+              )}</p>
+            </div>
+          </div>`;
         })
         .join("");
 
-      if (append) {
-        wrap.insertAdjacentHTML("beforeend", html);
-      } else {
+      if (append) wrap.insertAdjacentHTML("beforeend", html);
+      else
         wrap.innerHTML =
           html ||
           `<div class="alert alert-secondary mb-2">Nenhuma dica encontrada.</div>`;
-      }
     }
 
     function buildParams(nextPage) {
@@ -515,7 +596,6 @@ document.addEventListener("DOMContentLoaded", () => {
       const vIni = elIni?.value?.trim();
       const vFim = elFim?.value?.trim();
       const vCat = elCat?.value?.trim();
-
       if (vIni) params.set("inicio", vIni);
       if (vFim) params.set("fim", vFim);
       if (vCat && vCat.toLowerCase() !== "todas") params.set("categoria", vCat);
@@ -526,7 +606,6 @@ document.addEventListener("DOMContentLoaded", () => {
       if (loading) return;
       loading = true;
 
-      // loader simples
       let loader = document.getElementById("historicoLoadingRow");
       if (!loader) {
         loader = document.createElement("div");
@@ -542,15 +621,17 @@ document.addEventListener("DOMContentLoaded", () => {
       btn.textContent = append ? "Carregando…" : "Atualizando…";
 
       try {
-        // 👉 se seu backend já estiver no /v2/, troque a URL abaixo
-        const url = `/financeiro/ia/historico/feed/?${buildParams(nextPage)}`;
+        const url = `/financeiro/ia/historico/feed/v2/?${buildParams(
+          nextPage
+        )}`;
+        dlog("[Histórico LEGACY] GET", url);
         const r = await fetch(url, { headers: { Accept: "application/json" } });
         const j = await r.json();
 
         const items = normItems(j);
         renderItems(items, append);
 
-        // destaque do último item inserido
+        // efeito visual leve
         try {
           const last = wrap.lastElementChild;
           if (last) {
@@ -565,7 +646,6 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch {}
 
         page = j.page || nextPage;
-
         const hasNext = Boolean(j.has_next);
         if (!hasNext || !items.length) {
           btn.textContent = "Fim";
@@ -583,7 +663,7 @@ document.addEventListener("DOMContentLoaded", () => {
           btn.disabled = false;
         }
       } catch (e) {
-        console.error("Erro ao carregar histórico:", e);
+        console.error("Erro ao carregar histórico (LEGACY):", e);
         btn.textContent = "Tentar novamente";
         btn.disabled = false;
       } finally {
@@ -592,10 +672,9 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // clique em "Ver mais"
     btn.onclick = () => {
-      const dbg = `/financeiro/ia/historico/feed/?${buildParams(page + 1)}`;
-      console.log("[Histórico] Ver mais clicado:", {
+      const dbg = `/financeiro/ia/historico/feed/v2/?${buildParams(page + 1)}`;
+      dlog("[Histórico LEGACY] Ver mais:", {
         currentPage: page,
         nextPage: page + 1,
         url: dbg,
@@ -603,7 +682,6 @@ document.addEventListener("DOMContentLoaded", () => {
       loadPage(page + 1, true);
     };
 
-    // mudança de período/categoria -> recarrega da página 1
     async function onFiltersChange() {
       page = 1;
       btn.disabled = false;
@@ -615,11 +693,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (elFim) elFim.addEventListener("change", onFiltersChange);
     if (elCat) elCat.addEventListener("change", onFiltersChange);
 
-    // 🔰 carregamento inicial
+    // carregamento inicial
     loadPage(1, false).catch((e) => console.error(e));
   });
 
-  // =============== 🧠 Histórico — salvar e restaurar posição de rolagem ===============
+  /* =============== Histórico — salvar/restaurar rolagem =============== */
   document.addEventListener("DOMContentLoaded", () => {
     const wrap = document.getElementById("listaHistorico");
     const KEY = "iaHistoricoScroll:" + location.pathname;
@@ -629,11 +707,8 @@ document.addEventListener("DOMContentLoaded", () => {
         const raw = localStorage.getItem(KEY);
         if (!raw) return;
         const s = JSON.parse(raw);
-        if (wrap && typeof s.wrap === "number") {
-          wrap.scrollTop = s.wrap;
-        } else if (typeof s.win === "number") {
-          window.scrollTo(0, s.win);
-        }
+        if (wrap && typeof s.wrap === "number") wrap.scrollTop = s.wrap;
+        else if (typeof s.win === "number") window.scrollTo(0, s.win);
       } catch {}
     }
 
@@ -659,11 +734,35 @@ document.addEventListener("DOMContentLoaded", () => {
     if (wrap) wrap.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("beforeunload", save);
-
     setTimeout(restore, 120);
   });
 
-  // === 💡 IA: Gerar Nova Dica (últimos 30 dias) ===
+  /* =============== Botão Modal "Atualizar histórico" =============== */
+  document.addEventListener("DOMContentLoaded", () => {
+    const btnModalReload = document.getElementById("btnReloadDicasModal");
+    if (!btnModalReload) return;
+
+    btnModalReload.addEventListener("click", (ev) => {
+      if (!ev.isTrusted) return;
+      console.log("🧠 [Historico] Recarregando via botão do modal...");
+      try {
+        if (
+          window.__HistoricoIA &&
+          typeof window.__HistoricoIA.recarregar === "function"
+        ) {
+          window.__HistoricoIA.recarregar();
+        } else {
+          console.warn(
+            "⚠️ Módulo __HistoricoIA não encontrado — recarregar ignorado."
+          );
+        }
+      } catch (err) {
+        console.error("💥 Erro ao tentar recarregar histórico via modal:", err);
+      }
+    });
+  });
+
+  /* =============== IA: Gerar Nova Dica (últimos 30 dias) + limpar badge modal =============== */
   document.addEventListener("DOMContentLoaded", function () {
     const btn = document.getElementById("btnGerarDica30d");
     const st = document.getElementById("stDica30d");
@@ -688,11 +787,18 @@ document.addEventListener("DOMContentLoaded", () => {
         const data = await resp.json();
         console.log("✅ [Dica30d] resposta:", data);
 
+        // guarda os últimos itens (se vierem) — usado por algum badge externo opcional
+        const items = data.results || data.items || data || [];
+        window.__IA_HIST_LAST_ITEMS = items;
+        if (window.__IA_HIST_BADGE_UPDATE) window.__IA_HIST_BADGE_UPDATE(items);
+
         if (data.ok) {
           if (st)
-            st.textContent = `✅ ${data.tipo?.toUpperCase()}: ${data.dica}`;
-          // 🔄 atualiza o histórico automaticamente (se existir um botão/trigger)
-          document.getElementById("btnReloadDicas")?.click();
+            st.textContent = `✅ ${data.tipo?.toUpperCase() || ""}: ${
+              data.dica
+            }`;
+          if (window.__HistoricoIA) window.__HistoricoIA.recarregar();
+          else document.getElementById("btnReloadDicas")?.click();
         } else {
           if (st) st.textContent = "⚠️ Não consegui gerar a dica.";
         }
@@ -706,5 +812,18 @@ document.addEventListener("DOMContentLoaded", () => {
         btn.disabled = false;
       }
     });
+
+    // Zera badge ao abrir o modal (se você usar modal com id="modalHistoricoIA")
+    (function () {
+      const MODAL_ID = "modalHistoricoIA";
+      const modalEl = document.getElementById(MODAL_ID);
+      if (modalEl) {
+        modalEl.addEventListener("shown.bs.modal", () => {
+          if (window.__IA_HIST_MARK_SEEN && window.__IA_HIST_LAST_ITEMS) {
+            window.__IA_HIST_MARK_SEEN(window.__IA_HIST_LAST_ITEMS);
+          }
+        });
+      }
+    })();
   });
-})();
+})(); // FIM IIFE
