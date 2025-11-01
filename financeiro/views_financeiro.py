@@ -24,6 +24,8 @@ from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
+from ia.services.classify import _map_tipo
+
 
 # -----------------------------
 # 🐍 App local
@@ -909,7 +911,7 @@ def diag_transacao(request):
         )
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=200)
-    
+
 @login_required
 def categorias_transacao(request):
     """
