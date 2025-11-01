@@ -24,6 +24,7 @@ from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
+from django.db.models import Count, Q, Value, CharField, Case, When
 
 # -----------------------------
 # 🐍 App local
@@ -931,72 +932,95 @@ def categorias_transacao(request):
 @login_required
 @require_GET
 def ia_historico_feed_v2(request):
-    """
-    Feed de histórico da IA com filtro por tipo de dica.
-    Ex.: /financeiro/ia/historico/feed/v2/?limit=20&tipo=alerta
-         tipo ∈ {"positiva","alerta","neutra"} | vazio => todas
-    """
     user = request.user
-    tipo_param = (request.GET.get("tipo") or "").lower().strip()
+    tipo_param = (request.GET.get("tipo") or "").strip().lower()
+
     try:
         limit = int(request.GET.get("limit", 20))
     except ValueError:
         limit = 20
     limit = max(1, min(limit, 100))
 
-    # Backfill leve: classifica registros sem 'tipo'
-    sem_tipo_qs = RecomendacaoIA.objects.filter(usuario=user).filter(
-        Q(tipo__isnull=True) | Q(tipo="")
-    )[:200]
-    updated = []
-    for rec in sem_tipo_qs:
-        novo_tipo = map_tipo_oficial(rec.texto or "")
-        if novo_tipo != (rec.tipo or ""):
-            rec.tipo = novo_tipo
-            updated.append(rec)
-    if updated:
-        RecomendacaoIA.objects.bulk_update(updated, ["tipo"])
+    base = RecomendacaoIA.objects.filter(usuario=user)
 
-    # Contadores globais para os botões
-    agg = RecomendacaoIA.objects.filter(usuario=user).values("tipo").annotate(c=Count("id"))
-    count_map = {"positiva": 0, "alerta": 0, "neutra": 0}
+    # ---- contagem por tipo (normalizada em Python)
+    counts = {"positiva": 0, "alerta": 0, "neutra": 0}
     total = 0
-    for row in agg:
-        k = (row["tipo"] or "").lower().strip()
-        if k in count_map:
-            count_map[k] = row["c"]
-            total += row["c"]
+    for row in base.values("tipo").annotate(c=Count("id")):
+        k = (row["tipo"] or "").strip().lower()
+        if k.startswith("posit"):
+            k = "positiva"
+        elif k.startswith("alert"):
+            k = "alerta"
+        elif k.startswith("neutr") or k.startswith("geral") or k == "":
+            k = "neutra"
+        else:
+            k = "neutra"
+        counts[k] += row["c"]
+        total += row["c"]
 
-    # Query principal com filtro opcional
-    qs = RecomendacaoIA.objects.filter(usuario=user).order_by("-criado_em")
-    if tipo_param in {"positiva", "alerta", "neutra"}:
-        qs = qs.filter(tipo=tipo_param)
-        filtro_label = tipo_param
+    qs = base.order_by("-criado_em")
+
+    # ---- filtro tolerante (case-insensitive + variações)
+    if tipo_param == "positiva":
+        qs = qs.filter(Q(tipo__istartswith="posit"))
+        filtro_label = "positiva"
+    elif tipo_param == "alerta":
+        qs = qs.filter(Q(tipo__istartswith="alert"))
+        filtro_label = "alerta"
+    elif tipo_param == "neutra":
+        qs = qs.filter(
+            Q(tipo__isnull=True)
+            | Q(tipo__exact="")
+            | Q(tipo__istartswith="neutr")
+            | Q(tipo__istartswith="geral")
+        )
+        filtro_label = "neutra"
     else:
         filtro_label = "todas"
 
+    tz = timezone.get_current_timezone()
     items = []
     for rec in qs[:limit]:
+        tnorm = (rec.tipo or "").strip().lower()
+        if tnorm not in ("positiva", "alerta", "neutra"):
+            tnorm = map_tipo_oficial(rec.texto or "")
+        dt_local = timezone.localtime(rec.criado_em, tz) if rec.criado_em else None
         items.append(
             {
                 "id": rec.id,
-                "tipo": (rec.tipo or "neutra"),
+                "tipo": tnorm or "neutra",
                 "texto": rec.texto or "",
                 "criado_em": rec.criado_em.isoformat() if rec.criado_em else "",
-                "criado_em_fmt": rec.criado_em.strftime("%d/%m/%Y %H:%M") if rec.criado_em else "",
+                "criado_em_fmt": dt_local.strftime("%d/%m/%Y %H:%M") if dt_local else "",
             }
         )
+    # --- DEBUG opcional ---
+    debug = request.GET.get("debug") == "1"
+    resp = {
+        "ok": True,
+        "filtro": filtro_label,
+        "count": {**counts, "total": total},
+        "items": items,
+    }
+    if debug:
+        resp["__debug"] = {
+            "user": {
+                "id": request.user.id,
+                "username": getattr(request.user, "username", None),
+                "email": getattr(request.user, "email", None),
+            },
+            "raw_counts": list(
+                base.values("tipo").annotate(c=Count("id")).order_by("tipo")
+            ),
+        }
+        return JsonResponse(resp)
 
     return JsonResponse(
-        {
-            "ok": True,
-            "filtro": filtro_label,
-            "count": {
-                "positiva": count_map["positiva"],
-                "alerta": count_map["alerta"],
-                "neutra": count_map["neutra"],
-                "total": total,
-            },
-            "items": items,
-        }
-    )
+            {
+                "ok": True,
+                "filtro": filtro_label,
+                "count": {**counts, "total": total},
+                "items": items,
+            }
+        )
