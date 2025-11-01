@@ -1,34 +1,34 @@
-# Stdlib
-
+# -----------------------------
+# 📦 Importações padrão (stdlib)
+# -----------------------------
+import hashlib
+import logging
+import re
 from collections import defaultdict
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 import builtins
-import re
 
-# Django
-from django.apps import apps  # fallback para modelos
+# -----------------------------
+# 🧩 Django
+# -----------------------------
+from django.apps import apps
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db.models import Sum, Q
+from django.db import DatabaseError
+from django.db.models import Sum, Q, Count
+from django.db.models.functions import TruncDate
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
-from django.views.decorators.http import require_GET, require_POST
-from django.views.decorators.http import require_http_methods
 from django.utils.dateparse import parse_date
-from django.db.models.functions import TruncDate
-from django.db import DatabaseError
-from django.db.models import Count
+from django.views.decorators.http import require_GET, require_POST, require_http_methods
 
-import hashlib
-import logging
-
-
-# App local
+# -----------------------------
+# 🐍 App local
+# -----------------------------
 from .models import Insight, Transacao
-from .services.ia import generate_tip_last_30d
 from .services.ia import generate_tip_last_30d, _map_tipo
 
 
@@ -50,29 +50,34 @@ except Exception:
 # -----------------------------------------------------------------------------
 # Classificadores
 # -----------------------------------------------------------------------------
-def _map_tipo(categoria: str, cor: str, metrics: dict) -> str:
+def _map_tipo_painel(categoria: str, cor: str, metrics: dict) -> str:
     """
-    Classifica em: oportunidade | economia | alerta | meta.
-    Regras:
-      - margem < 0  → alerta
-      - margem == 0 → economia
-      - margem > 0  → oportunidade
-      - se for dica de meta, retorna 'meta'
+    Classifica uma recomendação do painel (não textual) em:
+      - 'oportunidade' → margem > 0  ou cor == 'success'
+      - 'economia'     → margem == 0
+      - 'alerta'       → margem < 0  ou cor == 'danger'
+      - 'meta'         → categoria menciona 'meta'
+
+    Esta versão é usada apenas dentro do painel financeiro,
+    enquanto a IA oficial usa o _map_tipo(texto) do services/ia.py.
     """
+
+    # 🔹 Extrai margem das métricas (se existir)
     try:
         margem = float((metrics or {}).get("margem", 0) or 0)
     except Exception:
         margem = 0.0
 
-    cat = (categoria or "").lower()
+    cat = (categoria or "").lower().strip()
 
+    # 🔸 Regras de decisão
     if "meta" in cat:
         return "meta"
     if margem < 0 or cor == "danger":
         return "alerta"
-    elif margem == 0:
+    if margem == 0:
         return "economia"
-    elif margem > 0 or cor == "success":
+    if margem > 0 or cor == "success":
         return "oportunidade"
 
     return "economia"
@@ -257,142 +262,35 @@ def dashboard_financeiro(request):
 @require_http_methods(["GET", "POST"])
 @login_required
 def gerar_dica_30d(request):
-    # 1) roda a Mini-IA existente
-    # 1) roda a Mini-IA existente (compatível com 2 ou 3 retornos)
-    rec_id = None
     try:
-        # tenta assinatura nova (com auto_save no services/ia.py)
-        out = generate_tip_last_30d(Transacao, usuario=request.user, auto_save=True)
+        # Já salva em RecomendacaoIA quando auto_save=True e retorna (dica, metrics, saved_id)
+        dica, metrics, saved_id = generate_tip_last_30d(
+            Transacao, usuario=request.user, auto_save=True
+        )
     except TypeError:
-        # fallback para assinatura antiga
-        out = generate_tip_last_30d(Transacao)
+        # Assinatura antiga: (dica, metrics)
+        dica, metrics = generate_tip_last_30d(Transacao)
+        saved_id = None
 
-    # desempacota de forma segura
-    if isinstance(out, tuple) and len(out) == 3:
-        dica, metrics, rec_id = out
-    else:
-        dica, metrics = out
-        rec_id = None
-
-    # 2) período (seguro)
+    # Período seguro
     ps_str = (metrics.get("periodo") or {}).get("inicio") if isinstance(metrics, dict) else None
     pe_str = (metrics.get("periodo") or {}).get("fim") if isinstance(metrics, dict) else None
     try:
         ps = date.fromisoformat(ps_str) if ps_str else timezone.localdate()
         pe = date.fromisoformat(pe_str) if pe_str else timezone.localdate()
     except Exception:
-        ps, pe = timezone.localdate(), timezone.localdate()
+        ps = pe = timezone.localdate()
 
-    categoria = (metrics.get("top_categoria") or "Geral") if isinstance(metrics, dict) else "Geral"
-    cor = _pick_cor_from_metrics(metrics)
-
-    # 3) fingerprint
-    raw = f"{ps}|{pe}|{(dica or '').strip()}"
-    fp = hashlib.sha256(raw.encode("utf-8")).hexdigest()
-
-    saved = False
-    rec_id = None
-
-    saved = False if "saved" not in locals() else bool(saved)  # ✅ garante existência
-    rec_id = None if "rec_id" not in locals() else rec_id  # ✅ garante existência
-
-    # 4) Persistência opcional em HistoricoIA (se existir)
-    if HistoricoIA is not None:
-        try:
-            campos = {f.name for f in HistoricoIA._meta.get_fields()}
-            if "fingerprint" in campos:
-                rec, created = HistoricoIA.objects.get_or_create(
-                    fingerprint=fp,
-                    defaults={
-                        "period_start": ps if "period_start" in campos else None,
-                        "period_end": pe if "period_end" in campos else None,
-                        ("texto" if "texto" in campos else "dica"): (dica or "").strip(),
-                        (
-                            "categoria" if "categoria" in campos else "categoria_dominante"
-                        ): categoria,
-                        "score": 0 if "score" in campos else None,
-                        "metrics": {**(metrics or {}), "cor": cor} if "metrics" in campos else None,
-                        "source": "auto" if "source" in campos else None,
-                        "generated_by": "modo_turbo_30d" if "generated_by" in campos else None,
-                        "visible": True if "visible" in campos else None,
-                    },
-                )
-                saved, rec_id = created, rec.id
-            else:
-                payload = {}
-                if "texto" in campos:
-                    payload["texto"] = (dica or "").strip()
-                elif "dica" in campos:
-                    payload["dica"] = (dica or "").strip()
-                if "categoria" in campos:
-                    payload["categoria"] = categoria
-                elif "categoria_dominante" in campos:
-                    payload["categoria_dominante"] = categoria
-                if "cor" in campos:
-                    payload["cor"] = cor
-                if "created_at" in campos:
-                    payload["created_at"] = timezone.localtime()
-                if "period_start" in campos:
-                    payload["period_start"] = ps
-                if "period_end" in campos:
-                    payload["period_end"] = pe
-                rec = HistoricoIA.objects.create(**payload)
-                saved, rec_id = True, rec.id
-        except Exception:
-            logging.getLogger(__name__).exception("Falha ao salvar em HistoricoIA")
-
-    # 5) Salva no modelo do painel (RecomendacaoIA)
-    # 5) Salva no modelo do painel (RecomendacaoIA) — tolerante a duplicatas
-    try:
-        texto_limpo = (dica or "").strip()
-        print("DEBUG salvar dica | texto:", repr(texto_limpo))
-        print("DEBUG model RecomendacaoIA:", RecomendacaoIA)
-
-        rec_id = None  # garanta que exista
-
-        if texto_limpo:
-            # Resolve tipo (suporta _map_tipo(texto) ou _map_tipo(texto, cor, metrics))
-            try:
-                tipo_escolhido = _map_tipo(texto_limpo)
-            except TypeError:
-                tipo_escolhido = _map_tipo(texto_limpo, cor, metrics)
-
-            # 1) Tenta reusar uma existente (pega a mais recente)
-            rec = (
-                RecomendacaoIA.objects.filter(usuario=request.user, texto=texto_limpo)
-                .order_by("-id")
-                .first()
-            )
-
-            if rec is None:
-                # 2) Se não existe, cria uma nova
-                rec = RecomendacaoIA.objects.create(
-                    usuario=request.user,
-                    texto=texto_limpo,
-                    tipo=tipo_escolhido,
-                )
-
-            rec_id = rec.id
-            print("DEBUG rec_id:", rec_id, "| tipo:", getattr(rec, "tipo", None))
-        else:
-            print("DEBUG texto vazio, não salvou")
-    except Exception as e:
-        print("DEBUG erro ao salvar:", repr(e))
-        logging.getLogger(__name__).exception("Falha ao salvar em RecomendacaoIA")
-
-    # 6) Resposta
     agora = timezone.localtime()
     return JsonResponse(
         {
             "ok": True,
-            "saved": bool(locals().get("rec_id")),
-            "id": locals().get("rec_id"),  # ✅ pega o id capturado
+            "id": saved_id,  # id salvo em RecomendacaoIA (se houver)
             "dica": dica,
-            "text": (dica or "").strip(),  # compat com front
-            "texto": (dica or "").strip(),  # compat com front
+            "text": (dica or "").strip(),
+            "texto": (dica or "").strip(),
+            "tipo": _map_tipo(dica),  # usa o classificador do services/ia.py
             "metrics": metrics,
-            "categoria": categoria,
-            "cor": cor,
             "created_at": agora.strftime("%d/%m/%Y %H:%M"),
             "periodo": {"inicio": str(ps), "fim": str(pe)},
         }
@@ -840,8 +738,17 @@ def dados_grafico_filtrados(request):
             cur += timedelta(days=1)
 
         qs = Transacao.objects.filter(data__range=(inicio, fim))
-        if categoria:
-            qs = qs.filter(Q(categoria__iexact=categoria) | Q(categoria__icontains=categoria))
+
+        # ✅ Só filtra por 'categoria' se:
+        # - veio parâmetro
+        # - NÃO é rótulo da IA
+        # - o modelo tem o campo 'categoria'
+        ia_labels = {"geral", "alerta", "meta", "dica"}
+        if categoria and categoria.lower() not in ia_labels:
+            fields = {f.name for f in Transacao._meta.get_fields()}
+            if "categoria" in fields:
+                qs = qs.filter(Q(categoria__iexact=categoria) | Q(categoria__icontains=categoria))
+            # se não tiver o campo, ignora silenciosamente (evita 500)
 
         agreg = qs.values("data", "tipo").annotate(total=Sum("valor")).order_by("data")
 
@@ -1002,21 +909,35 @@ def diag_transacao(request):
         )
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=200)
+    
+@login_required
+def categorias_transacao(request):
+    """
+    Retorna as categorias reais existentes em Transacao.categoria (distintas e ordenadas).
+    Ex.: { "ok": true, "categorias": ["Banho", "Tosa", "Produtos"] }
+    Se o modelo não tiver o campo, retorna lista vazia.
+    """
+    try:
+        fields = {f.name for f in Transacao._meta.get_fields()}
+        if "categoria" not in fields:
+            return JsonResponse({"ok": True, "categorias": []})
+
+        qs = (
+            Transacao.objects.exclude(categoria__isnull=True)
+            .exclude(categoria__exact="")
+            .values_list("categoria", flat=True)
+            .distinct()
+            .order_by("categoria")
+        )
+        return JsonResponse({"ok": True, "categorias": list(qs)})
+    except Exception as e:
+        logging.getLogger(__name__).exception("Erro em categorias_transacao")
+        return JsonResponse({"ok": False, "categorias": [], "error": str(e)}, status=500)
 
 
 # -----------------------------------------------------------------------------
 # Feed histórico v2 (com filtro textual e contadores)
 # -----------------------------------------------------------------------------
-
-
-# financeiro/views_financeiro.py (ou equivalente)
-from django.contrib.auth.decorators import login_required
-from django.views.decorators.http import require_GET
-from django.http import JsonResponse
-from django.db.models import Count, Q
-
-from .models import RecomendacaoIA
-from .services.ia import _map_tipo
 
 
 @login_required
