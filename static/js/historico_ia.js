@@ -210,148 +210,198 @@
     lastSeenAt = localStorage.getItem(KEY_LAST_SEEN) || null;
 
     // ===== fetch histórico (assinatura flexível) =====
-    async function fetchHistorico(a = 20, b = "") {
-      // aceita fetchHistorico(20, "positiva") OU fetchHistorico("positiva")
-      let limit = 20;
-      let tipo = "";
+    // ✅ Defina o endpoint v2 (se ainda não tiver)
+    const FEED_URL = "/financeiro/ia/historico/feed/v2/";
 
-      if (typeof a === "number" && Number.isFinite(a)) limit = a;
-      else if (typeof a === "string" && isNaN(Number(a))) tipo = a;
-
-      if (typeof b === "number" && Number.isFinite(b)) limit = b;
-      else if (typeof b === "string" && isNaN(Number(b))) tipo = b;
-
-      if (!Number.isFinite(limit) || limit <= 0) limit = 20;
-
-      const t = _normalizeTipo(tipo) || "";
-
-      // 🔒 Anti-prefetch inicial: primeiros 1500ms pós-carga ignoram neutra/alerta/positiva
-      if (performance.now() - __LOAD_TS__ < 1500) {
-        if (t === "neutra" || t === "alerta" || t === "positiva") return [];
-      }
-
-      // 🔒 Gate duro: bloqueia chamadas filtradas fora da janela pós-clique humano
-      if (
-        (t === "neutra" || t === "alerta" || t === "positiva") &&
-        performance.now() > _allowFilteredUntil
-      ) {
-        return []; // sai em silêncio, sem log e sem request
-      }
-
-      // 🧭 Honra somente a intenção mais recente
-      if (_lastIntent.tipo !== t || _lastIntent.limit !== limit) return [];
-
-      const qs = new URLSearchParams();
-      qs.set("limit", String(limit));
-      if (t) qs.set("tipo", t);
-
-      const finalUrl = `${FEED_URL}?${qs.toString()}`;
-
-      // Dedupe por URL
-      if (lastHistUrl === finalUrl) return [];
-      lastHistUrl = finalUrl;
-
-      // 🔪 Aborta requisição anterior
-      if (_abortCtrl) {
-        try {
-          _abortCtrl.abort();
-        } catch {}
-      }
-      _abortCtrl = new AbortController();
-      const signal = _abortCtrl.signal;
-
-      // loga apenas quando realmente vai fazer o fetch
-      console.log("[Historico] GET", finalUrl);
-
-      const r = await fetch(finalUrl, {
-        headers: { Accept: "application/json" },
-        credentials: "same-origin",
-        signal,
-      });
-      if (!r.ok) throw new Error(`HTTP ${r.status} @ ${FEED_URL}`);
-      const json = await r.json();
-
-      // Atualiza contadores vindos do backend, se existirem
-      if (json && json.count && typeof setContadoresBackend === "function") {
-        try {
-          setContadoresBackend(json.count);
-        } catch {}
-      }
-
-      const arr = (json && (json.items || json.results || json.data)) || [];
-      const items = (Array.isArray(arr) ? arr : []).map((x) => {
-        const criado =
-          x.criado_em || x.created_at_br || x.created_at || x.data || "";
-        const k = normKind(
-          x.tipo || x.categoria || x.categoria_dominante || x.kind || "geral"
-        );
-        const txt = (x.text || x.texto || x.dica || x.conteudo || "")
-          .toString()
-          .trim();
-        const title =
-          x.title ||
-          x.titulo ||
-          (txt
-            ? txt.split("\n")[0].slice(0, 60) + (txt.length > 60 ? "…" : "")
-            : "Dica da IA");
-        return {
-          id: x.id,
-          criado_em: criado,
-          _stamp: parseStamp(criado)?.getTime() || 0,
-          tipo: k, // neutra | positiva | alerta | geral
-          title,
-          text: txt || "Sem conteúdo disponível.",
-        };
-      });
-
-      // Ordena do mais recente
-      items.sort((a, b) => b._stamp - a._stamp);
-
-      _abortCtrl = null;
-      return items;
+    // ✅ Normaliza tipo vindo do backend (inclui fallback "geral"→"neutra")
+    function normKindV2(v) {
+      const k = String(v || "")
+        .toLowerCase()
+        .trim();
+      if (k === "alerta" || k === "positiva" || k === "neutra") return k;
+      if (k === "geral" || k === "" || k === "none" || k === "null")
+        return "neutra";
+      return "neutra";
     }
 
+    // (se já existir, mantém) — converte vários formatos de data para Date
+    function parseStamp(raw) {
+      if (!raw) return null;
+      // ISO direto
+      const d1 = new Date(raw);
+      if (!isNaN(d1.getTime())) return d1;
+      // dd/mm/aaaa hh:mm
+      const m = String(raw).match(
+        /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?$/
+      );
+      if (m) {
+        const [_, dd, mm, yyyy, hh = "00", mi = "00"] = m;
+        const d2 = new Date(+yyyy, +mm - 1, +dd, +hh, +mi, 0);
+        if (!isNaN(d2.getTime())) return d2;
+      }
+      return null;
+    }
+
+    // ✅ Mantém tua assinatura flexível e os gates que você já criou
+      async function fetchHistorico(a = 20, b = "") {
+        // aceita fetchHistorico(20, "positiva") OU fetchHistorico("positiva")
+        let limit = 20;
+        let tipo = "";
+
+        if (typeof a === "number" && Number.isFinite(a)) limit = a;
+        else if (typeof a === "string" && isNaN(Number(a))) tipo = a;
+
+        if (typeof b === "number" && Number.isFinite(b)) limit = b;
+        else if (typeof b === "string" && isNaN(Number(b))) tipo = b;
+
+        if (!Number.isFinite(limit) || limit <= 0) limit = 20;
+
+        const t = _normalizeTipo
+          ? _normalizeTipo(tipo) || ""
+          : String(tipo || "")
+              .toLowerCase()
+              .trim();
+
+        // 🔒 Anti-prefetch inicial
+        if (
+          typeof performance !== "undefined" &&
+          performance.now() - __LOAD_TS__ < 1500
+        ) {
+          if (t === "neutra" || t === "alerta" || t === "positiva") return [];
+        }
+
+        // 🔒 Gate duro pós-clique humano
+        if (
+          (t === "neutra" || t === "alerta" || t === "positiva") &&
+          typeof performance !== "undefined" &&
+          performance.now() > (window._allowFilteredUntil || 0)
+        ) {
+          return []; // silencioso
+        }
+
+        // 🧭 Honra somente a intenção mais recente (mantém tua lógica)
+        if (
+          window._lastIntent &&
+          (_lastIntent.tipo !== t || _lastIntent.limit !== limit)
+        )
+          return [];
+
+        const qs = new URLSearchParams();
+        qs.set("limit", String(limit));
+        if (t) qs.set("tipo", t);
+
+        const finalUrl = `${FEED_URL}?${qs.toString()}`;
+
+        // Dedupe por URL (mantém tua lógica)
+        if (window.lastHistUrl === finalUrl) return [];
+        window.lastHistUrl = finalUrl;
+
+        // 🔪 Aborta requisição anterior
+        if (window._abortCtrl) {
+          try {
+            _abortCtrl.abort();
+          } catch {}
+        }
+        window._abortCtrl = new AbortController();
+        const signal = _abortCtrl.signal;
+
+        console.log("[Historico] GET", finalUrl);
+
+        const r = await fetch(finalUrl, {
+          headers: { Accept: "application/json" },
+          credentials: "same-origin",
+          signal,
+        });
+        if (!r.ok) throw new Error(`HTTP ${r.status} @ ${FEED_URL}`);
+        const json = await r.json();
+
+        // ✅ Atualiza contadores que o backend já manda (positiva/alerta/neutra/total)
+        if (
+          json &&
+          json.count &&
+          typeof window.setContadoresBackend === "function"
+        ) {
+          try {
+            setContadoresBackend(json.count);
+          } catch {}
+        }
+
+        // ✅ O backend v2 retorna "items"
+        const arr = (json && (json.items || json.results || json.data)) || [];
+        const items = (Array.isArray(arr) ? arr : []).map((x) => {
+          const criadoRaw =
+            x.criado_em || x.created_at || x.created_at_br || x.data || "";
+          const stamp = parseStamp(criadoRaw)?.getTime() || 0;
+          const k = normKindV2(
+            x.tipo || x.categoria || x.categoria_dominante || x.kind || "geral"
+          );
+          const txt = (x.texto || x.text || x.dica || x.conteudo || "")
+            .toString()
+            .trim();
+          const title =
+            x.title ||
+            x.titulo ||
+            (txt
+              ? txt.split("\n")[0].slice(0, 60) + (txt.length > 60 ? "…" : "")
+              : "Dica da IA");
+          return {
+            id: x.id,
+            criado_em: criadoRaw,
+            _stamp: stamp,
+            tipo: k, // "positiva" | "alerta" | "neutra"
+            title,
+            text: txt || "Sem conteúdo disponível.",
+            criado_em_fmt: x.criado_em_fmt || "", // opcional para exibir no card
+          };
+        });
+
+        // ordem decrescente por data
+        items.sort((a, b) => b._stamp - a._stamp);
+
+        return items;
+      }
+
     // ===== Render =====
-   function cardHTML(it) {
-     const quando = escapeHtml(formatarDataBR(it.criado_em) || "");
+    function cardHTML(it) {
+      const quando = escapeHtml(formatarDataBR(it.criado_em) || "");
 
-     const _t = String(it.tipo || "geral")
-       .trim()
-       .toLowerCase();
-     const tag = escapeHtml(_t.replace(/^./, (c) => c.toUpperCase())); // Positiva / Alerta / Neutra / Geral
+      const _t = String(it.tipo || "geral")
+        .trim()
+        .toLowerCase();
+      const tag = escapeHtml(_t.replace(/^./, (c) => c.toUpperCase())); // Positiva / Alerta / Neutra / Geral
 
-     const isNew =
-       lastSeenAt &&
-       parseStamp(it.criado_em)?.getTime() > new Date(lastSeenAt).getTime();
+      const isNew =
+        lastSeenAt &&
+        parseStamp(it.criado_em)?.getTime() > new Date(lastSeenAt).getTime();
 
-     // usa _t normalizado para a cor
-     const cor =
-       _t === "positiva"
-         ? "success"
-         : _t === "alerta"
-         ? "warning"
-         : "secondary";
+      // usa _t normalizado para a cor
+      const cor =
+        _t === "positiva"
+          ? "success"
+          : _t === "alerta"
+          ? "warning"
+          : "secondary";
 
-     // evita duplicar título e texto (quando o título é só o começo do parágrafo)
-     let titulo = String(it.title || "").trim();
-     const texto = String(it.text || "").trim();
+      // evita duplicar título e texto (quando o título é só o começo do parágrafo)
+      let titulo = String(it.title || "").trim();
+      const texto = String(it.text || "").trim();
 
-     // normaliza para comparação (ignora reticências, pontuação final, quebras de linha)
-     const tNorm = _normSnippet(titulo);
-     const xHead = _normSnippet(texto.split("\n")[0] || "");
+      // normaliza para comparação (ignora reticências, pontuação final, quebras de linha)
+      const tNorm = _normSnippet(titulo);
+      const xHead = _normSnippet(texto.split("\n")[0] || "");
 
-     // se o título for “quase” o começo do texto (>=80% do título bate), esconde
-     let hideTitle = false;
-     if (tNorm && xHead) {
-       const n = Math.max(10, Math.floor(tNorm.length * 0.8)); // pelo menos 10 chars
-       hideTitle = xHead.startsWith(tNorm.slice(0, n));
-     }
-     if (hideTitle) titulo = "";
+      // se o título for “quase” o começo do texto (>=80% do título bate), esconde
+      let hideTitle = false;
+      if (tNorm && xHead) {
+        const n = Math.max(10, Math.floor(tNorm.length * 0.8)); // pelo menos 10 chars
+        hideTitle = xHead.startsWith(tNorm.slice(0, n));
+      }
+      if (hideTitle) titulo = "";
 
-     return `
+      return `
     <div class="card border-${cor} mb-3 shadow-sm ia-card ${
-       isNew ? "is-new" : ""
-     }" data-kind="${escapeHtml(_t)}">
+        isNew ? "is-new" : ""
+      }" data-kind="${escapeHtml(_t)}">
       <div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-2">
           <span class="badge bg-success-subtle text-success border border-success-subtle">${tag}</span>
@@ -369,29 +419,28 @@
         )}</p>
       </div>
     </div>`;
-   }
+    }
 
-   function atualizarBadgeTotal() {
-     if (!badge) return;
+    function atualizarBadgeTotal() {
+      if (!badge) return;
 
-     const lastISO = lastSeenAt ? new Date(lastSeenAt).getTime() : 0;
-     const base = Array.isArray(allItems) ? allItems : [];
+      const lastISO = lastSeenAt ? new Date(lastSeenAt).getTime() : 0;
+      const base = Array.isArray(allItems) ? allItems : [];
 
-     const cnt = lastISO
-       ? base.filter((i) => {
-           const ts = parseStamp(i.criado_em)?.getTime() || 0;
-           return ts > lastISO;
-         }).length
-       : base.length || 0; // primeira visita: tudo é “novo”
+      const cnt = lastISO
+        ? base.filter((i) => {
+            const ts = parseStamp(i.criado_em)?.getTime() || 0;
+            return ts > lastISO;
+          }).length
+        : base.length || 0; // primeira visita: tudo é “novo”
 
-     if (cnt > 0) {
-       badge.textContent = `Novas dicas: ${cnt}`;
-       badge.classList.remove("d-none");
-     } else {
-       badge.classList.add("d-none");
-     }
-   }
-
+      if (cnt > 0) {
+        badge.textContent = `Novas dicas: ${cnt}`;
+        badge.classList.remove("d-none");
+      } else {
+        badge.classList.add("d-none");
+      }
+    }
 
     function atualizarContadoresUI(itemsAll) {
       if (elCountAll) elCountAll.textContent = String(itemsAll.length);
@@ -434,14 +483,14 @@
         ? items.filter((i) => i.tipo === filtroCategoria)
         : items;
       if (!filtered.length) {
-  list.innerHTML = `<div class="alert alert-secondary mb-2">Nenhuma dica encontrada.</div>`;
-  // ❌ NÃO esconda o badge aqui — ele mostra o total de novas, independente do filtro
-  // badge?.classList.add("d-none");  // <- REMOVER esta linha
+        list.innerHTML = `<div class="alert alert-secondary mb-2">Nenhuma dica encontrada.</div>`;
+        // ❌ NÃO esconda o badge aqui — ele mostra o total de novas, independente do filtro
+        // badge?.classList.add("d-none");  // <- REMOVER esta linha
 
-  atualizarBadgeTotal();        // ✅ mantém a contagem global de novas
-  atualizarContadoresUI(items); // ✅ mantém os contadores
-  return;
-}
+        atualizarBadgeTotal(); // ✅ mantém a contagem global de novas
+        atualizarContadoresUI(items); // ✅ mantém os contadores
+        return;
+      }
 
       list.innerHTML = filtered.map(cardHTML).join("");
       requestAnimationFrame(() => {
