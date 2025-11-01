@@ -2,7 +2,7 @@
 // historico_ia.js — versão “clean”, single-flight + gate de filtro
 // ======================================================
 (function () {
-  ("use strict");
+  "use strict";
 
   const __LOAD_TS__ = performance.now();
 
@@ -18,6 +18,18 @@
   console.log("🔍 historico_ia.js carregado");
 
   // ========= Helpers globais =========
+  function parseStamp(s) {
+    if (!s) return null;
+    // ISO: 2025-10-30T...
+    if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return new Date(s);
+    // dd/mm/yyyy HH:MM
+    const m = String(s).match(
+      /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})$/
+    );
+    if (!m) return new Date(s);
+    const [, d, mo, y, h, i] = m.map(Number);
+    return new Date(y, mo - 1, d, h, i);
+  }
   function formatarDataBR(s) {
     const d = parseStamp(s);
     if (!d) return "";
@@ -29,16 +41,14 @@
       minute: "2-digit",
     });
   }
-
   function _normSnippet(s) {
     return String(s || "")
       .toLowerCase()
-      .replace(/\r?\n+/g, " ") // quebras de linha -> espaço
-      .replace(/\s+/g, " ") // colapsa espaços
-      .replace(/[.…]+$/g, "") // remove reticências/pontos no fim
+      .replace(/\r?\n+/g, " ")
+      .replace(/\s+/g, " ")
+      .replace(/[.…]+$/g, "")
       .trim();
   }
-
   function escapeHtml(s) {
     return String(s ?? "")
       .replaceAll("&", "&amp;")
@@ -61,24 +71,6 @@
       .replaceAll("_", " ")
       .replace(/\b\w/g, (c) => c.toUpperCase());
   }
-  function normKind(v) {
-    const s = String(v || "").toLowerCase();
-    if (s.includes("posit")) return "positiva";
-    if (s.includes("alert")) return "alerta";
-    if (s.includes("neut")) return "neutra";
-    return "geral";
-  }
-  // parse "dd/mm/yyyy HH:MM" ou ISO
-  function parseStamp(s) {
-    if (!s) return null;
-    if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return new Date(s); // ISO
-    const m = String(s).match(
-      /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})$/
-    );
-    if (!m) return new Date(s);
-    const [, d, mo, y, h, i] = m.map(Number);
-    return new Date(y, mo - 1, d, h, i);
-  }
   function _normalizeTipo(v) {
     if (!v) return null;
     const s = String(v).toLowerCase();
@@ -97,8 +89,8 @@
   }
 
   // ========= Constantes/Estado =========
-  const PREVIEW_LIMIT = 5; // itens no preview
-  const MORE_INCREMENT = 10; // incremento do "Ver mais"
+  const PREVIEW_LIMIT = 5;
+  const MORE_INCREMENT = 10;
   const KEY_LAST_SEEN = "iaHistoricoLastSeenAt";
 
   // Gate: permite chamadas filtradas só logo após clique humano
@@ -115,7 +107,7 @@
   // Estado geral
   let lastSeenAt = null;
   let allItems = [];
-  let filtroCategoria = ""; // ""=todas | neutra | positiva | alerta
+  let filtroCategoria = ""; // "" | neutra | positiva | alerta
   let refreshTimer = null;
   let BUSY = false;
   let _limitAtual = PREVIEW_LIMIT;
@@ -123,8 +115,8 @@
   // Anti-rajada de cliques em filtros
   let filtroLock = false;
 
-  // ========= Main =========
   document.addEventListener("DOMContentLoaded", () => {
+    // Evita rodar duas vezes
     if (document.body.dataset.iaHistoricoInit === "1") return;
     document.body.dataset.iaHistoricoInit = "1";
 
@@ -182,7 +174,6 @@
 
     // Badge/contadores/overlay
     const badge = document.getElementById("badgeNovasDicas");
-    const badgeCount = null; // não usamos mais contador separado no HTML novo
     const btnReload =
       document.getElementById("btnReloadDicas") ||
       document.getElementById("btnReloadFeed");
@@ -209,11 +200,7 @@
     // Carrega lastSeen
     lastSeenAt = localStorage.getItem(KEY_LAST_SEEN) || null;
 
-    // ===== fetch histórico (assinatura flexível) =====
-    // ✅ Defina o endpoint v2 (se ainda não tiver)
-    const FEED_URL = "/financeiro/ia/historico/feed/v2/";
-
-    // ✅ Normaliza tipo vindo do backend (inclui fallback "geral"→"neutra")
+    // ---- Normalizador de tipo vindo do backend v2
     function normKindV2(v) {
       const k = String(v || "")
         .toLowerCase()
@@ -224,147 +211,121 @@
       return "neutra";
     }
 
-    // (se já existir, mantém) — converte vários formatos de data para Date
-    function parseStamp(raw) {
-      if (!raw) return null;
-      // ISO direto
-      const d1 = new Date(raw);
-      if (!isNaN(d1.getTime())) return d1;
-      // dd/mm/aaaa hh:mm
-      const m = String(raw).match(
-        /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2}))?$/
-      );
-      if (m) {
-        const [_, dd, mm, yyyy, hh = "00", mi = "00"] = m;
-        const d2 = new Date(+yyyy, +mm - 1, +dd, +hh, +mi, 0);
-        if (!isNaN(d2.getTime())) return d2;
+    // ===== fetch histórico (assinatura flexível) =====
+    async function fetchHistorico(a = 20, b = "") {
+      // aceita fetchHistorico(20, "positiva") OU fetchHistorico("positiva")
+      let limit = 20;
+      let tipo = "";
+
+      if (typeof a === "number" && Number.isFinite(a)) limit = a;
+      else if (typeof a === "string" && isNaN(Number(a))) tipo = a;
+
+      if (typeof b === "number" && Number.isFinite(b)) limit = b;
+      else if (typeof b === "string" && isNaN(Number(b))) tipo = b;
+
+      if (!Number.isFinite(limit) || limit <= 0) limit = 20;
+      const t = _normalizeTipo(tipo) || "";
+
+      // 🔒 Anti-prefetch inicial
+      if (
+        typeof performance !== "undefined" &&
+        performance.now() - __LOAD_TS__ < 1500
+      ) {
+        if (t === "neutra" || t === "alerta" || t === "positiva") return [];
       }
-      return null;
+
+      // 🔒 Gate duro pós-clique humano
+      if (
+        (t === "neutra" || t === "alerta" || t === "positiva") &&
+        typeof performance !== "undefined" &&
+        performance.now() > _allowFilteredUntil
+      ) {
+        return []; // silencioso
+      }
+
+      // 🧭 Honra somente a intenção mais recente
+      if (
+        _lastIntent &&
+        (_lastIntent.tipo !== t || _lastIntent.limit !== limit)
+      )
+        return [];
+
+      const qs = new URLSearchParams();
+      qs.set("limit", String(limit));
+      if (t) qs.set("tipo", t);
+
+      const finalUrl = `${FEED_URL}?${qs.toString()}`;
+
+      // Dedupe por URL
+      if (lastHistUrl === finalUrl) return [];
+      lastHistUrl = finalUrl;
+
+      // 🔪 Aborta requisição anterior
+      if (_abortCtrl) {
+        try {
+          _abortCtrl.abort();
+        } catch {}
+      }
+      _abortCtrl = new AbortController();
+      const signal = _abortCtrl.signal;
+
+      console.log("[Historico] GET", finalUrl);
+
+      const r = await fetch(finalUrl, {
+        headers: { Accept: "application/json" },
+        credentials: "same-origin",
+        signal,
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status} @ ${FEED_URL}`);
+      const json = await r.json();
+      console.log("↩️ payload", json);
+      console.log("↩️ items:",((json && (json.items || json.results || json.data)) || []).length);
+
+      // ✅ Atualiza contadores que o backend já manda
+      if (json && json.count && typeof setContadoresBackend === "function") {
+        try {
+          setContadoresBackend(json.count);
+        } catch {}
+      }
+
+      // ✅ O backend v2 retorna "items"
+      const arr = (json && (json.items || json.results || json.data)) || [];
+      const items = (Array.isArray(arr) ? arr : []).map((x) => {
+        const criadoRaw =
+          x.criado_em || x.created_at || x.created_at_br || x.data || "";
+        const stamp = parseStamp(criadoRaw)?.getTime() || 0;
+        const k = normKindV2(
+          x.tipo || x.categoria || x.categoria_dominante || x.kind || "geral"
+        );
+        const txt = (x.texto || x.text || x.dica || x.conteudo || "")
+          .toString()
+          .trim();
+        const title =
+          x.title ||
+          x.titulo ||
+          (txt
+            ? txt.split("\n")[0].slice(0, 60) + (txt.length > 60 ? "…" : "")
+            : "Dica da IA");
+        return {
+          id: x.id,
+          criado_em: criadoRaw,
+          _stamp: stamp,
+          tipo: k, // "positiva" | "alerta" | "neutra"
+          title,
+          text: txt || "Sem conteúdo disponível.",
+          criado_em_fmt: x.criado_em_fmt || "",
+        };
+      });
+
+      // ordem decrescente por data
+      items.sort((a, b) => b._stamp - a._stamp);
+
+      return items;
     }
-
-    // ✅ Mantém tua assinatura flexível e os gates que você já criou
-      async function fetchHistorico(a = 20, b = "") {
-        // aceita fetchHistorico(20, "positiva") OU fetchHistorico("positiva")
-        let limit = 20;
-        let tipo = "";
-
-        if (typeof a === "number" && Number.isFinite(a)) limit = a;
-        else if (typeof a === "string" && isNaN(Number(a))) tipo = a;
-
-        if (typeof b === "number" && Number.isFinite(b)) limit = b;
-        else if (typeof b === "string" && isNaN(Number(b))) tipo = b;
-
-        if (!Number.isFinite(limit) || limit <= 0) limit = 20;
-
-        const t = _normalizeTipo
-          ? _normalizeTipo(tipo) || ""
-          : String(tipo || "")
-              .toLowerCase()
-              .trim();
-
-        // 🔒 Anti-prefetch inicial
-        if (
-          typeof performance !== "undefined" &&
-          performance.now() - __LOAD_TS__ < 1500
-        ) {
-          if (t === "neutra" || t === "alerta" || t === "positiva") return [];
-        }
-
-        // 🔒 Gate duro pós-clique humano
-        if (
-          (t === "neutra" || t === "alerta" || t === "positiva") &&
-          typeof performance !== "undefined" &&
-          performance.now() > (window._allowFilteredUntil || 0)
-        ) {
-          return []; // silencioso
-        }
-
-        // 🧭 Honra somente a intenção mais recente (mantém tua lógica)
-        if (
-          window._lastIntent &&
-          (_lastIntent.tipo !== t || _lastIntent.limit !== limit)
-        )
-          return [];
-
-        const qs = new URLSearchParams();
-        qs.set("limit", String(limit));
-        if (t) qs.set("tipo", t);
-
-        const finalUrl = `${FEED_URL}?${qs.toString()}`;
-
-        // Dedupe por URL (mantém tua lógica)
-        if (window.lastHistUrl === finalUrl) return [];
-        window.lastHistUrl = finalUrl;
-
-        // 🔪 Aborta requisição anterior
-        if (window._abortCtrl) {
-          try {
-            _abortCtrl.abort();
-          } catch {}
-        }
-        window._abortCtrl = new AbortController();
-        const signal = _abortCtrl.signal;
-
-        console.log("[Historico] GET", finalUrl);
-
-        const r = await fetch(finalUrl, {
-          headers: { Accept: "application/json" },
-          credentials: "same-origin",
-          signal,
-        });
-        if (!r.ok) throw new Error(`HTTP ${r.status} @ ${FEED_URL}`);
-        const json = await r.json();
-
-        // ✅ Atualiza contadores que o backend já manda (positiva/alerta/neutra/total)
-        if (
-          json &&
-          json.count &&
-          typeof window.setContadoresBackend === "function"
-        ) {
-          try {
-            setContadoresBackend(json.count);
-          } catch {}
-        }
-
-        // ✅ O backend v2 retorna "items"
-        const arr = (json && (json.items || json.results || json.data)) || [];
-        const items = (Array.isArray(arr) ? arr : []).map((x) => {
-          const criadoRaw =
-            x.criado_em || x.created_at || x.created_at_br || x.data || "";
-          const stamp = parseStamp(criadoRaw)?.getTime() || 0;
-          const k = normKindV2(
-            x.tipo || x.categoria || x.categoria_dominante || x.kind || "geral"
-          );
-          const txt = (x.texto || x.text || x.dica || x.conteudo || "")
-            .toString()
-            .trim();
-          const title =
-            x.title ||
-            x.titulo ||
-            (txt
-              ? txt.split("\n")[0].slice(0, 60) + (txt.length > 60 ? "…" : "")
-              : "Dica da IA");
-          return {
-            id: x.id,
-            criado_em: criadoRaw,
-            _stamp: stamp,
-            tipo: k, // "positiva" | "alerta" | "neutra"
-            title,
-            text: txt || "Sem conteúdo disponível.",
-            criado_em_fmt: x.criado_em_fmt || "", // opcional para exibir no card
-          };
-        });
-
-        // ordem decrescente por data
-        items.sort((a, b) => b._stamp - a._stamp);
-
-        return items;
-      }
 
     // ===== Render =====
     function cardHTML(it) {
       const quando = escapeHtml(formatarDataBR(it.criado_em) || "");
-
       const _t = String(it.tipo || "geral")
         .trim()
         .toLowerCase();
@@ -374,7 +335,6 @@
         lastSeenAt &&
         parseStamp(it.criado_em)?.getTime() > new Date(lastSeenAt).getTime();
 
-      // usa _t normalizado para a cor
       const cor =
         _t === "positiva"
           ? "success"
@@ -382,18 +342,15 @@
           ? "warning"
           : "secondary";
 
-      // evita duplicar título e texto (quando o título é só o começo do parágrafo)
       let titulo = String(it.title || "").trim();
       const texto = String(it.text || "").trim();
 
-      // normaliza para comparação (ignora reticências, pontuação final, quebras de linha)
       const tNorm = _normSnippet(titulo);
       const xHead = _normSnippet(texto.split("\n")[0] || "");
 
-      // se o título for “quase” o começo do texto (>=80% do título bate), esconde
       let hideTitle = false;
       if (tNorm && xHead) {
-        const n = Math.max(10, Math.floor(tNorm.length * 0.8)); // pelo menos 10 chars
+        const n = Math.max(10, Math.floor(tNorm.length * 0.8));
         hideTitle = xHead.startsWith(tNorm.slice(0, n));
       }
       if (hideTitle) titulo = "";
@@ -423,17 +380,13 @@
 
     function atualizarBadgeTotal() {
       if (!badge) return;
-
       const lastISO = lastSeenAt ? new Date(lastSeenAt).getTime() : 0;
       const base = Array.isArray(allItems) ? allItems : [];
-
       const cnt = lastISO
-        ? base.filter((i) => {
-            const ts = parseStamp(i.criado_em)?.getTime() || 0;
-            return ts > lastISO;
-          }).length
+        ? base.filter(
+            (i) => (parseStamp(i.criado_em)?.getTime() || 0) > lastISO
+          ).length
         : base.length || 0; // primeira visita: tudo é “novo”
-
       if (cnt > 0) {
         badge.textContent = `Novas dicas: ${cnt}`;
         badge.classList.remove("d-none");
@@ -484,14 +437,10 @@
         : items;
       if (!filtered.length) {
         list.innerHTML = `<div class="alert alert-secondary mb-2">Nenhuma dica encontrada.</div>`;
-        // ❌ NÃO esconda o badge aqui — ele mostra o total de novas, independente do filtro
-        // badge?.classList.add("d-none");  // <- REMOVER esta linha
-
-        atualizarBadgeTotal(); // ✅ mantém a contagem global de novas
-        atualizarContadoresUI(items); // ✅ mantém os contadores
+        atualizarBadgeTotal();
+        atualizarContadoresUI(items);
         return;
       }
-
       list.innerHTML = filtered.map(cardHTML).join("");
       requestAnimationFrame(() => {
         list
@@ -526,7 +475,6 @@
       if (_pendingTimer) clearTimeout(_pendingTimer);
       _pendingTimer = setTimeout(async () => {
         if (_inFlight) {
-          // ainda em voo? re-agenda para a última intenção
           _pendingTimer = setTimeout(
             () =>
               window.carregarHistorico(_pendingArgs.limit, _pendingArgs.tipo),
@@ -578,10 +526,10 @@
             window.carregarHistorico(next.limit, next.tipo);
           }
         }
-      }, 80); // debounce curto para rajadas
+      }, 80); // debounce curto
     };
 
-    // Objeto utilitário
+    // Objeto utilitário (exposto)
     window.__HistoricoIA = {
       recarregar: () => window.carregarHistorico(_limitAtual, filtroCategoria),
       filtrar: (tipo) => {
@@ -601,6 +549,7 @@
     btnReload?.addEventListener("click", () =>
       window.__HistoricoIA.recarregar()
     );
+
     btnMarcarLidas?.addEventListener("click", () => {
       const newest = allItems[0]?.criado_em;
       if (newest) {
@@ -609,6 +558,7 @@
         renderLista(allItems);
       }
     });
+
     btnHistoricoIA?.addEventListener("click", async (ev) => {
       if (!ev.isTrusted) return; // evita aberturas programáticas
       await window.__HistoricoIA.recarregar();
@@ -746,9 +696,9 @@
             const detailsEl = ul ? ul.closest("details") : null;
             if (ul) {
               const linhas = [];
-              if (Array.isArray(j.metrics))
+              if (Array.isArray(j.metrics)) {
                 for (const m of j.metrics) linhas.push(String(m));
-              else if (j.metrics && typeof j.metrics === "object") {
+              } else if (j.metrics && typeof j.metrics === "object") {
                 for (const [k, v] of Object.entries(j.metrics))
                   linhas.push(`${labelize(k)}: ${fmt(v)}`);
               }
@@ -789,6 +739,27 @@
       };
     }
 
+    // === APIs públicas extras (precisam dos helpers no escopo) ===
+    window.__IA_HIST_BADGE_UPDATE = function () {
+      try {
+        atualizarBadgeTotal();
+      } catch (e) {}
+    };
+    window.__IA_HIST_MARK_SEEN = function (items) {
+      try {
+        const stamps = (items || [])
+          .map((x) => parseStamp(x.criado_em)?.getTime() || 0)
+          .filter(Boolean)
+          .sort((a, b) => b - a);
+        const newest = stamps[0];
+        if (newest) {
+          localStorage.setItem(KEY_LAST_SEEN, new Date(newest).toISOString());
+          lastSeenAt = localStorage.getItem(KEY_LAST_SEEN);
+          if (badge) badge.classList.add("d-none");
+        }
+      } catch (e) {}
+    };
+
     // === PATCH: Diagnóstico e wire leve dos botões ===
     (function () {
       const req = {
@@ -810,51 +781,30 @@
       }
     })();
   });
-  // ---- Shims p/ integração com outros módulos (ex.: dashboard.js) ----
- window.__IA_HIST_BADGE_UPDATE = function () {
-   try {
-     atualizarBadgeTotal();
-   } catch (e) {}
- };
 
-
-  window.__IA_HIST_MARK_SEEN = function (items) {
-    try {
-      const stamps = (items || [])
-        .map((x) => parseStamp(x.criado_em)?.getTime() || 0)
-        .filter(Boolean)
-        .sort((a, b) => b - a);
-      const newest = stamps[0];
-      if (newest) {
-        localStorage.setItem(KEY_LAST_SEEN, new Date(newest).toISOString());
-        lastSeenAt = localStorage.getItem(KEY_LAST_SEEN);
-        if (badge) badge.classList.add("d-none");
+  // ======================================================
+  // 🔄 Integração com botão "Atualizar" do modal (dashboard.html)
+  // ======================================================
+  document.addEventListener("DOMContentLoaded", () => {
+    const btnModalReload = document.getElementById("btnReloadDicasModal");
+    if (!btnModalReload) return;
+    btnModalReload.addEventListener("click", (ev) => {
+      if (!ev.isTrusted) return; // evita triggers automáticos
+      console.log("🧠 [Historico] Recarregando via botão do modal...");
+      try {
+        if (
+          window.__HistoricoIA &&
+          typeof window.__HistoricoIA.recarregar === "function"
+        ) {
+          window.__HistoricoIA.recarregar();
+        } else {
+          console.warn(
+            "⚠️ Módulo __HistoricoIA não encontrado — recarregar ignorado."
+          );
+        }
+      } catch (err) {
+        console.error("💥 Erro ao tentar recarregar histórico via modal:", err);
       }
-    } catch (e) {}
-  };
-})();
-
-// ======================================================
-// 🔄 Integração com botão "Atualizar" do modal (dashboard.html)
-// ======================================================
-document.addEventListener("DOMContentLoaded", () => {
-  const btnModalReload = document.getElementById("btnReloadDicasModal");
-  if (!btnModalReload) return;
-
-  btnModalReload.addEventListener("click", (ev) => {
-    if (!ev.isTrusted) return; // evita triggers automáticos
-    console.log("🧠 [Historico] Recarregando via botão do modal...");
-    try {
-      if (window.__HistoricoIA && typeof window.__HistoricoIA.recarregar === "function") {
-        window.__HistoricoIA.recarregar();
-      } else {
-        console.warn("⚠️ Módulo __HistoricoIA não encontrado — recarregar ignorado.");
-      }
-    } catch (err) {
-      console.error("💥 Erro ao tentar recarregar histórico via modal:", err);
-    }
+    });
   });
-});
-
-
-
+})();

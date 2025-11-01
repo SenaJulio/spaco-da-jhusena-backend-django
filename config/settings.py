@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     "colorfield",
     "corsheaders",
     "rest_framework",
+    "django.contrib.humanize",
 ]
 
 LOGIN_URL = "/admin/login/"

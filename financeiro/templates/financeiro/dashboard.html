@@ -3,7 +3,7 @@
 {% csrf_token %}
 {% load moeda %}
 {% load static %}
-{% load static %}
+{% load humanize %}
 <link rel="stylesheet" href="{% static 'financeiro/style.css' %}">
 
 {% block title %}📊 Painel Financeiro{% endblock %}
@@ -196,24 +196,37 @@
     </div>
 
 
-    <!-- ⚙️ Filtros rápidos -->
-   <div class="mt-2">
-  <div class="btn-group" role="group">
-    <button type="button" class="btn btn-sm btn-outline-primary active" data-ia-filtro="">
-      Todas <span class="badge bg-light text-dark ms-1" id="countAll">0</span>
+  <!-- 🔎 Filtros do Histórico da IA -->
+<div class="d-flex align-items-center gap-2 flex-wrap mb-3">
+  <div class="btn-group" role="group" aria-label="Filtros IA">
+    <button id="btnTodas" class="btn btn-outline-secondary active" type="button" data-ia-filtro="">
+      Todas (<span id="countAll">0</span>)
     </button>
-    <button type="button" class="btn btn-sm btn-outline-success" data-ia-filtro="positiva">
-      Positivas <span class="badge bg-light text-dark ms-1" id="countPos">0</span>
+    <button id="btnPositivas" class="btn btn-outline-success" type="button" data-ia-filtro="positiva">
+      Positivas (<span id="countPos">0</span>)
     </button>
-    <button type="button" class="btn btn-sm btn-outline-warning" data-ia-filtro="alerta">
-      Alertas <span class="badge bg-light text-dark ms-1" id="countAlerta">0</span>
+    <button id="btnAlertas" class="btn btn-outline-warning" type="button" data-ia-filtro="alerta">
+      Alertas (<span id="countAlerta">0</span>)
     </button>
-    <button type="button" class="btn btn-sm btn-outline-secondary" data-ia-filtro="neutra">
-      Neutras <span class="badge bg-light text-dark ms-1" id="countNeutra">0</span>
+    <button id="btnNeutras" class="btn btn-outline-secondary" type="button" data-ia-filtro="neutra">
+      Neutras (<span id="countNeutra">0</span>)
     </button>
   </div>
+
+  <button id="btnReloadDicas" class="btn btn-outline-primary ms-2" type="button">Atualizar</button>
+  <button id="btnMarcarLidas" class="btn btn-outline-dark ms-1" type="button">Marcar como lidas</button>
+
+  <span id="badgeNovasDicas" class="badge bg-success ms-2 d-none">Novas dicas: 0</span>
 </div>
 
+<!-- 🧠 Lista + overlay -->
+<div id="ovlHistorico" class="d-none text-center my-2">
+  Carregando histórico…
+</div>
+<div id="listaHistorico" data-feed-url="/financeiro/ia/historico/feed/v2/"></div>
+
+<!-- “Ver mais” é criado automaticamente pelo JS, mas deixo aqui caso queira posicionar -->
+<button id="btnVerMais" class="btn btn-outline-secondary btn-sm mt-2">Ver mais</button>
 
     <!-- Preview dentro do card -->
     <section class="mt-3">
