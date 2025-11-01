@@ -24,15 +24,12 @@ from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
-from ia.services.classify import _map_tipo
-
 
 # -----------------------------
 # 🐍 App local
 # -----------------------------
 from .models import Insight, Transacao
-from .services.ia import generate_tip_last_30d, _map_tipo
-
+from .services.ia import generate_tip_last_30d, _map_tipo as map_tipo_oficial
 
 # --- Modelos opcionais/legados ---
 try:
@@ -59,12 +56,7 @@ def _map_tipo_painel(categoria: str, cor: str, metrics: dict) -> str:
       - 'economia'     → margem == 0
       - 'alerta'       → margem < 0  ou cor == 'danger'
       - 'meta'         → categoria menciona 'meta'
-
-    Esta versão é usada apenas dentro do painel financeiro,
-    enquanto a IA oficial usa o _map_tipo(texto) do services/ia.py.
     """
-
-    # 🔹 Extrai margem das métricas (se existir)
     try:
         margem = float((metrics or {}).get("margem", 0) or 0)
     except Exception:
@@ -72,7 +64,6 @@ def _map_tipo_painel(categoria: str, cor: str, metrics: dict) -> str:
 
     cat = (categoria or "").lower().strip()
 
-    # 🔸 Regras de decisão
     if "meta" in cat:
         return "meta"
     if margem < 0 or cor == "danger":
@@ -133,7 +124,7 @@ def _map_tipo_texto(texto: str) -> str:
 
 
 def _fallback_classify(txt: str) -> str:
-    """Fallback bem simples caso a heurística principal não pegue."""
+    """Fallback simples caso a heurística principal não pegue."""
     t = (txt or "").lower()
     alertas = [
         "alerta",
@@ -218,9 +209,7 @@ def _infer_cor(obj) -> str:
     cor_alt = getattr(obj, "cor", None)
     if cor_alt:
         return cor_alt
-    cat = (
-        getattr(obj, "categoria", None) or getattr(obj, "categoria_dominante", "") or ""  # legado
-    ).lower()
+    cat = (getattr(obj, "categoria", None) or getattr(obj, "categoria_dominante", "") or "").lower()
     if cat in ("alerta", "vermelho"):
         return "vermelho"
     if cat in ("atenção", "atencao", "amarelo", "warning"):
@@ -291,7 +280,7 @@ def gerar_dica_30d(request):
             "dica": dica,
             "text": (dica or "").strip(),
             "texto": (dica or "").strip(),
-            "tipo": _map_tipo(dica),  # usa o classificador do services/ia.py
+            "tipo": map_tipo_oficial(dica),  # usa o classificador oficial
             "metrics": metrics,
             "created_at": agora.strftime("%d/%m/%Y %H:%M"),
             "periodo": {"inicio": str(ps), "fim": str(pe)},
@@ -817,9 +806,7 @@ def gerar_dica_sob_demanda(request):
 def _brl(val: Decimal) -> str:
     q = val.quantize(Decimal("0.01"))
     s = f"{q:,.2f}"  # 1,234.56
-    s = s.replace(",", "X")  # 1X234.56
-    s = s.replace(".", ",")  # 1X234,56
-    s = s.replace("X", ".")  # 1.234,56
+    s = s.replace(",", "X").replace(".", ",").replace("X", ".")
     return f"R$ {s}"
 
 
@@ -912,6 +899,7 @@ def diag_transacao(request):
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=200)
 
+
 @login_required
 def categorias_transacao(request):
     """
@@ -940,8 +928,6 @@ def categorias_transacao(request):
 # -----------------------------------------------------------------------------
 # Feed histórico v2 (com filtro textual e contadores)
 # -----------------------------------------------------------------------------
-
-
 @login_required
 @require_GET
 def ia_historico_feed_v2(request):
@@ -949,16 +935,6 @@ def ia_historico_feed_v2(request):
     Feed de histórico da IA com filtro por tipo de dica.
     Ex.: /financeiro/ia/historico/feed/v2/?limit=20&tipo=alerta
          tipo ∈ {"positiva","alerta","neutra"} | vazio => todas
-    Resposta:
-      {
-        "ok": true,
-        "filtro": "alerta" | "positiva" | "neutra" | "todas",
-        "count": {"positiva": X, "alerta": Y, "neutra": Z, "total": T},
-        "items": [
-          {"id": 1, "tipo": "positiva", "texto": "...", "criado_em": "...", "criado_em_fmt": "dd/mm/aaaa HH:MM"},
-          ...
-        ]
-      }
     """
     user = request.user
     tipo_param = (request.GET.get("tipo") or "").lower().strip()
@@ -971,12 +947,10 @@ def ia_historico_feed_v2(request):
     # Backfill leve: classifica registros sem 'tipo'
     sem_tipo_qs = RecomendacaoIA.objects.filter(usuario=user).filter(
         Q(tipo__isnull=True) | Q(tipo="")
-    )[
-        :200
-    ]  # pequeno lote
+    )[:200]
     updated = []
     for rec in sem_tipo_qs:
-        novo_tipo = _map_tipo(rec.texto or "")
+        novo_tipo = map_tipo_oficial(rec.texto or "")
         if novo_tipo != (rec.tipo or ""):
             rec.tipo = novo_tipo
             updated.append(rec)

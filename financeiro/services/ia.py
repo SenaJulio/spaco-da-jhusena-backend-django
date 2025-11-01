@@ -1,125 +1,47 @@
 # financeiro/services/ia.py
+
 from datetime import timedelta
-
-from django.db.models import Sum
-from django.utils import timezone 
-from django.db import transaction
-from django.contrib.auth import get_user_model
-from financeiro.models import RecomendacaoIA
-
-
-# financeiro/services/ia.py (topo)
-# topo do arquivo (garanta imports únicos)
 import re
 import unicodedata
 from typing import Optional
 
-
-# ---------- Normalização ----------
-def _norm(s: str) -> str:
-    if not s:
-        return ""
-    s = s.strip().lower()
-    s = unicodedata.normalize("NFD", s)
-    s = "".join(ch for ch in s if unicodedata.category(ch) != "Mn")
-    s = re.sub(r"[\n\r\t]+", " ", s)
-    s = re.sub(r"[!?:;()\[\]{}\"'«»“”’·•…]", " ", s)  # mantém % , .
-    s = re.sub(r"\s+", " ", s)
-    return s.strip()
+from django.db import transaction
+from django.db.models import Sum
+from django.utils import timezone
+from django.apps import apps
 
 
-# ---------- Palavras-chave ----------
-_POS_KW = {
-    "otimo",
-    "excelente",
-    "bom",
-    "muito bom",
-    "saldo positivo",
-    "lucro",
-    "acima da meta",
-    "margem positiva",
-    "superavit",
-    "sobra",
-    "crescimento",
-    "recuperacao",
-    "reforce a reserva",
-    "aporte extra",
-    "continue assim",
-    "recorde",
-}
-_ALERT_KW = {
-    "alerta",
-    "atencao",
-    "cuidado",
-    "risco",
-    "queda",
-    "abaixo",
-    "deficit",
-    "prejuizo",
-    "negativo",
-    "gasto alto",
-    "estouro",
-    "acima do orcamento",
-    "aperto de caixa",
-    "corte",
-    "reduza",
-    "evite",
-    "inadimpl",
-    "atraso",
-}
-_NEU_KW = {"neutro", "estavel", "sem mudanca", "manter", "regular", "ok"}
-
-_PCT_RE = re.compile(r"(?<![\w])(-?\d{1,3}(?:[.,]\d+)?)\s*%")
-
-
-def _extract_percent(texto: str) -> Optional[float]:
-    if not texto:
-        return None
-    m = _PCT_RE.search(texto)
-    if not m:
-        return None
+# ---------- util interno: resolve o modelo só quando precisar ----------
+def _get_recomendacao_model():
+    """
+    Tenta obter financeiro.RecomendacaoIA sem quebrar o import do módulo.
+    Retorna o Model ou None.
+    """
+    # 1) tenta import local
     try:
-        return float(m.group(1).replace(",", "."))
-    except ValueError:
+        from .models import RecomendacaoIA  # type: ignore
+
+        return RecomendacaoIA
+    except Exception:
+        pass
+
+    # 2) tenta via apps.get_model (não explode se não existir)
+    try:
+        return apps.get_model("financeiro", "RecomendacaoIA")
+    except Exception:
         return None
 
 
-def _score_by_keywords(tlow: str) -> int:
-    score = 0
-    for kw in _POS_KW:
-        if kw in tlow:
-            score += 2
-    for kw in _ALERT_KW:
-        if kw in tlow:
-            score -= 2
-    # sinais fortes
-    if "saldo positivo" in tlow or "margem positiva" in tlow:
-        score += 3
-    if "saldo negativo" in tlow or "margem negativa" in tlow:
-        score -= 3
-    return score
-
-
-# ---------- Classificador Único ----------
-# services/ia.py
-
-
+# ---------- Classificador ----------
 def _map_tipo(texto: str) -> str:
-    """
-    Classifica a dica da IA em 'positiva', 'alerta' ou 'neutra' com base em
-    palavras-chave e pistas numéricas (%). Regras priorizam segurança:
-    - qualquer sinal claro de risco/negativo => 'alerta'
-    - sinais claros de bom desempenho => 'positiva'
-    - caso ambíguo => 'neutra'
-    """
-
     if not texto:
         return "neutra"
 
     t = str(texto).lower().strip()
 
-    # --- Palavras-chave base ---
     kw_alerta = {
+        "saldo negativo",
+        "margem negativa",
         "negativo",
         "déficit",
         "deficit",
@@ -128,9 +50,9 @@ def _map_tipo(texto: str) -> str:
         "atraso",
         "queda",
         "caiu",
+        "aumento de despesas",
         "despesa subiu",
         "despesas subiram",
-        "aumento de despesas",
         "estourou",
         "ultrapassou",
         "acima do previsto",
@@ -141,6 +63,8 @@ def _map_tipo(texto: str) -> str:
         "urgente",
     }
     kw_positiva = {
+        "saldo positivo",
+        "margem positiva",
         "positivo",
         "superávit",
         "superavit",
@@ -170,25 +94,14 @@ def _map_tipo(texto: str) -> str:
         "ok",
     }
 
-    def has_any(fragmentos: set[str]) -> bool:
-        return any(kw in t for kw in fragmentos)
-
-    # Regras curtas muito assertivas
-    if "saldo negativo" in t or "margem negativa" in t:
+    if any(k in t for k in kw_alerta):
         return "alerta"
-    if "saldo positivo" in t or "margem positiva" in t:
+    if any(k in t for k in kw_positiva):
         return "positiva"
-
-    # Palavra-chave direta
-    if has_any(kw_alerta):
-        return "alerta"
-    if has_any(kw_positiva):
-        return "positiva"
-    if has_any(kw_neutra):
+    if any(k in t for k in kw_neutra):
         return "neutra"
 
-    # --- Heurísticas com percentual ---
-    # capta valores tipo 12%, -3.5 %, 7,2%
+    # Heurística com percentuais
     pct_matches = re.findall(r"(-?\d+[.,]?\d*)\s*%", t)
 
     def to_float(s: str) -> Optional[float]:
@@ -198,48 +111,42 @@ def _map_tipo(texto: str) -> str:
             return None
 
     if pct_matches:
-        # Usa o primeiro percentual relevante encontrado
         pct = next((to_float(s) for s in pct_matches if to_float(s) is not None), None)
-
-        # janelas de contexto simples (500 chars)
-        ctx_len = 500
-        t_ctx = t[:ctx_len]
-
+        t_ctx = t[:500]
         if pct is not None:
-            # Margem alta tende a ser positiva
             if "margem" in t_ctx:
                 if pct >= 5:
                     return "positiva"
-                elif pct < 0:
+                if pct < 0:
                     return "alerta"
-
-            # Receitas e despesas
             receita_ref = ("receita" in t_ctx) or ("fatur" in t_ctx)
-            despesa_ref = "despesa" in t_ctx or "cust" in t_ctx
+            despesa_ref = ("despesa" in t_ctx) or ("cust" in t_ctx)
 
-            # Queda / redução de despesas => positivo
-            if despesa_ref and any(x in t_ctx for x in ("queda", "redução", "reducao", "diminuiu")):
-                if pct <= -3:
-                    return "positiva"
-
-            # Aumento forte de despesas => alerta
-            if despesa_ref and any(x in t_ctx for x in ("aumento", "subiu", "cresceu")):
-                if pct >= 5:
-                    return "alerta"
-
-            # Queda de receita => alerta
-            if receita_ref and any(
-                x in t_ctx for x in ("queda", "caiu", "diminuiu", "redução", "reducao")
+            if (
+                despesa_ref
+                and any(x in t_ctx for x in ("queda", "redução", "reducao", "diminuiu"))
+                and pct <= -3
             ):
-                if pct <= -3:
-                    return "alerta"
+                return "positiva"
+            if (
+                despesa_ref
+                and any(x in t_ctx for x in ("aumento", "subiu", "cresceu"))
+                and pct >= 5
+            ):
+                return "alerta"
+            if (
+                receita_ref
+                and any(x in t_ctx for x in ("queda", "caiu", "diminuiu", "redução", "reducao"))
+                and pct <= -3
+            ):
+                return "alerta"
+            if (
+                receita_ref
+                and any(x in t_ctx for x in ("subiu", "cresceu", "aumentou"))
+                and pct >= 3
+            ):
+                return "positiva"
 
-            # Aumento de receita => positivo
-            if receita_ref and any(x in t_ctx for x in ("subiu", "cresceu", "aumentou")):
-                if pct >= 3:
-                    return "positiva"
-
-    # Fallback seguro
     return "neutra"
 
 
@@ -247,17 +154,17 @@ def _moeda(v):
     return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
+# ---------- Geração da dica (últimos 30d) ----------
 def generate_tip_last_30d(Transacao, usuario=None, auto_save=True):
     """
     Analisa os últimos 30 dias usando o modelo Transacao (campos: valor, data, tipo, [categoria?]).
-    Se `usuario` for informado e `auto_save=True`, salva a dica em RecomendacaoIA.
+    Se `usuario` for informado e `auto_save=True`, tenta salvar a dica em RecomendacaoIA.
     Retorna: (dica: str, metrics: dict, saved_id: int|None)
     """
     hoje = timezone.localdate()
     inicio = hoje - timedelta(days=30)
 
     base_qs = Transacao.objects.filter(data__gte=inicio, data__lte=hoje)
-
     receitas_qs = base_qs.filter(tipo="receita")
     despesas_qs = base_qs.filter(tipo="despesa")
 
@@ -265,7 +172,7 @@ def generate_tip_last_30d(Transacao, usuario=None, auto_save=True):
     total_despesas = despesas_qs.aggregate(total=Sum("valor"))["total"] or 0
     saldo = (total_receitas or 0) - (total_despesas or 0)
 
-    # Top categoria se existir o campo
+    # Top categoria (se existir)
     top_categoria, top_categoria_total = "—", 0
     try:
         if hasattr(Transacao, "categoria"):
@@ -281,7 +188,7 @@ def generate_tip_last_30d(Transacao, usuario=None, auto_save=True):
     except Exception:
         pass
 
-    # Heurísticas -> texto da dica
+    # Texto da dica
     if total_receitas == 0 and total_despesas == 0:
         dica = "Sem movimentos nos últimos 30 dias. Registre entradas e saídas para a IA aprender com seus dados."
     elif saldo < 0 and top_categoria_total > 0:
@@ -319,18 +226,20 @@ def generate_tip_last_30d(Transacao, usuario=None, auto_save=True):
         "top_categoria_total": float(top_categoria_total or 0),
     }
 
-    # Classificar a dica gerada
     tipo = _map_tipo(dica)
 
-    # Salvar automaticamente no histórico da IA (se houver usuário)
+    # Salvar (defensivo)
     saved_id = None
     if auto_save and usuario is not None:
-        with transaction.atomic():
-            rec = RecomendacaoIA.objects.create(
-                usuario=usuario,
-                texto=dica,
-                tipo=tipo,
-            )
-            saved_id = rec.id
+        RecomendacaoIA = _get_recomendacao_model()
+        if RecomendacaoIA is not None:
+            with transaction.atomic():
+                rec = RecomendacaoIA.objects.create(
+                    usuario=usuario,
+                    texto=dica,
+                    tipo=tipo,
+                )
+                saved_id = rec.id
+        # se o modelo não existir, apenas não salva (sem erro)
 
     return dica, metrics, saved_id
