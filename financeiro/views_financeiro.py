@@ -936,15 +936,22 @@ def ia_historico_feed_v2(request):
     user = request.user
     tipo_param = (request.GET.get("tipo") or "").strip().lower()
 
+    # ---- limit (como já era)
     try:
         limit = int(request.GET.get("limit", 20))
     except ValueError:
         limit = 20
     limit = max(1, min(limit, 100))
 
+    # ---- NOVO: offset para paginação incremental
+    try:
+        offset = max(0, int(request.GET.get("offset", 0)))
+    except ValueError:
+        offset = 0
+
     base = RecomendacaoIA.objects.filter(usuario=user)
 
-    # ---- contagem por tipo (normalizada em Python)
+    # ---- contagem por tipo (normalizada em Python) — mantém sua lógica
     counts = {"positiva": 0, "alerta": 0, "neutra": 0}
     total = 0
     for row in base.values("tipo").annotate(c=Count("id")):
@@ -962,7 +969,7 @@ def ia_historico_feed_v2(request):
 
     qs = base.order_by("-criado_em")
 
-    # ---- filtro tolerante (case-insensitive + variações)
+    # ---- filtro tolerante (case-insensitive + variações) — mantém sua lógica
     if tipo_param == "positiva":
         qs = qs.filter(Q(tipo__istartswith="posit"))
         filtro_label = "positiva"
@@ -980,9 +987,13 @@ def ia_historico_feed_v2(request):
     else:
         filtro_label = "todas"
 
+    # ---- paginação real
+    total_filtrado = qs.count()
+    qs_page = qs[offset : offset + limit]
+
     tz = timezone.get_current_timezone()
     items = []
-    for rec in qs[:limit]:
+    for rec in qs_page:
         tnorm = (rec.tipo or "").strip().lower()
         if tnorm not in ("positiva", "alerta", "neutra"):
             tnorm = map_tipo_oficial(rec.texto or "")
@@ -996,35 +1007,35 @@ def ia_historico_feed_v2(request):
                 "criado_em_fmt": dt_local.strftime("%d/%m/%Y %H:%M") if dt_local else "",
             }
         )
-    # --- DEBUG opcional ---
-    debug = request.GET.get("debug") == "1"
+
+    # ---- calcula se há mais páginas
+    has_more = total_filtrado > (offset + len(items))
+
+    # ---- resposta final (mantém compat + adiciona paginação)
     resp = {
         "ok": True,
         "filtro": filtro_label,
         "count": {**counts, "total": total},
         "items": items,
+        "limit": limit,
+        "offset": offset,
+        "returned": len(items),
+        "total_filtered": total_filtrado,
+        "has_more": has_more,
     }
-    if debug:
+
+    # --- DEBUG opcional (mantém o seu padrão)
+    if request.GET.get("debug") == "1":
         resp["__debug"] = {
             "user": {
                 "id": request.user.id,
                 "username": getattr(request.user, "username", None),
                 "email": getattr(request.user, "email", None),
             },
-            "raw_counts": list(
-                base.values("tipo").annotate(c=Count("id")).order_by("tipo")
-            ),
+            "raw_counts": list(base.values("tipo").annotate(c=Count("id")).order_by("tipo")),
         }
-        return JsonResponse(resp)
 
-    return JsonResponse(
-            {
-                "ok": True,
-                "filtro": filtro_label,
-                "count": {**counts, "total": total},
-                "items": items,
-            }
-        )
+    return JsonResponse(resp)
 
 
 @login_required

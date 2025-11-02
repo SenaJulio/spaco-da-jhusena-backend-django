@@ -2,7 +2,7 @@
 // historico_ia.js — versão “clean”, single-flight + gate de filtro
 // ======================================================
 (function () {
-  "use strict";
+  ("use strict");
 
   const __LOAD_TS__ = performance.now();
 
@@ -115,6 +115,10 @@
   // Anti-rajada de cliques em filtros
   let filtroLock = false;
 
+  // 🔹 NOVO: paginação
+  let _offsetAtual = 0; // <<<
+  let _hasMoreAtual = false; // <<<
+
   document.addEventListener("DOMContentLoaded", () => {
     // Evita rodar duas vezes
     if (document.body.dataset.iaHistoricoInit === "1") return;
@@ -171,6 +175,36 @@
         list.insertAdjacentElement("afterend", btn);
       }
     })();
+    // “Ver mais” no preview (aumenta via paginação com offset)
+    // “Ver mais” no preview (aumenta via paginação com offset)
+    document
+      .getElementById("btnVerMais")
+      ?.addEventListener("click", async (ev) => {
+        if (!ev.isTrusted) return;
+        const btn = ev.currentTarget;
+        btn.disabled = true;
+        btn.textContent = "Carregando...";
+
+        if (!_hasMoreAtual) {
+          console.log("⚠️ Não há mais itens para carregar.");
+          btn.textContent = "Sem mais registros";
+          return;
+        }
+
+        await window.carregarHistorico(
+          PREVIEW_LIMIT,
+          filtroCategoria,
+          true /* append */
+        );
+
+        // Se não há mais registros após carregar, esconder botão
+        if (!_hasMoreAtual) {
+          btn.style.display = "none";
+        } else {
+          btn.disabled = false;
+          btn.textContent = "Ver mais";
+        }
+      });
 
     // Badge/contadores/overlay
     const badge = document.getElementById("badgeNovasDicas");
@@ -212,10 +246,14 @@
     }
 
     // ===== fetch histórico (assinatura flexível) =====
-    async function fetchHistorico(a = 20, b = "") {
+    // ===== fetch histórico (assinatura flexível) =====
+    async function fetchHistorico(a = 20, b = "", opt = {}) {
       // aceita fetchHistorico(20, "positiva") OU fetchHistorico("positiva")
       let limit = 20;
       let tipo = "";
+      const append = !!opt.append;
+      const offset =
+        Number.isFinite(opt.offset) && opt.offset >= 0 ? opt.offset : 0;
 
       if (typeof a === "number" && Number.isFinite(a)) limit = a;
       else if (typeof a === "string" && isNaN(Number(a))) tipo = a;
@@ -231,7 +269,8 @@
         typeof performance !== "undefined" &&
         performance.now() - __LOAD_TS__ < 1500
       ) {
-        if (t === "neutra" || t === "alerta" || t === "positiva") return [];
+        if (t === "neutra" || t === "alerta" || t === "positiva")
+          return { items: [], hasMore: false, offset };
       }
 
       // 🔒 Gate duro pós-clique humano
@@ -240,7 +279,7 @@
         typeof performance !== "undefined" &&
         performance.now() > _allowFilteredUntil
       ) {
-        return []; // silencioso
+        return { items: [], hasMore: false, offset }; // silencioso
       }
 
       // 🧭 Honra somente a intenção mais recente
@@ -248,17 +287,20 @@
         _lastIntent &&
         (_lastIntent.tipo !== t || _lastIntent.limit !== limit)
       )
-        return [];
+        return { items: [], hasMore: false, offset };
 
       const qs = new URLSearchParams();
       qs.set("limit", String(limit));
       if (t) qs.set("tipo", t);
+      // 🔹 envia offset quando estamos em modo append
+      if (append) qs.set("offset", String(offset));
 
       const finalUrl = `${FEED_URL}?${qs.toString()}`;
 
-      // Dedupe por URL
-      if (lastHistUrl === finalUrl) return [];
-      lastHistUrl = finalUrl;
+      // Dedupe por URL (apenas para requisições não-append)
+      if (!append && lastHistUrl === finalUrl)
+        return { items: [], hasMore: false, offset };
+      if (!append) lastHistUrl = finalUrl;
 
       // 🔪 Aborta requisição anterior
       if (_abortCtrl) {
@@ -279,7 +321,17 @@
       if (!r.ok) throw new Error(`HTTP ${r.status} @ ${FEED_URL}`);
       const json = await r.json();
       console.log("↩️ payload", json);
-      console.log("↩️ items:",((json && (json.items || json.results || json.data)) || []).length);
+      const arr = (json && (json.items || json.results || json.data)) || [];
+      const hasMore = !!(
+        json &&
+        (json.has_more === true || json.hasMore === true)
+      );
+      console.log(
+        "↩️ items:",
+        Array.isArray(arr) ? arr.length : 0,
+        "hasMore:",
+        hasMore
+      );
 
       // ✅ Atualiza contadores que o backend já manda
       if (json && json.count && typeof setContadoresBackend === "function") {
@@ -288,15 +340,20 @@
         } catch {}
       }
 
-      // ✅ O backend v2 retorna "items"
-      const arr = (json && (json.items || json.results || json.data)) || [];
       const items = (Array.isArray(arr) ? arr : []).map((x) => {
         const criadoRaw =
           x.criado_em || x.created_at || x.created_at_br || x.data || "";
         const stamp = parseStamp(criadoRaw)?.getTime() || 0;
-        const k = normKindV2(
-          x.tipo || x.categoria || x.categoria_dominante || x.kind || "geral"
-        );
+        const k = (
+          x.tipo ||
+          x.categoria ||
+          x.categoria_dominante ||
+          x.kind ||
+          "geral"
+        )
+          .toString()
+          .toLowerCase()
+          .trim();
         const txt = (x.texto || x.text || x.dica || x.conteudo || "")
           .toString()
           .trim();
@@ -310,17 +367,18 @@
           id: x.id,
           criado_em: criadoRaw,
           _stamp: stamp,
-          tipo: k, // "positiva" | "alerta" | "neutra"
+          tipo:
+            k === "alerta" || k === "positiva" || k === "neutra" ? k : "neutra",
           title,
           text: txt || "Sem conteúdo disponível.",
           criado_em_fmt: x.criado_em_fmt || "",
         };
       });
 
-      // ordem decrescente por data
+      // ordem decrescente por data (defensivo)
       items.sort((a, b) => b._stamp - a._stamp);
 
-      return items;
+      return { items, hasMore, offset };
     }
 
     // ===== Render =====
@@ -452,9 +510,11 @@
     }
 
     // ===== API pública (coalescida) =====
+    // ===== API pública (coalescida) =====
     window.carregarHistorico = function carregarHistorico(
       limit = 20,
-      tipo = null
+      tipo = null,
+      append = false
     ) {
       let _tipoNorm = _normalizeTipo(tipo) || "";
       const _limit = Number.isFinite(limit) && limit > 0 ? limit : 20;
@@ -469,7 +529,7 @@
         _tipoNorm = ""; // força "todas"
       }
 
-      _pendingArgs = { limit: _limit, tipo: _tipoNorm };
+      _pendingArgs = { limit: _limit, tipo: _tipoNorm, append };
       _lastIntent = { limit: _limit, tipo: _tipoNorm };
 
       if (_pendingTimer) clearTimeout(_pendingTimer);
@@ -477,7 +537,11 @@
         if (_inFlight) {
           _pendingTimer = setTimeout(
             () =>
-              window.carregarHistorico(_pendingArgs.limit, _pendingArgs.tipo),
+              window.carregarHistorico(
+                _pendingArgs.limit,
+                _pendingArgs.tipo,
+                _pendingArgs.append
+              ),
             80
           );
           return;
@@ -496,14 +560,34 @@
           toggleLoading(true);
           if (btnReload) btnReload.disabled = true;
 
+          // Se mudou o filtro, reseta offset e troca categoria
+          if (!args.append) {
+            _offsetAtual = 0;
+            allItems = [];
+          }
           filtroCategoria = args.tipo;
 
-          const items = await fetchHistorico(args.limit, filtroCategoria);
-          if (items.length) allItems = items; // só troca se veio algo
+          const { items, hasMore } = await fetchHistorico(
+            args.limit,
+            filtroCategoria,
+            { append: !!args.append, offset: _offsetAtual }
+          );
+
+          if (items && items.length) {
+            if (args.append) {
+              allItems = allItems.concat(items);
+              _offsetAtual += items.length; // avança offset
+            } else {
+              allItems = items;
+              _offsetAtual = items.length; // primeira página
+            }
+          }
+
+          _hasMoreAtual = !!hasMore;
           renderLista(allItems);
 
           // auto scroll p/ primeira "nova"
-          if (lastSeenAt) {
+          if (lastSeenAt && !args.append) {
             const firstNew = list.querySelector(".ia-card.is-new");
             if (firstNew)
               firstNew.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -523,7 +607,7 @@
           if (_pendingArgs) {
             const next = _pendingArgs;
             _pendingArgs = null;
-            window.carregarHistorico(next.limit, next.tipo);
+            window.carregarHistorico(next.limit, next.tipo, next.append);
           }
         }
       }, 80); // debounce curto
