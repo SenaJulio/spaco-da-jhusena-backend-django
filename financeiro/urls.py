@@ -9,6 +9,7 @@ from .views_ia import ia_gerar_dica_30d
 from .views_insights import gerar_insight_view
 from . import views_financeiro as views
 from . import views_financeiro as v
+from .views_financeiro import gerar_insight, listar_insights
 
 from .views_financeiro import (
     dashboard_financeiro,
@@ -55,7 +56,9 @@ urlpatterns = [
     # 🔹 Endpoints de histórico da IA (com compatibilidade)
     path("ia/historico/feed/", login_required(ia_historico_feed), name="ia_historico_feed"),
     path("ia/historico-feed/", login_required(ia_historico_feed)),  # compatibilidade
-    path("ia/historico/feed/v2/", login_required(ia_historico_feed_v2),name="ia_historico_feed_v2"),    
+    path(
+        "ia/historico/feed/v2/", login_required(ia_historico_feed_v2), name="ia_historico_feed_v2"
+    ),
     path("ia/resumo-mensal/", login_required(ia_resumo_mensal), name="ia_resumo_mensal"),
     # Dados para gráficos do dashboard
     path(
@@ -79,26 +82,23 @@ urlpatterns = [
     path("ia/gerar_dica_30d/", views_financeiro.gerar_dica_30d, name="api_generate_tip_30d"),
     path("ia/dica30d/", ia_gerar_dica_30d, name="ia_dica30d"),
     path("insights/gerar/", gerar_insight_view, name="gerar_insight"),
-    
     path("dashboard/categorias/", views.categorias_transacao, name="categorias_transacao"),
-     # Dashboard
+    # Dashboard
     path("dashboard/", v.dashboard_financeiro, name="dashboard"),
-
     # Dados do dashboard (gráficos/filtros)
     path("dashboard/dados-filtrados/", v.dados_financeiros_filtrados, name="dados_filtrados"),
     path("dados_grafico_filtrados/", v.dados_grafico_filtrados, name="dados_grafico_filtrados"),
     path("ia/resumo_mensal/", v.ia_resumo_mensal, name="ia_resumo_mensal"),
     path("ia/resumo_mensal_series/", v.ia_resumo_mensal_series, name="ia_resumo_mensal_series"),
-
     # IA – dica e histórico (v2 é a usada pelo historico_ia.js)
     path("ia/dica30d/", v.gerar_dica_30d, name="gerar_dica_30d"),
     path("ia/gerar-dica/", v.gerar_dica_sob_demanda, name="gerar_dica_sob_demanda"),
     path("ia/historico/", v.ia_historico, name="ia_historico"),
     path("ia/historico/feed/", v.ia_historico_feed, name="ia_historico_feed"),
     path("ia/historico/feed/v2/", v.ia_historico_feed_v2, name="ia_historico_feed_v2"),
-
     # Utilidades/diagnóstico
     path("diag/transacao/", v.diag_transacao, name="diag_transacao"),
     path("categorias/", v.categorias_transacao, name="categorias_transacao"),
-
+    path("ia/gerar_insight/", gerar_insight, name="gerar_insight"),
+    path("insights/", listar_insights, name="listar_insights"),
 ]

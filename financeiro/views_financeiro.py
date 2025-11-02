@@ -25,6 +25,7 @@ from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from django.db.models import Count, Q, Value, CharField, Case, When
+from .models import Insight
 
 # -----------------------------
 # 🐍 App local
@@ -1024,3 +1025,83 @@ def ia_historico_feed_v2(request):
                 "items": items,
             }
         )
+
+
+@login_required
+@require_GET
+def listar_insights(request):
+    """
+    Endpoint leve para os testes de fumaça.
+    Retorna últimos 50 insights em JSON.
+    """
+    qs = Insight.objects.all().order_by("-id")[:50]
+    items = []
+    for ins in qs:
+        items.append(
+            {
+                "id": ins.id,
+                "texto": getattr(ins, "texto", "") or getattr(ins, "descricao", "") or "",
+                "categoria_dominante": getattr(ins, "categoria_dominante", None),
+            }
+        )
+    return JsonResponse({"ok": True, "count": len(items), "items": items})
+
+
+@login_required
+@require_POST
+def gerar_insight(request):
+    """
+    Gera uma dica de 30 dias (IA) e registra um Insight, se o modelo existir.
+    Retorna JSON com ok=True e o id do Insight.
+    """
+    # Gera a dica da IA e salva em RecomendacaoIA (auto_save=True)
+    dica, metrics, saved_id = generate_tip_last_30d(Transacao, usuario=request.user, auto_save=True)
+
+    # Monta kwargs dinamicamente para o model Insight (tolerante a variações de campos)
+    fields = {f.name for f in Insight._meta.get_fields() if hasattr(f, "attname")}
+    data = {}
+
+    # usuário (se o model tiver)
+    if "usuario" in fields:
+        data["usuario"] = request.user
+    elif "user" in fields:
+        data["user"] = request.user
+
+    # texto/descrição
+    if "texto" in fields:
+        data["texto"] = dica
+    elif "descricao" in fields:
+        data["descricao"] = dica
+
+    # categoria dominante (alias compatível)
+    top_cat = (metrics or {}).get("top_categoria") or None
+    if "categoria_dominante" in fields:
+        data["categoria_dominante"] = top_cat
+    elif "category_dominante" in fields:  # alias em inglês, se existir
+        data["category_dominante"] = top_cat
+
+    # margem (se existir no model)
+    try:
+        total_rec = float((metrics or {}).get("total_receitas") or 0.0)
+        saldo = float((metrics or {}).get("saldo") or 0.0)
+        margem = (saldo / total_rec * 100.0) if total_rec else 0.0
+    except Exception:
+        margem = 0.0
+    if "margem" in fields:
+        data["margem"] = margem
+
+    # cria o Insight (fallback vazio se os campos não baterem)
+    try:
+        ins = Insight.objects.create(**data)
+    except TypeError:
+        ins = Insight.objects.create()
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "id": getattr(ins, "id", None),
+            "dica": dica,
+            "metrics": metrics,
+            "recomendacao_id": saved_id,
+        }
+    )
