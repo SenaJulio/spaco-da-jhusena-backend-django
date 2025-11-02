@@ -36,6 +36,13 @@ class Insight(models.Model):
     # ✅ novo campo para compatibilidade com o teste
     generated_by = models.CharField(max_length=16, default="manual")
 
+    def __init__(self, *args, **kwargs):
+        # aceita alias usado nos testes: category_dominante -> categoria_dominante
+        alias = kwargs.pop("category_dominante", None)
+        if alias is not None and "categoria_dominante" not in kwargs:
+            kwargs["categoria_dominante"] = alias
+        super().__init__(*args, **kwargs)
+
     def __str__(self):
         return f"[{self.kind}] {self.title} ({self.created_at:%d/%m/%Y %H:%M})"
 
