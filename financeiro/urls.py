@@ -10,6 +10,7 @@ from .views_insights import gerar_insight_view
 from . import views_financeiro as views
 from . import views_financeiro as v
 from .views_financeiro import gerar_insight, listar_insights
+from .views_export import historico_ia_csv_v2
 
 from .views_financeiro import (
     dashboard_financeiro,
@@ -101,4 +102,10 @@ urlpatterns = [
     path("categorias/", v.categorias_transacao, name="categorias_transacao"),
     path("ia/gerar_insight/", gerar_insight, name="gerar_insight"),
     path("insights/", listar_insights, name="listar_insights"),
+    path(
+        "ia/historico/export/csv/",
+        historico_ia_csv_v2,
+        name="ia_historico_export_csv_v2",
+    ),
+    path("diag/transacao", views.diag_transacao, name="diag_transacao"),
 ]

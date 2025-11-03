@@ -1,0 +1,37 @@
+{
+
+  // Copilot: chat ligado, sugestão inline opcional
+  "github.copilot.chat.enabled": true,
+  "github.copilot.inlineSuggest.enable": false,
+
+  // ESLint: corrige ao salvar, e valida JS/TS
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  "eslint.validate": ["javascript", "javascriptreact", "typescript", "typescriptreact"],
+  "eslint.alwaysShowStatus": true,
+
+  // SonarLint: leve, sem telemetria
+  "sonarlint.disableTelemetry": true,
+
+  // Performance: evita rodar análise a cada tecla
+  "files.autoSave": "afterDelay",
+  "files.autoSaveDelay": 1500,
+
+  // Ignorar pasta de build/estáticos no editor e busca
+  "files.exclude": {
+    "**/node_modules": true,
+    "**/build": true,
+    "**/dist": true,
+    "**/staticfiles": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/build": true,
+    "**/dist": true,
+    "**/staticfiles": true
+  },
+  "python-envs.pythonProjects": []
+}
+
+

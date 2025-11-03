@@ -16,16 +16,24 @@ from django.apps import apps
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
-from django.db import DatabaseError
-from django.db.models import Sum, Q, Count
-from django.db.models.functions import TruncDate
+from django.db import DatabaseError, models
+from django.db.models import (
+    Sum,
+    Q,
+    Count,
+    Value,
+    CharField,
+    Case,
+    When,
+    DecimalField,
+    F,
+)
+from django.db.models.functions import TruncDate, Coalesce, Abs, Cast
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
-from django.db.models import Count, Q, Value, CharField, Case, When
-from .models import Insight
 
 # -----------------------------
 # 🐍 App local
@@ -119,8 +127,7 @@ def _map_tipo_texto(texto: str) -> str:
         return "alerta"
     if any(k in t for k in positivas):
         return "positiva"
-    # heurística: número/percentual com sinal negativo
-    if re.search(r"(-\s*\d+([.,]\d+)?%?)", t):
+    if re.search(r"(-\s*\d+([.,]\d+)?%?)", t):  # número/percentual com sinal negativo
         return "alerta"
     return "neutra"
 
@@ -222,7 +229,7 @@ def _infer_cor(obj) -> str:
 
 
 # -----------------------------------------------------------------------------
-# Dashboard
+# Dashboard (template)
 # -----------------------------------------------------------------------------
 @login_required(login_url="/admin/login/")
 def dashboard_financeiro(request):
@@ -256,16 +263,13 @@ def dashboard_financeiro(request):
 @login_required
 def gerar_dica_30d(request):
     try:
-        # Já salva em RecomendacaoIA quando auto_save=True e retorna (dica, metrics, saved_id)
         dica, metrics, saved_id = generate_tip_last_30d(
             Transacao, usuario=request.user, auto_save=True
         )
     except TypeError:
-        # Assinatura antiga: (dica, metrics)
         dica, metrics = generate_tip_last_30d(Transacao)
         saved_id = None
 
-    # Período seguro
     ps_str = (metrics.get("periodo") or {}).get("inicio") if isinstance(metrics, dict) else None
     pe_str = (metrics.get("periodo") or {}).get("fim") if isinstance(metrics, dict) else None
     try:
@@ -278,11 +282,11 @@ def gerar_dica_30d(request):
     return JsonResponse(
         {
             "ok": True,
-            "id": saved_id,  # id salvo em RecomendacaoIA (se houver)
+            "id": saved_id,
             "dica": dica,
             "text": (dica or "").strip(),
             "texto": (dica or "").strip(),
-            "tipo": map_tipo_oficial(dica),  # usa o classificador oficial
+            "tipo": map_tipo_oficial(dica),
             "metrics": metrics,
             "created_at": agora.strftime("%d/%m/%Y %H:%M"),
             "periodo": {"inicio": str(ps), "fim": str(pe)},
@@ -299,7 +303,6 @@ def ia_historico_feed(request):
     """Feed do histórico com filtros e paginação, compatível com o payload antigo."""
     page = int(request.GET.get("page", 1))
     per_page = int(request.GET.get("per_page", 10))
-    # compat com 'limit' antigo (se vier, prioriza 1 página com 'limit' itens)
     limit = request.GET.get("limit")
     if limit:
         try:
@@ -325,23 +328,19 @@ def ia_historico_feed(request):
     results = []
 
     if HModel:
-        # detecta campo de data
         date_field = "created_at"
         try:
             HModel._meta.get_field("created_at")
         except Exception:
             date_field = "criado_em"
 
-        # 🔧 Filtro por usuário autenticado (segurança)
         qs = HModel.objects.filter(usuario=request.user)
 
-        # filtros por data (no campo detectado)
         if inicio:
             qs = qs.filter(**{f"{date_field}__date__gte": inicio})
         if fim:
             qs = qs.filter(**{f"{date_field}__date__lte": fim})
 
-        # filtro por categoria
         if categoria:
             qs = qs.filter(tipo__iexact=categoria)
 
@@ -373,9 +372,9 @@ def ia_historico_feed(request):
             results.append(
                 {
                     "id": r.id,
-                    "data": data_iso,  # compat
-                    "created_at": data_iso,  # alias padronizado
-                    "created_at_br": data_br,  # pronto p/ exibir
+                    "data": data_iso,
+                    "created_at": data_iso,
+                    "created_at_br": data_br,
                     "periodo": {
                         "inicio": str(getattr(r, "period_start", "") or ""),
                         "fim": str(getattr(r, "period_end", "") or ""),
@@ -383,7 +382,7 @@ def ia_historico_feed(request):
                     "categoria": cat,
                     "cor": cor,
                     "text": (texto or "").strip(),
-                    "texto": (texto or "").strip(),  # compat
+                    "texto": (texto or "").strip(),
                     "title": getattr(r, "titulo", None) or "Dica da IA",
                 }
             )
@@ -402,7 +401,6 @@ def ia_historico_feed(request):
     elif IModel:
         qs = IModel.objects.all()
 
-        # filtros Insight
         if inicio:
             qs = qs.filter(created_at__date__gte=inicio)
         if fim:
@@ -449,7 +447,6 @@ def ia_historico_feed(request):
             }
         )
 
-    # se nenhum dos modelos existir
     return JsonResponse({"ok": True, "items": [], "page": 1, "has_next": False, "count": 0})
 
 
@@ -481,11 +478,10 @@ def ia_historico(request):
 
 
 # -----------------------------------------------------------------------------
-# Resumo mensal — SÉRIE (para gráficos históricos)  [opcional]
+# Resumo mensal — SÉRIE (opcional)
 # -----------------------------------------------------------------------------
 @login_required
 def ia_resumo_mensal_series(request):
-    """Mantido caso você utilize este endpoint para Chart.js com série histórica."""
     tz = timezone.get_current_timezone()
     hoje = timezone.now().astimezone(tz)
 
@@ -528,7 +524,6 @@ def ia_resumo_mensal_series(request):
         alerta.append(d["alerta"])
         neutra.append(d["neutra"])
 
-    # Previsão linear simples
     n = len(totais)
     if n >= 2:
         xs = list(range(n))
@@ -545,7 +540,7 @@ def ia_resumo_mensal_series(request):
         forecast_total = totais[-1] if n == 1 else 0
 
     last = datetime.strptime(labels[-1], "%Y-%m-01")
-    next_label = (last.replace(day=28) + timedelta(days=4)).replace(day=1).strftime("%Y-%m-01")
+    next_label = (last.replace(day=28) + timedelta(days=4)).replace(day=1).strftime("%Y-%m-%01")
 
     return JsonResponse(
         {
@@ -560,7 +555,7 @@ def ia_resumo_mensal_series(request):
 
 
 # -----------------------------------------------------------------------------
-# Resumo mensal — SIMPLES (usado pelo dashboard.html)
+# Resumo mensal — SIMPLES
 # -----------------------------------------------------------------------------
 def _parse_date_safely(s, default=None):
     d = parse_date(s) if s else None
@@ -577,24 +572,20 @@ def _month_bounds(d):
 
 
 def _parse_ymd(s: str):
-    """Converte 'YYYY-MM-DD' para date; retorna None se inválida."""
     try:
         return datetime.strptime(s, "%Y-%m-%d").date()
     except Exception:
         return None
 
 
-# --- Aliases de tipo que cobrimos (ajuste se precisar) ---
+# --- Aliases de tipo que cobrimos (se usar em outro lugar) ---
 TIPO_RECEITA = ("receita", "Receita", "R")
 TIPO_DESPESA = ("despesa", "Despesa", "D")
 
 
 @login_required
 def dados_financeiros_filtrados(request):
-    """
-    GET /financeiro/dashboard/dados-filtrados/?inicio=YYYY-MM-DD&fim=YYYY-MM-DD
-    Retorna séries diárias: dias[], receitas[], despesas[], saldo[]
-    """
+   
     try:
         inicio = request.GET.get("inicio")
         fim = request.GET.get("fim")
@@ -608,12 +599,10 @@ def dados_financeiros_filtrados(request):
         if not dt_inicio or not dt_fim or dt_inicio > dt_fim:
             return JsonResponse({"error": "Período inválido."}, status=400)
 
-        # Filtro seguro por data (independe do tipo do campo)
         base = Transacao.objects.filter(
             **_date_range_kwargs(Transacao, "data", dt_inicio, dt_fim, inclusive_end=True)
         )
 
-        # Agrupamentos por dia (aceitando aliases de tipo)
         rec_qs = (
             base.filter(tipo__in=TIPO_RECEITA)
             .annotate(dia=TruncDate("data"))
@@ -632,7 +621,6 @@ def dados_financeiros_filtrados(request):
         rec_map = {row["dia"]: float(row["total"] or 0) for row in rec_qs}
         dep_map = {row["dia"]: float(row["total"] or 0) for row in dep_qs}
 
-        # Linha do tempo contínua
         dias, receitas, despesas, saldo = [], [], [], []
         cur = dt_inicio
         while cur <= dt_fim:
@@ -671,7 +659,6 @@ def ia_resumo_mensal(request):
     dt_inicio = date(ano, mes, 1)
     dt_fim = date(ano + (1 if mes == 12 else 0), (mes % 12) + 1, 1)  # exclusivo
 
-    # fim exclusivo (mais correto pra mês)
     base = Transacao.objects.filter(
         **_date_range_kwargs(Transacao, "data", dt_inicio, dt_fim, inclusive_end=False)
     )
@@ -706,77 +693,186 @@ def ia_resumo_mensal(request):
     )
 
 
+# -----------------------------------------------------------------------------
+# 🔥 AQUI: Endpoint que alimenta os GRÁFICOS do dashboard
+# -----------------------------------------------------------------------------
+# util: gera todas as datas do intervalo [ini, fim]
+def _daterange(ini, fim):
+    d = ini
+    while d <= fim:
+        yield d
+        d += timedelta(days=1)
+
+
+def _to_float(x) -> float:
+    try:
+        if x is None:
+            return 0.0
+        if isinstance(x, Decimal):
+            return float(x)
+        return float(x)
+    except Exception:
+        return 0.0
+
+
 @login_required
+@require_GET
 def dados_grafico_filtrados(request):
     """
-    GET /financeiro/dados_grafico_filtrados/?inicio=YYYY-MM-DD&fim=YYYY-MM-DD&categoria=...
-    Retorna séries diárias: { dias[], receitas[], despesas[], saldo[] }
-    Aceita também data_inicio/data_fim.
+    GET /financeiro/dados_grafico_filtrados/?inicio=YYYY-MM-DD&fim=YYYY-MM-DD&categoria=...&debug=1
+    Retorna:
+      { ok, inicio, fim, dias[], receitas[], despesas[], saldo[], categorias[], valores[], debug? }
     """
-    try:
-        hoje = timezone.localdate()
-        inicio_str = request.GET.get("inicio") or request.GET.get("data_inicio")
-        fim_str = request.GET.get("fim") or request.GET.get("data_fim")
-        categoria = (request.GET.get("categoria") or "").strip()
+    hoje = timezone.localdate()
+    ini = parse_date(request.GET.get("inicio") or "") or hoje.replace(day=1)
+    fim = parse_date(request.GET.get("fim") or "") or hoje
+    if fim < ini:
+        ini, fim = fim, ini
 
-        inicio_default, fim_default = _month_bounds(hoje)
-        inicio = _parse_date_safely(inicio_str, inicio_default)
-        fim = _parse_date_safely(fim_str, _month_bounds(inicio)[1])
+    qs = Transacao.objects.all()
 
-        # eixo X: lista 'dd'
-        cur = inicio
-        dias = []
-        while cur <= fim:
-            dias.append(cur.strftime("%d"))
-            cur += timedelta(days=1)
+    # DateField vs DateTimeField
+    data_field = Transacao._meta.get_field("data")
+    if isinstance(data_field, models.DateTimeField):
+        filtro = {"data__date__range": (ini, fim)}
+        trunc_expr = TruncDate("data")
+    else:
+        filtro = {"data__range": (ini, fim)}
+        trunc_expr = F("data")
 
-        qs = Transacao.objects.filter(data__range=(inicio, fim))
+    base = qs.filter(**filtro)
 
-        # ✅ Só filtra por 'categoria' se:
-        # - veio parâmetro
-        # - NÃO é rótulo da IA
-        # - o modelo tem o campo 'categoria'
-        ia_labels = {"geral", "alerta", "meta", "dica"}
-        if categoria and categoria.lower() not in ia_labels:
-            fields = {f.name for f in Transacao._meta.get_fields()}
-            if "categoria" in fields:
-                qs = qs.filter(Q(categoria__iexact=categoria) | Q(categoria__icontains=categoria))
-            # se não tiver o campo, ignora silenciosamente (evita 500)
-
-        agreg = qs.values("data", "tipo").annotate(total=Sum("valor")).order_by("data")
-
-        rec_by_day, desp_by_day = {}, {}
-        for row in agreg:
-            dkey = int(row["data"].strftime("%d"))
-            total = float(row["total"] or 0)
-            if row["tipo"] in ("R", "receita", "Receita"):
-                rec_by_day[dkey] = rec_by_day.get(dkey, 0.0) + total
-            else:
-                desp_by_day[dkey] = desp_by_day.get(dkey, 0.0) + total
-
-        receitas = [rec_by_day.get(int(d), 0.0) for d in dias]
-        despesas = [desp_by_day.get(int(d), 0.0) for d in dias]
-
-        saldo = []
-        acc = 0.0
-        for r, de in zip(receitas, despesas):
-            acc += r - de
-            saldo.append(acc)
-
-        return JsonResponse(
-            {
-                "dias": dias,
-                "receitas": receitas,
-                "despesas": despesas,
-                "saldo": saldo,
-                "inicio": inicio.strftime("%Y-%m-%d"),
-                "fim": fim.strftime("%Y-%m-%d"),
-                "categoria": categoria,
-            }
+    # Filtro por categoria REAL (só se o campo existir)
+    categoria_param = (request.GET.get("categoria") or "").strip()
+    ia_labels = {"geral", "alerta", "meta", "dica"}
+    model_fields = {f.name for f in Transacao._meta.get_fields() if hasattr(f, "attname")}
+    if categoria_param and categoria_param.lower() not in ia_labels and "categoria" in model_fields:
+        base = base.filter(
+            Q(categoria__iexact=categoria_param) | Q(categoria__icontains=categoria_param)
         )
-    except Exception as e:
-        logging.exception("Erro em dados_grafico_filtrados")
-        return JsonResponse({"ok": False, "error": str(e)}, status=500)
+
+    # Trabalhar sempre em Decimal
+    DEC = DecimalField(max_digits=18, decimal_places=2)
+    ZERO_DEC = Value(Decimal("0.00"), output_field=DEC)
+
+    # Aliases tolerantes
+    RECEITA_ALIASES = {
+        "r",
+        "R",
+        "receita",
+        "Receita",
+        "RECEITA",
+        "credit",
+        "entrada",
+        "Entrada",
+        "CREDITO",
+        "crédito",
+        "Crédito",
+    }
+    DESPESA_ALIASES = {
+        "d",
+        "D",
+        "despesa",
+        "Despesa",
+        "DESPESA",
+        "debit",
+        "saida",
+        "saída",
+        "Saida",
+        "Saída",
+        "DEBITO",
+        "débito",
+        "Débito",
+    }
+
+    is_receita = Q(tipo__in=list(RECEITA_ALIASES)) | Q(tipo__iexact="receita")
+    is_despesa = Q(tipo__in=list(DESPESA_ALIASES)) | Q(tipo__iexact="despesa")
+
+    # Regras:
+    # 1) Se tipo bater com receita → soma em receita.
+    # 2) Se tipo bater com despesa → soma em despesa (abs).
+    # 3) Se NÃO bater com nada: usa fallback por sinal (>=0 receita, <0 despesa).
+    diarios = (
+        base.annotate(dia=trunc_expr)
+        .values("dia")
+        .annotate(
+            # Tudo que tiver 'tipo' (qualquer coisa) soma em receita
+            rec=Coalesce(
+                Sum(
+                    Case(
+                        When(valor__gte=0, then=Cast(F("valor"), DEC)),
+                        default=ZERO_DEC,
+                        output_field=DEC,
+                    )
+                ),
+                ZERO_DEC,
+                output_field=DEC,
+            ),
+            # E tudo que for < 0 (ou se quiser: filtrar por uma lista de categorias) soma em despesa
+            des=Coalesce(
+                Sum(
+                    Case(
+                        When(valor__lt=0, then=Cast(Abs(F("valor")), DEC)),
+                        default=ZERO_DEC,
+                        output_field=DEC,
+                    )
+                ),
+                ZERO_DEC,
+                output_field=DEC,
+            ),
+            n=Count("id"),
+        )
+        .order_by("dia")
+    )
+
+    mapa = {row["dia"]: row for row in diarios}
+
+    dias_labels, receitas, despesas, saldo = [], [], [], []
+    for d in _daterange(ini, fim):
+        dias_labels.append(d.strftime("%d/%m"))
+        row = mapa.get(d)
+        r = _to_float(row["rec"]) if row else 0.0
+        de = _to_float(row["des"]) if row else 0.0
+        receitas.append(r)
+        despesas.append(de)
+        saldo.append(r - de)
+
+    # Pizza por categoria só se existir o campo
+    if "categoria" in model_fields:
+        cat_qs = (
+            base.values("categoria")
+            .annotate(
+                total=Coalesce(
+                    Sum(Cast(Abs(F("valor")), DEC), output_field=DEC),
+                    ZERO_DEC,
+                    output_field=DEC,
+                )
+            )
+            .order_by("-total")
+        )
+        categorias = [(row["categoria"] or "Sem categoria") for row in cat_qs]
+        valores = [_to_float(row["total"]) for row in cat_qs]
+    else:
+        categorias = []
+        valores = []
+
+    resp = {
+        "ok": True,
+        "inicio": ini.isoformat(),
+        "fim": fim.isoformat(),
+        "dias": dias_labels,
+        "receitas": receitas,
+        "despesas": despesas,
+        "saldo": saldo,
+        "categorias": categorias,
+        "valores": valores,
+    }
+
+    if request.GET.get("debug") == "1":
+        tipos_unicos = list(base.values_list("tipo", flat=True).distinct())
+        resp["debug"] = {"tipos_unicos": tipos_unicos}
+
+    return JsonResponse(resp)
 
 
 # -----------------------------------------------------------------------------
@@ -785,7 +881,6 @@ def dados_grafico_filtrados(request):
 @login_required
 @require_POST
 def gerar_dica_sob_demanda(request):
-    # Gera automaticamente com base nas transações atuais
     texto_da_dica, tipo = gerar_texto_dica(Transacao.objects.all())
     texto_da_dica = (texto_da_dica or "").strip()
     tipo = (tipo or "economia").strip().lower()
@@ -821,7 +916,7 @@ if not hasattr(builtins, "gerar_texto_dica"):
             return Decimal("0")
 
     def gerar_texto_dica(dados):
-        from django.db.models import Sum as _Sum  # local import p/ evitar circularidade
+        from django.db.models import Sum as _Sum  # local import
 
         total_receitas = Decimal("0")
         total_despesas = Decimal("0")
@@ -936,14 +1031,12 @@ def ia_historico_feed_v2(request):
     user = request.user
     tipo_param = (request.GET.get("tipo") or "").strip().lower()
 
-    # ---- limit (como já era)
     try:
         limit = int(request.GET.get("limit", 20))
     except ValueError:
         limit = 20
     limit = max(1, min(limit, 100))
 
-    # ---- NOVO: offset para paginação incremental
     try:
         offset = max(0, int(request.GET.get("offset", 0)))
     except ValueError:
@@ -951,7 +1044,6 @@ def ia_historico_feed_v2(request):
 
     base = RecomendacaoIA.objects.filter(usuario=user)
 
-    # ---- contagem por tipo (normalizada em Python) — mantém sua lógica
     counts = {"positiva": 0, "alerta": 0, "neutra": 0}
     total = 0
     for row in base.values("tipo").annotate(c=Count("id")):
@@ -969,7 +1061,6 @@ def ia_historico_feed_v2(request):
 
     qs = base.order_by("-criado_em")
 
-    # ---- filtro tolerante (case-insensitive + variações) — mantém sua lógica
     if tipo_param == "positiva":
         qs = qs.filter(Q(tipo__istartswith="posit"))
         filtro_label = "positiva"
@@ -987,7 +1078,6 @@ def ia_historico_feed_v2(request):
     else:
         filtro_label = "todas"
 
-    # ---- paginação real
     total_filtrado = qs.count()
     qs_page = qs[offset : offset + limit]
 
@@ -1008,10 +1098,8 @@ def ia_historico_feed_v2(request):
             }
         )
 
-    # ---- calcula se há mais páginas
     has_more = total_filtrado > (offset + len(items))
 
-    # ---- resposta final (mantém compat + adiciona paginação)
     resp = {
         "ok": True,
         "filtro": filtro_label,
@@ -1024,7 +1112,6 @@ def ia_historico_feed_v2(request):
         "has_more": has_more,
     }
 
-    # --- DEBUG opcional (mantém o seu padrão)
     if request.GET.get("debug") == "1":
         resp["__debug"] = {
             "user": {
@@ -1041,10 +1128,6 @@ def ia_historico_feed_v2(request):
 @login_required
 @require_GET
 def listar_insights(request):
-    """
-    Endpoint leve para os testes de fumaça.
-    Retorna últimos 50 insights em JSON.
-    """
     qs = Insight.objects.all().order_by("-id")[:50]
     items = []
     for ins in qs:
@@ -1061,37 +1144,27 @@ def listar_insights(request):
 @login_required
 @require_POST
 def gerar_insight(request):
-    """
-    Gera uma dica de 30 dias (IA) e registra um Insight, se o modelo existir.
-    Retorna JSON com ok=True e o id do Insight.
-    """
-    # Gera a dica da IA e salva em RecomendacaoIA (auto_save=True)
     dica, metrics, saved_id = generate_tip_last_30d(Transacao, usuario=request.user, auto_save=True)
 
-    # Monta kwargs dinamicamente para o model Insight (tolerante a variações de campos)
     fields = {f.name for f in Insight._meta.get_fields() if hasattr(f, "attname")}
     data = {}
 
-    # usuário (se o model tiver)
     if "usuario" in fields:
         data["usuario"] = request.user
     elif "user" in fields:
         data["user"] = request.user
 
-    # texto/descrição
     if "texto" in fields:
         data["texto"] = dica
     elif "descricao" in fields:
         data["descricao"] = dica
 
-    # categoria dominante (alias compatível)
     top_cat = (metrics or {}).get("top_categoria") or None
     if "categoria_dominante" in fields:
         data["categoria_dominante"] = top_cat
-    elif "category_dominante" in fields:  # alias em inglês, se existir
+    elif "category_dominante" in fields:
         data["category_dominante"] = top_cat
 
-    # margem (se existir no model)
     try:
         total_rec = float((metrics or {}).get("total_receitas") or 0.0)
         saldo = float((metrics or {}).get("saldo") or 0.0)
@@ -1101,7 +1174,6 @@ def gerar_insight(request):
     if "margem" in fields:
         data["margem"] = margem
 
-    # cria o Insight (fallback vazio se os campos não baterem)
     try:
         ins = Insight.objects.create(**data)
     except TypeError:
@@ -1114,5 +1186,44 @@ def gerar_insight(request):
             "dica": dica,
             "metrics": metrics,
             "recomendacao_id": saved_id,
+        }
+    )
+
+# ============================================================
+# 🩺 Diagnóstico simples — verificar estrutura do modelo Transacao
+# ============================================================
+from django.http import JsonResponse
+from django.apps import apps
+
+
+@login_required
+def diag_transacao(request):
+    """
+    Diagnóstico: retorna campos, exemplo e metadados do modelo Transacao.
+    Endpoint: /financeiro/diag/transacao
+    """
+    try:
+        Transacao = apps.get_model("financeiro", "Transacao")
+    except LookupError:
+        return JsonResponse({"ok": False, "error": "Modelo Transacao não encontrado."}, status=404)
+
+    sample = Transacao.objects.order_by("-id").values().first() or {}
+
+    # detecta campos relevantes
+    field_names = [f.name for f in Transacao._meta.fields]
+    data_field = next((f for f in field_names if "data" in f), None)
+    has_tipo = any("tipo" in f for f in field_names)
+    has_categoria = any("categ" in f for f in field_names)
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "model": "Transacao",
+            "fields": field_names,
+            "data_field": data_field,
+            "has_tipo": has_tipo,
+            "has_categoria": has_categoria,
+            "sample": sample,
+            "count": Transacao.objects.count(),
         }
     )

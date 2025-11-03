@@ -1,5 +1,5 @@
 // ======================================================
-// historico_ia.js — versão “clean”, single-flight + gate de filtro
+// historico_ia.js — versão “clean”, single-flight + gate de filtro (corrigido)
 // ======================================================
 (function () {
   ("use strict");
@@ -7,25 +7,21 @@
   const __LOAD_TS__ = performance.now();
 
   // ---- Guardião: impede rodar duas vezes o mesmo script
-  if (window.__IA_HIST_INIT_DONE__) {
+  if (globalThisThis.__IA_HIST_INIT_DONE__) {
     console.warn(
       "⚠️ historico_ia.js já inicializado — abortando segunda carga."
     );
     return;
   }
-  window.__IA_HIST_INIT_DONE__ = true;
+  globalThis.__IA_HIST_INIT_DONE__ = true;
 
   console.log("🔍 historico_ia.js carregado");
 
   // ========= Helpers globais =========
   function parseStamp(s) {
     if (!s) return null;
-    // ISO: 2025-10-30T...
-    if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return new Date(s);
-    // dd/mm/yyyy HH:MM
-    const m = String(s).match(
-      /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})$/
-    );
+    if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return new Date(s); // ISO
+    const m = RegExp(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})$/).exec(String(s));
     if (!m) return new Date(s);
     const [, d, mo, y, h, i] = m.map(Number);
     return new Date(y, mo - 1, d, h, i);
@@ -90,21 +86,18 @@
 
   // ========= Constantes/Estado =========
   const PREVIEW_LIMIT = 5;
-  const MORE_INCREMENT = 10;
+  const MORE_INCREMENT = 10; // mantido (não usado mais na ação do botão)
   const KEY_LAST_SEEN = "iaHistoricoLastSeenAt";
 
-  // Gate: permite chamadas filtradas só logo após clique humano
-  let _allowFilteredUntil = 0;
+  let _allowFilteredUntil = 0; // gate clique humano
 
-  // Dedupe por URL e single-flight
   let lastHistUrl = "";
   let _lastIntent = { limit: null, tipo: "" };
   let _abortCtrl = null;
   let _pendingTimer = null;
-  let _pendingArgs = null; // { limit, tipo }
+  let _pendingArgs = null;
   let _inFlight = false;
 
-  // Estado geral
   let lastSeenAt = null;
   let allItems = [];
   let filtroCategoria = ""; // "" | neutra | positiva | alerta
@@ -112,32 +105,28 @@
   let BUSY = false;
   let _limitAtual = PREVIEW_LIMIT;
 
-  // Anti-rajada de cliques em filtros
   let filtroLock = false;
 
-  // 🔹 NOVO: paginação
-  let _offsetAtual = 0; // <<<
-  let _hasMoreAtual = false; // <<<
+  // paginação por offset
+  let _offsetAtual = 0;
+  let _hasMoreAtual = false;
 
   document.addEventListener("DOMContentLoaded", () => {
-    // Evita rodar duas vezes
     if (document.body.dataset.iaHistoricoInit === "1") return;
     document.body.dataset.iaHistoricoInit = "1";
 
-    // Alvos (atual + futuros)
+    // Alvos
     const list =
       document.getElementById("listaHistorico") ||
       document.getElementById("listaHistoricoPreview") ||
       document.getElementById("listaHistoricoModal");
 
     if (!list) {
-      console.warn(
-        "⚠️ Nenhum container de histórico encontrado (#listaHistorico, #listaHistoricoPreview ou #listaHistoricoModal)."
-      );
+      console.warn("⚠️ Nenhum container de histórico encontrado.");
       return;
     }
 
-    // FEED_URL (preferir data-feed-url). Força /v2/ se não estiver.
+    // FEED_URL (prefere data-feed-url). Força /v2/ se não estiver.
     let FEED_URL =
       (list.dataset.feedUrl && list.dataset.feedUrl.trim()) ||
       "/financeiro/ia/historico/feed/v2/";
@@ -152,33 +141,32 @@
     }
     console.log("[Historico] FEED_URL =", FEED_URL);
 
-    // Elementos adicionais
+    // Modal
     const modalEl = document.getElementById("modalHistoricoIA");
     const modalList = document.getElementById("listaHistoricoModal");
-    const btnVerMaisDom = document.getElementById("btnVerMais");
+    const btnVerMaisDom = document.getElementById("btnVerMaisHistorico"); // << corrigido
 
-    // Copia o preview para o modal ao abrir (se existir)
     if (modalEl && list && modalList) {
       modalEl.addEventListener("show.bs.modal", function () {
         modalList.innerHTML = list.innerHTML;
       });
     }
 
-    // Garante botão Ver mais (fallback visual se não existir)
+    // Garante botão Ver mais (principal)
     (function ensureVerMaisButton() {
-      let btn = btnVerMaisDom || document.getElementById("btnVerMais");
+      let btn = btnVerMaisDom || document.getElementById("btnVerMaisHistorico");
       if (!btn) {
         btn = document.createElement("button");
-        btn.id = "btnVerMais";
+        btn.id = "btnVerMaisHistorico";
         btn.className = "btn btn-outline-secondary btn-sm mt-2";
         btn.textContent = "Ver mais";
         list.insertAdjacentElement("afterend", btn);
       }
     })();
-    // “Ver mais” no preview (aumenta via paginação com offset)
-    // “Ver mais” no preview (aumenta via paginação com offset)
+
+    // “Ver mais” principal: paginação por offset
     document
-      .getElementById("btnVerMais")
+      .getElementById("btnVerMaisHistorico")
       ?.addEventListener("click", async (ev) => {
         if (!ev.isTrusted) return;
         const btn = ev.currentTarget;
@@ -197,7 +185,6 @@
           true /* append */
         );
 
-        // Se não há mais registros após carregar, esconder botão
         if (!_hasMoreAtual) {
           btn.style.display = "none";
         } else {
@@ -220,7 +207,6 @@
     const elCountAlerta = document.getElementById("countAlerta");
     const elCountNeutra = document.getElementById("countNeutra");
 
-    // Filtros (botões com data-ia-filtro ou data-filter) + compat por ID
     const filterButtons = document.querySelectorAll(
       "[data-ia-filtro],[data-filter]"
     );
@@ -231,24 +217,141 @@
       neutras: document.getElementById("btnNeutras"),
     };
 
-    // Carrega lastSeen
     lastSeenAt = localStorage.getItem(KEY_LAST_SEEN) || null;
 
-    // ---- Normalizador de tipo vindo do backend v2
-    function normKindV2(v) {
-      const k = String(v || "")
-        .toLowerCase()
-        .trim();
-      if (k === "alerta" || k === "positiva" || k === "neutra") return k;
-      if (k === "geral" || k === "" || k === "none" || k === "null")
-        return "neutra";
-      return "neutra";
+    function cardHTML(it) {
+      const quando = escapeHtml(formatarDataBR(it.criado_em) || "");
+      const _t = String(it.tipo || "geral")
+        .trim()
+        .toLowerCase();
+      const tag = escapeHtml(_t.replace(/^./, (c) => c.toUpperCase()));
+
+      const isNew =
+        lastSeenAt &&
+        parseStamp(it.criado_em)?.getTime() > new Date(lastSeenAt).getTime();
+
+      const cor =
+        _t === "positiva"
+          ? "success"
+          : _t === "alerta"
+          ? "warning"
+          : "secondary";
+
+      let titulo = String(it.title || "").trim();
+      const texto = String(it.text || "").trim();
+
+      const tNorm = _normSnippet(titulo);
+      const xHead = _normSnippet(texto.split("\n")[0] || "");
+      let hideTitle = false;
+      if (tNorm && xHead) {
+        const n = Math.max(10, Math.floor(tNorm.length * 0.8));
+        hideTitle = xHead.startsWith(tNorm.slice(0, n));
+      }
+      if (hideTitle) titulo = "";
+
+      return `
+        <div class="card border-${cor} mb-3 shadow-sm ia-card ${
+        isNew ? "is-new" : ""
+      }" data-kind="${escapeHtml(_t)}">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <span class="badge bg-success-subtle text-success border border-success-subtle">${tag}</span>
+              <small class="text-muted">${quando}</small>
+            </div>
+            ${
+              titulo
+                ? `<h6 class="card-title text-success mb-1">${escapeHtml(
+                    titulo
+                  )}</h6>`
+                : ""
+            }
+            <p class="card-text mb-0" style="white-space: pre-wrap">${escapeHtml(
+              texto
+            )}</p>
+          </div>
+        </div>`;
     }
 
-    // ===== fetch histórico (assinatura flexível) =====
-    // ===== fetch histórico (assinatura flexível) =====
+    function atualizarBadgeTotal() {
+      const badge = document.getElementById("badgeNovasDicas");
+      if (!badge) return;
+      const lastISO = lastSeenAt ? new Date(lastSeenAt).getTime() : 0;
+      const base = Array.isArray(allItems) ? allItems : [];
+      const cnt = lastISO
+        ? base.filter(
+            (i) => (parseStamp(i.criado_em)?.getTime() || 0) > lastISO
+          ).length
+        : base.length || 0;
+      if (cnt > 0) {
+        badge.textContent = `Novas dicas: ${cnt}`;
+        badge.classList.remove("d-none");
+      } else {
+        badge.classList.add("d-none");
+      }
+    }
+
+    function atualizarContadoresUI(itemsAll) {
+      if (elCountAll) elCountAll.textContent = String(itemsAll.length);
+      if (elCountPos)
+        elCountPos.textContent = String(
+          itemsAll.filter((i) => i.tipo === "positiva").length
+        );
+      if (elCountAlerta)
+        elCountAlerta.textContent = String(
+          itemsAll.filter((i) => i.tipo === "alerta").length
+        );
+      if (elCountNeutra)
+        elCountNeutra.textContent = String(
+          itemsAll.filter((i) => i.tipo === "neutra").length
+        );
+    }
+
+    function setContadoresBackend(count) {
+      if (!count || typeof count !== "object") return;
+      const toInt = (v) => Number(v) || 0;
+      const map = {
+        countAll: toInt(count.total),
+        countPos: toInt(count.positiva),
+        countAlerta: toInt(count.alerta),
+        countNeutra: toInt(count.neutra),
+      };
+      Object.entries(map).forEach(([id, val]) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = String(val);
+      });
+    }
+    window.setContadoresBackend = setContadoresBackend; // expõe para uso eventual
+
+    function toggleLoading(show) {
+      const elOvl = document.getElementById("ovlHistorico");
+      if (!elOvl) return;
+      elOvl.classList.toggle("d-none", !show);
+    }
+
+    function renderLista(items) {
+      const list = document.getElementById("listaHistorico");
+      if (!list) return;
+      const filtered = filtroCategoria
+        ? items.filter((i) => i.tipo === filtroCategoria)
+        : items;
+      if (!filtered.length) {
+        list.innerHTML = `<div class="alert alert-secondary mb-2">Nenhuma dica encontrada.</div>`;
+        atualizarBadgeTotal();
+        atualizarContadoresUI(items);
+        return;
+      }
+      list.innerHTML = filtered.map(cardHTML).join("");
+      requestAnimationFrame(() => {
+        list
+          .querySelectorAll(".ia-card")
+          .forEach((el) => el.classList.add("fade-in"));
+      });
+      atualizarBadgeTotal();
+      atualizarContadoresUI(items);
+    }
+
+    // ===== fetch histórico (flex) =====
     async function fetchHistorico(a = 20, b = "", opt = {}) {
-      // aceita fetchHistorico(20, "positiva") OU fetchHistorico("positiva")
       let limit = 20;
       let tipo = "";
       const append = !!opt.append;
@@ -264,7 +367,6 @@
       if (!Number.isFinite(limit) || limit <= 0) limit = 20;
       const t = _normalizeTipo(tipo) || "";
 
-      // 🔒 Anti-prefetch inicial
       if (
         typeof performance !== "undefined" &&
         performance.now() - __LOAD_TS__ < 1500
@@ -272,17 +374,14 @@
         if (t === "neutra" || t === "alerta" || t === "positiva")
           return { items: [], hasMore: false, offset };
       }
-
-      // 🔒 Gate duro pós-clique humano
       if (
         (t === "neutra" || t === "alerta" || t === "positiva") &&
         typeof performance !== "undefined" &&
         performance.now() > _allowFilteredUntil
       ) {
-        return { items: [], hasMore: false, offset }; // silencioso
+        return { items: [], hasMore: false, offset };
       }
 
-      // 🧭 Honra somente a intenção mais recente
       if (
         _lastIntent &&
         (_lastIntent.tipo !== t || _lastIntent.limit !== limit)
@@ -292,17 +391,13 @@
       const qs = new URLSearchParams();
       qs.set("limit", String(limit));
       if (t) qs.set("tipo", t);
-      // 🔹 envia offset quando estamos em modo append
       if (append) qs.set("offset", String(offset));
 
       const finalUrl = `${FEED_URL}?${qs.toString()}`;
-
-      // Dedupe por URL (apenas para requisições não-append)
       if (!append && lastHistUrl === finalUrl)
         return { items: [], hasMore: false, offset };
       if (!append) lastHistUrl = finalUrl;
 
-      // 🔪 Aborta requisição anterior
       if (_abortCtrl) {
         try {
           _abortCtrl.abort();
@@ -312,7 +407,6 @@
       const signal = _abortCtrl.signal;
 
       console.log("[Historico] GET", finalUrl);
-
       const r = await fetch(finalUrl, {
         headers: { Accept: "application/json" },
         credentials: "same-origin",
@@ -324,7 +418,7 @@
       const arr = (json && (json.items || json.results || json.data)) || [];
       const hasMore = !!(
         json &&
-        (json.has_more === true || json.hasMore === true)
+        (json.has_more === true || json.hasMore === true || json.has_more === 1)
       );
       console.log(
         "↩️ items:",
@@ -333,7 +427,6 @@
         hasMore
       );
 
-      // ✅ Atualiza contadores que o backend já manda
       if (json && json.count && typeof setContadoresBackend === "function") {
         try {
           setContadoresBackend(json.count);
@@ -375,141 +468,10 @@
         };
       });
 
-      // ordem decrescente por data (defensivo)
       items.sort((a, b) => b._stamp - a._stamp);
-
       return { items, hasMore, offset };
     }
 
-    // ===== Render =====
-    function cardHTML(it) {
-      const quando = escapeHtml(formatarDataBR(it.criado_em) || "");
-      const _t = String(it.tipo || "geral")
-        .trim()
-        .toLowerCase();
-      const tag = escapeHtml(_t.replace(/^./, (c) => c.toUpperCase())); // Positiva / Alerta / Neutra / Geral
-
-      const isNew =
-        lastSeenAt &&
-        parseStamp(it.criado_em)?.getTime() > new Date(lastSeenAt).getTime();
-
-      const cor =
-        _t === "positiva"
-          ? "success"
-          : _t === "alerta"
-          ? "warning"
-          : "secondary";
-
-      let titulo = String(it.title || "").trim();
-      const texto = String(it.text || "").trim();
-
-      const tNorm = _normSnippet(titulo);
-      const xHead = _normSnippet(texto.split("\n")[0] || "");
-
-      let hideTitle = false;
-      if (tNorm && xHead) {
-        const n = Math.max(10, Math.floor(tNorm.length * 0.8));
-        hideTitle = xHead.startsWith(tNorm.slice(0, n));
-      }
-      if (hideTitle) titulo = "";
-
-      return `
-    <div class="card border-${cor} mb-3 shadow-sm ia-card ${
-        isNew ? "is-new" : ""
-      }" data-kind="${escapeHtml(_t)}">
-      <div class="card-body">
-        <div class="d-flex justify-content-between align-items-center mb-2">
-          <span class="badge bg-success-subtle text-success border border-success-subtle">${tag}</span>
-          <small class="text-muted">${quando}</small>
-        </div>
-        ${
-          titulo
-            ? `<h6 class="card-title text-success mb-1">${escapeHtml(
-                titulo
-              )}</h6>`
-            : ""
-        }
-        <p class="card-text mb-0" style="white-space: pre-wrap">${escapeHtml(
-          texto
-        )}</p>
-      </div>
-    </div>`;
-    }
-
-    function atualizarBadgeTotal() {
-      if (!badge) return;
-      const lastISO = lastSeenAt ? new Date(lastSeenAt).getTime() : 0;
-      const base = Array.isArray(allItems) ? allItems : [];
-      const cnt = lastISO
-        ? base.filter(
-            (i) => (parseStamp(i.criado_em)?.getTime() || 0) > lastISO
-          ).length
-        : base.length || 0; // primeira visita: tudo é “novo”
-      if (cnt > 0) {
-        badge.textContent = `Novas dicas: ${cnt}`;
-        badge.classList.remove("d-none");
-      } else {
-        badge.classList.add("d-none");
-      }
-    }
-
-    function atualizarContadoresUI(itemsAll) {
-      if (elCountAll) elCountAll.textContent = String(itemsAll.length);
-      if (elCountPos)
-        elCountPos.textContent = String(
-          itemsAll.filter((i) => i.tipo === "positiva").length
-        );
-      if (elCountAlerta)
-        elCountAlerta.textContent = String(
-          itemsAll.filter((i) => i.tipo === "alerta").length
-        );
-      if (elCountNeutra)
-        elCountNeutra.textContent = String(
-          itemsAll.filter((i) => i.tipo === "neutra").length
-        );
-    }
-
-    function setContadoresBackend(count) {
-      if (!count || typeof count !== "object") return;
-      const toInt = (v) => Number(v) || 0;
-      const map = {
-        countAll: toInt(count.total),
-        countPos: toInt(count.positiva),
-        countAlerta: toInt(count.alerta),
-        countNeutra: toInt(count.neutra),
-      };
-      Object.entries(map).forEach(([id, val]) => {
-        const el = document.getElementById(id);
-        if (el) el.textContent = String(val);
-      });
-    }
-
-    function toggleLoading(show) {
-      if (!elOvl) return;
-      elOvl.classList.toggle("d-none", !show);
-    }
-
-    function renderLista(items) {
-      const filtered = filtroCategoria
-        ? items.filter((i) => i.tipo === filtroCategoria)
-        : items;
-      if (!filtered.length) {
-        list.innerHTML = `<div class="alert alert-secondary mb-2">Nenhuma dica encontrada.</div>`;
-        atualizarBadgeTotal();
-        atualizarContadoresUI(items);
-        return;
-      }
-      list.innerHTML = filtered.map(cardHTML).join("");
-      requestAnimationFrame(() => {
-        list
-          .querySelectorAll(".ia-card")
-          .forEach((el) => el.classList.add("fade-in"));
-      });
-      atualizarBadgeTotal();
-      atualizarContadoresUI(items);
-    }
-
-    // ===== API pública (coalescida) =====
     // ===== API pública (coalescida) =====
     window.carregarHistorico = function carregarHistorico(
       limit = 20,
@@ -519,7 +481,6 @@
       let _tipoNorm = _normalizeTipo(tipo) || "";
       const _limit = Number.isFinite(limit) && limit > 0 ? limit : 20;
 
-      // ⛔️ Bloqueia chamadas filtradas que NÃO vieram de clique humano recente
       if (
         (_tipoNorm === "positiva" ||
           _tipoNorm === "alerta" ||
@@ -558,9 +519,9 @@
         BUSY = true;
         try {
           toggleLoading(true);
+          const btnReload = document.getElementById("btnReloadDicas");
           if (btnReload) btnReload.disabled = true;
 
-          // Se mudou o filtro, reseta offset e troca categoria
           if (!args.append) {
             _offsetAtual = 0;
             allItems = [];
@@ -576,41 +537,44 @@
           if (items && items.length) {
             if (args.append) {
               allItems = allItems.concat(items);
-              _offsetAtual += items.length; // avança offset
+              _offsetAtual += items.length;
             } else {
               allItems = items;
-              _offsetAtual = items.length; // primeira página
+              _offsetAtual = items.length;
             }
           }
 
           _hasMoreAtual = !!hasMore;
           renderLista(allItems);
 
-          // auto scroll p/ primeira "nova"
           if (lastSeenAt && !args.append) {
-            const firstNew = list.querySelector(".ia-card.is-new");
+            const firstNew = document
+              .getElementById("listaHistorico")
+              ?.querySelector(".ia-card.is-new");
             if (firstNew)
               firstNew.scrollIntoView({ behavior: "smooth", block: "center" });
           }
         } catch (e) {
           if (e?.name !== "AbortError") {
             console.error("Falha ao carregar histórico:", e);
-            list.innerHTML = `<div class="alert alert-danger">Falha ao carregar histórico.</div>`;
+            const list = document.getElementById("listaHistorico");
+            if (list)
+              list.innerHTML = `<div class="alert alert-danger">Falha ao carregar histórico.</div>`;
           }
         } finally {
+          const btnReload = document.getElementById("btnReloadDicas");
           if (btnReload) btnReload.disabled = false;
           toggleLoading(false);
           BUSY = false;
           _inFlight = false;
 
-          // se chegou nova intenção enquanto rodava, executa a última agora
           if (_pendingArgs) {
             const next = _pendingArgs;
             _pendingArgs = null;
             window.carregarHistorico(next.limit, next.tipo, next.append);
           }
         }
-      }, 80); // debounce curto
+      }, 80);
     };
 
     // Objeto utilitário (exposto)
@@ -629,34 +593,42 @@
       },
     };
 
-    // ===== Ações / eventos =====
-    btnReload?.addEventListener("click", () =>
-      window.__HistoricoIA.recarregar()
-    );
+    // Ações / eventos
+    document
+      .getElementById("btnReloadDicas")
+      ?.addEventListener("click", () => window.__HistoricoIA.recarregar());
 
-    btnMarcarLidas?.addEventListener("click", () => {
+    document.getElementById("btnMarcarLidas")?.addEventListener("click", () => {
       const newest = allItems[0]?.criado_em;
       if (newest) {
         localStorage.setItem(KEY_LAST_SEEN, parseStamp(newest).toISOString());
         lastSeenAt = localStorage.getItem(KEY_LAST_SEEN);
-        renderLista(allItems);
-      }
-    });
-
-    btnHistoricoIA?.addEventListener("click", async (ev) => {
-      if (!ev.isTrusted) return; // evita aberturas programáticas
-      await window.__HistoricoIA.recarregar();
-      const newest = allItems[0]?.criado_em;
-      if (newest) {
-        localStorage.setItem(KEY_LAST_SEEN, parseStamp(newest).toISOString());
-        lastSeenAt = localStorage.getItem(KEY_LAST_SEEN);
+        const list = document.getElementById("listaHistorico");
+        if (list)
+          list
+            .querySelectorAll(".ia-card.is-new")
+            .forEach((el) => el.classList.remove("is-new"));
+        const badge = document.getElementById("badgeNovasDicas");
         badge?.classList.add("d-none");
       }
     });
 
-    // Filtros por atributo (recomendado — mantém compat)
+    document
+      .getElementById("btnHistoricoIA")
+      ?.addEventListener("click", async (ev) => {
+        if (!ev.isTrusted) return;
+        await window.__HistoricoIA.recarregar();
+        const newest = allItems[0]?.criado_em;
+        if (newest) {
+          localStorage.setItem(KEY_LAST_SEEN, parseStamp(newest).toISOString());
+          lastSeenAt = localStorage.getItem(KEY_LAST_SEEN);
+          const badge = document.getElementById("badgeNovasDicas");
+          badge?.classList.add("d-none");
+        }
+      });
+
+    // Filtros (data-ia-filtro)
     if (filterButtons && filterButtons.length) {
-      // remove handlers antigos (defensivo) e reata um único handler
       filterButtons.forEach((btn) => btn.replaceWith(btn.cloneNode(true)));
       document
         .querySelectorAll("[data-ia-filtro],[data-filter]")
@@ -664,7 +636,7 @@
           btn.addEventListener(
             "click",
             (ev) => {
-              if (!ev.isTrusted) return; // 🛡️ só clique humano
+              if (!ev.isTrusted) return;
               if (filtroLock) return;
               filtroLock = true;
               setTimeout(() => (filtroLock = false), 400);
@@ -676,9 +648,7 @@
                 btn.classList.add("active");
               }
 
-              // libera 1000ms para permitir o fetch filtrado
               _allowFilteredUntil = performance.now() + 1000;
-
               const f = _normalizeTipo(
                 btn.getAttribute("data-ia-filtro") ||
                   btn.getAttribute("data-filter")
@@ -690,7 +660,7 @@
         });
     }
 
-    // Compat: botões por ID (se existirem) — também exigem clique humano
+    // Compat por ID
     btnFiltroIDs.todas?.addEventListener("click", (ev) => {
       if (!ev.isTrusted) return;
       _allowFilteredUntil = performance.now() + 1000;
@@ -712,7 +682,7 @@
       window.__HistoricoIA.filtrar("neutra");
     });
 
-    // Auto-refresh a cada 60s (pausa quando aba oculta)
+    // Auto-refresh
     function startAutoRefresh() {
       stopAutoRefresh();
       refreshTimer = setInterval(() => {
@@ -725,126 +695,13 @@
       refreshTimer = null;
     }
 
-    // Init (uma chamada só)
+    // Init
     (async () => {
-      await window.carregarHistorico(PREVIEW_LIMIT, null); // carga inicial SEM filtro
+      await window.carregarHistorico(PREVIEW_LIMIT, null);
       startAutoRefresh();
     })();
 
-    // “Ver mais” no preview (aumenta limit local)
-    document
-      .getElementById("btnVerMais")
-      ?.addEventListener("click", async (ev) => {
-        if (!ev.isTrusted) return;
-        _limitAtual += MORE_INCREMENT;
-        await window.carregarHistorico(_limitAtual, filtroCategoria);
-      });
-
-    // ========= Modo Turbo (Gerar Dica 30d) =========
-    const btnTurbo = document.getElementById("btnTurbo");
-    const st = document.getElementById("turboStatus");
-    const box = document.getElementById("turboResult");
-    const dica = document.getElementById("turboDica");
-
-    if (btnTurbo && st && box && dica) {
-      btnTurbo.onclick = async (ev) => {
-        if (!ev.isTrusted) return;
-        btnTurbo.disabled = true;
-        st.textContent = "Analisando…";
-        st.classList.remove("d-none");
-        box.classList.add("d-none");
-
-        try {
-          const r = await fetch("/financeiro/ia/dica30d/", {
-            method: "POST",
-            headers: {
-              "X-Requested-With": "XMLHttpRequest",
-              "X-CSRFToken": getCsrfToken(),
-              Accept: "application/json",
-            },
-            credentials: "same-origin",
-          });
-          const j = await r.json();
-          console.log("✅ [Dica30d] resposta:", j);
-
-          if (j && j.ok) {
-            const titulo = j.title || "Dica dos últimos 30 dias";
-            const texto = j.text || j.dica || "(sem texto)";
-            const quando = j.created_at || new Date().toLocaleString("pt-BR");
-            dica.textContent = `${titulo} — ${texto}\n(Insight • ${quando})`;
-            box.classList.remove("d-none");
-            st.textContent = "✅ Pronto! Nova dica gerada.";
-
-            // métricas (opcional)
-            const ul = document.getElementById("turboMetrics");
-            const detailsEl = ul ? ul.closest("details") : null;
-            if (ul) {
-              const linhas = [];
-              if (Array.isArray(j.metrics)) {
-                for (const m of j.metrics) linhas.push(String(m));
-              } else if (j.metrics && typeof j.metrics === "object") {
-                for (const [k, v] of Object.entries(j.metrics))
-                  linhas.push(`${labelize(k)}: ${fmt(v)}`);
-              }
-              if (j.receitas != null)
-                linhas.push(`Receitas (30d): ${fmtMoeda(j.receitas)}`);
-              if (j.despesas != null)
-                linhas.push(`Despesas (30d): ${fmtMoeda(j.despesas)}`);
-              if (j.saldo != null)
-                linhas.push(`Saldo (30d): ${fmtMoeda(j.saldo)}`);
-              if (j.margem != null)
-                linhas.push(`Margem: ${Number(j.margem).toFixed(1)}%`);
-              if (j.periodo || j.range)
-                linhas.push(`Período: ${j.periodo || j.range}`);
-
-              if (linhas.length) {
-                ul.innerHTML = linhas
-                  .map((li) => `<li>${escapeHtml(li)}</li>`)
-                  .join("");
-                if (detailsEl) detailsEl.open = true;
-              } else {
-                ul.innerHTML = "";
-                if (detailsEl) detailsEl.open = false;
-              }
-            }
-
-            // recarrega lista pra já aparecer a dica nova (se a API salvar)
-            window.carregarHistorico(PREVIEW_LIMIT, filtroCategoria);
-          } else {
-            st.textContent = "⚠️ Não consegui gerar a dica.";
-          }
-        } catch (e) {
-          console.error("💥 [Dica30d] erro:", e);
-          st.textContent = "Erro na solicitação.";
-        } finally {
-          btnTurbo.disabled = false;
-          setTimeout(() => st.classList.add("d-none"), 2000);
-        }
-      };
-    }
-
-    // === APIs públicas extras (precisam dos helpers no escopo) ===
-    window.__IA_HIST_BADGE_UPDATE = function () {
-      try {
-        atualizarBadgeTotal();
-      } catch (e) {}
-    };
-    window.__IA_HIST_MARK_SEEN = function (items) {
-      try {
-        const stamps = (items || [])
-          .map((x) => parseStamp(x.criado_em)?.getTime() || 0)
-          .filter(Boolean)
-          .sort((a, b) => b - a);
-        const newest = stamps[0];
-        if (newest) {
-          localStorage.setItem(KEY_LAST_SEEN, new Date(newest).toISOString());
-          lastSeenAt = localStorage.getItem(KEY_LAST_SEEN);
-          if (badge) badge.classList.add("d-none");
-        }
-      } catch (e) {}
-    };
-
-    // === PATCH: Diagnóstico e wire leve dos botões ===
+    // Diagnóstico
     (function () {
       const req = {
         listaHistorico: !!document.getElementById("listaHistorico"),
@@ -866,14 +723,12 @@
     })();
   });
 
-  // ======================================================
-  // 🔄 Integração com botão "Atualizar" do modal (dashboard.html)
-  // ======================================================
+  // 🔄 Botão "Atualizar" do modal
   document.addEventListener("DOMContentLoaded", () => {
     const btnModalReload = document.getElementById("btnReloadDicasModal");
     if (!btnModalReload) return;
     btnModalReload.addEventListener("click", (ev) => {
-      if (!ev.isTrusted) return; // evita triggers automáticos
+      if (!ev.isTrusted) return;
       console.log("🧠 [Historico] Recarregando via botão do modal...");
       try {
         if (
