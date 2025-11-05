@@ -9,6 +9,7 @@ class Transacao(models.Model):
         ("despesa", "Despesa"),
     ]
 
+    categoria = models.CharField(max_length=100, blank=True, null=True)
     tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
     descricao = models.CharField(max_length=100)
     valor = models.DecimalField(max_digits=10, decimal_places=2)

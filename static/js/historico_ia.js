@@ -2,15 +2,13 @@
 // historico_ia.js — versão “clean”, single-flight + gate de filtro (corrigido)
 // ======================================================
 (function () {
-  ("use strict");
+  "use strict";
 
   const __LOAD_TS__ = performance.now();
 
-  // ---- Guardião: impede rodar duas vezes o mesmo script
-  if (globalThisThis.__IA_HIST_INIT_DONE__) {
-    console.warn(
-      "⚠️ historico_ia.js já inicializado — abortando segunda carga."
-    );
+  // ---- Guardião: impede rodar duas vezes o mesmo script (fix)
+   if (globalThis.__IA_HIST_INIT_DONE__) {
+    console.warn("⚠️ historico_ia.js já inicializado — abortando segunda carga.");
     return;
   }
   globalThis.__IA_HIST_INIT_DONE__ = true;
@@ -21,7 +19,9 @@
   function parseStamp(s) {
     if (!s) return null;
     if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return new Date(s); // ISO
-    const m = RegExp(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})$/).exec(String(s));
+    const m = RegExp(
+      /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})$/
+    ).exec(String(s));
     if (!m) return new Date(s);
     const [, d, mo, y, h, i] = m.map(Number);
     return new Date(y, mo - 1, d, h, i);
@@ -86,10 +86,10 @@
 
   // ========= Constantes/Estado =========
   const PREVIEW_LIMIT = 5;
-  const MORE_INCREMENT = 10; // mantido (não usado mais na ação do botão)
+  const MORE_INCREMENT = 10;
   const KEY_LAST_SEEN = "iaHistoricoLastSeenAt";
 
-  let _allowFilteredUntil = 0; // gate clique humano
+  let _allowFilteredUntil = 0;
 
   let lastHistUrl = "";
   let _lastIntent = { limit: null, tipo: "" };
@@ -100,7 +100,7 @@
 
   let lastSeenAt = null;
   let allItems = [];
-  let filtroCategoria = ""; // "" | neutra | positiva | alerta
+  let filtroCategoria = "";
   let refreshTimer = null;
   let BUSY = false;
   let _limitAtual = PREVIEW_LIMIT;
@@ -115,7 +115,6 @@
     if (document.body.dataset.iaHistoricoInit === "1") return;
     document.body.dataset.iaHistoricoInit = "1";
 
-    // Alvos
     const list =
       document.getElementById("listaHistorico") ||
       document.getElementById("listaHistoricoPreview") ||
@@ -126,7 +125,7 @@
       return;
     }
 
-    // FEED_URL (prefere data-feed-url). Força /v2/ se não estiver.
+    // FEED_URL
     let FEED_URL =
       (list.dataset.feedUrl && list.dataset.feedUrl.trim()) ||
       "/financeiro/ia/historico/feed/v2/";
@@ -141,10 +140,10 @@
     }
     console.log("[Historico] FEED_URL =", FEED_URL);
 
-    // Modal
+    // Modal mirror
     const modalEl = document.getElementById("modalHistoricoIA");
     const modalList = document.getElementById("listaHistoricoModal");
-    const btnVerMaisDom = document.getElementById("btnVerMaisHistorico"); // << corrigido
+    const btnVerMaisDom = document.getElementById("btnVerMaisHistorico");
 
     if (modalEl && list && modalList) {
       modalEl.addEventListener("show.bs.modal", function () {
@@ -152,7 +151,7 @@
       });
     }
 
-    // Garante botão Ver mais (principal)
+    // Garante botão Ver mais
     (function ensureVerMaisButton() {
       let btn = btnVerMaisDom || document.getElementById("btnVerMaisHistorico");
       if (!btn) {
@@ -164,7 +163,7 @@
       }
     })();
 
-    // “Ver mais” principal: paginação por offset
+    // “Ver mais” principal
     document
       .getElementById("btnVerMaisHistorico")
       ?.addEventListener("click", async (ev) => {
@@ -234,8 +233,8 @@
         _t === "positiva"
           ? "success"
           : _t === "alerta"
-          ? "warning"
-          : "secondary";
+            ? "warning"
+            : "secondary";
 
       let titulo = String(it.title || "").trim();
       const texto = String(it.text || "").trim();
@@ -250,24 +249,14 @@
       if (hideTitle) titulo = "";
 
       return `
-        <div class="card border-${cor} mb-3 shadow-sm ia-card ${
-        isNew ? "is-new" : ""
-      }" data-kind="${escapeHtml(_t)}">
+        <div class="card border-${cor} mb-3 shadow-sm ia-card ${isNew ? "is-new" : ""}" data-kind="${escapeHtml(_t)}">
           <div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-2">
               <span class="badge bg-success-subtle text-success border border-success-subtle">${tag}</span>
               <small class="text-muted">${quando}</small>
             </div>
-            ${
-              titulo
-                ? `<h6 class="card-title text-success mb-1">${escapeHtml(
-                    titulo
-                  )}</h6>`
-                : ""
-            }
-            <p class="card-text mb-0" style="white-space: pre-wrap">${escapeHtml(
-              texto
-            )}</p>
+            ${titulo ? `<h6 class="card-title text-success mb-1">${escapeHtml(titulo)}</h6>` : ""}
+            <p class="card-text mb-0" style="white-space: pre-wrap">${escapeHtml(texto)}</p>
           </div>
         </div>`;
     }
@@ -320,7 +309,7 @@
         if (el) el.textContent = String(val);
       });
     }
-    window.setContadoresBackend = setContadoresBackend; // expõe para uso eventual
+    window.setContadoresBackend = setContadoresBackend;
 
     function toggleLoading(show) {
       const elOvl = document.getElementById("ovlHistorico");
@@ -350,7 +339,6 @@
       atualizarContadoresUI(items);
     }
 
-    // ===== fetch histórico (flex) =====
     async function fetchHistorico(a = 20, b = "", opt = {}) {
       let limit = 20;
       let tipo = "";
@@ -472,7 +460,6 @@
       return { items, hasMore, offset };
     }
 
-    // ===== API pública (coalescida) =====
     window.carregarHistorico = function carregarHistorico(
       limit = 20,
       tipo = null,
@@ -487,7 +474,7 @@
           _tipoNorm === "neutra") &&
         performance.now() > _allowFilteredUntil
       ) {
-        _tipoNorm = ""; // força "todas"
+        _tipoNorm = "";
       }
 
       _pendingArgs = { limit: _limit, tipo: _tipoNorm, append };
@@ -577,7 +564,6 @@
       }, 80);
     };
 
-    // Objeto utilitário (exposto)
     window.__HistoricoIA = {
       recarregar: () => window.carregarHistorico(_limitAtual, filtroCategoria),
       filtrar: (tipo) => {
@@ -593,7 +579,6 @@
       },
     };
 
-    // Ações / eventos
     document
       .getElementById("btnReloadDicas")
       ?.addEventListener("click", () => window.__HistoricoIA.recarregar());
@@ -627,7 +612,6 @@
         }
       });
 
-    // Filtros (data-ia-filtro)
     if (filterButtons && filterButtons.length) {
       filterButtons.forEach((btn) => btn.replaceWith(btn.cloneNode(true)));
       document
@@ -636,8 +620,7 @@
           btn.addEventListener(
             "click",
             (ev) => {
-              if (!ev.isTrusted) return;
-              if (filtroLock) return;
+              if (!ev.isTrusted || filtroLock) return;
               filtroLock = true;
               setTimeout(() => (filtroLock = false), 400);
 
@@ -660,7 +643,6 @@
         });
     }
 
-    // Compat por ID
     btnFiltroIDs.todas?.addEventListener("click", (ev) => {
       if (!ev.isTrusted) return;
       _allowFilteredUntil = performance.now() + 1000;
@@ -682,7 +664,6 @@
       window.__HistoricoIA.filtrar("neutra");
     });
 
-    // Auto-refresh
     function startAutoRefresh() {
       stopAutoRefresh();
       refreshTimer = setInterval(() => {
@@ -695,7 +676,6 @@
       refreshTimer = null;
     }
 
-    // Init
     (async () => {
       await window.carregarHistorico(PREVIEW_LIMIT, null);
       startAutoRefresh();

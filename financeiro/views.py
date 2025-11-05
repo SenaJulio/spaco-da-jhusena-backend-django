@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from django.core.serializers.json import DjangoJSONEncoder
-from django.db.models import CharField, Count, F, Sum
+from django.db.models import CharField, Count, F, Sum, Q
 from django.db.models.functions import Cast, TruncMonth
 from django.http import JsonResponse
 from django.shortcuts import render
@@ -313,3 +313,95 @@ def dashboard_financeiro(request):
 
 
 from .models import HistoricoDicas
+
+# dentro de financeiro/views.py
+
+from django.http import JsonResponse
+from .models import Transacao
+from django.db.models import Count
+from django.contrib.auth.decorators import login_required
+from django.db.models.functions import TruncDate
+
+
+@login_required
+def categorias_transacao(request):
+    """
+    Retorna a lista de categorias distintas das transações
+    para popular o filtro do gráfico.
+    """
+    try:
+        categorias = (
+            Transacao.objects.exclude(categoria__isnull=True)
+            .exclude(categoria__exact="")
+            .values_list("categoria", flat=True)
+            .distinct()
+            .order_by("categoria")
+        )
+        return JsonResponse({"ok": True, "categorias": list(categorias)})
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)})
+
+
+@login_required
+def dados_grafico_filtrados(request):
+    """
+    Séries diárias (receitas, despesas, saldo acumulado) + pizza por categoria,
+    filtradas entre 'inicio' e 'fim' (YYYY-MM-DD).
+    Tolerante a modelos com campo 'data' OU 'created_at'.
+    """
+    inicio_str = (request.GET.get("inicio") or "").strip()
+    fim_str = (request.GET.get("fim") or "").strip()
+
+    hoje = date.today()
+    inicio = parse_date(inicio_str) or (hoje - timedelta(days=30))
+    fim = parse_date(fim_str) or hoje
+
+    # Janela inclusiva [inicio, fim]
+    base_qs = Transacao.objects.filter(data__range=[inicio, fim])
+    data_field = "data"
+
+    # Se não houver resultado por 'data', tenta 'created_at'
+    if not base_qs.exists() and hasattr(Transacao, "created_at"):
+        base_qs = Transacao.objects.filter(created_at__date__range=[inicio, fim])
+        data_field = "created_at"
+
+    # Agrega por dia
+    qs = base_qs.annotate(dia=TruncDate(data_field))
+    agg = (
+        qs.values("dia")
+        .annotate(
+            receitas=Sum("valor", filter=Q(tipo="receita")),
+            despesas=Sum("valor", filter=Q(tipo="despesa")),
+        )
+        .order_by("dia")
+    )
+
+    dias, receitas, despesas, saldo = [], [], [], []
+    acc = 0.0
+    for a in agg:
+        r = float(a["receitas"] or 0)
+        d = float(a["despesas"] or 0)
+        acc += r - d
+        dias.append(a["dia"].strftime("%d/%m"))
+        receitas.append(r)
+        despesas.append(d)
+        saldo.append(acc)
+
+    # Pizza por categoria
+    cat_qs = base_qs.values("categoria").annotate(total=Sum("valor")).order_by("-total")
+    categorias = [(c["categoria"] or "Sem categoria") for c in cat_qs]
+    valores = [float(c["total"] or 0) for c in cat_qs]
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "inicio": str(inicio),
+            "fim": str(fim),
+            "dias": dias,
+            "receitas": receitas,
+            "despesas": despesas,
+            "saldo": saldo,
+            "categorias": categorias,
+            "valores": valores,
+        }
+    )
