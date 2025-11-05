@@ -1,46 +1,67 @@
+/* eslint-disable no-unused-vars */
 /* ==========================================================================
- * Spaço da Jhuséna — Dashboard FULL (seguro, modular, sem quebrar layout)
- * Versão: 2025-11-03
- * --------------------------------------------------------------------------
- * Filosofia:
- * - NÃO cria nem move elementos de layout existentes (a menos que você ative
- *   flags opcionais explícitas).
- * - Usa apenas IDs já presentes no template:
- *     #filtroInicio, #filtroFim, #filtroCategoria, #btnAplicarFiltros|#filtrar-btn
- *     canvas#graficoEvolucao, canvas#graficoCategorias
- *     #evolucaoEmpty, #categoriasEmpty (opcionais)
- *     #btnGerarDica, #statusDica (opcionais)
- *     #btnGerarDica30d, #stDica30d (opcionais)
- *     #btnReloadDicasModal (opcional)
- *     #listaHistorico (LEGACY opcional)
- * --------------------------------------------------------------------------
- * Rotas esperadas no backend:
- *   - window.URL_DADOS_GRAFICO ou '/financeiro/dados_grafico_filtrados/'
- *   - window.URL_CATEGORIAS    ou '/financeiro/dashboard/categorias/'
- *   - '/financeiro/ia/dica30d/' (POST) (opcional)
- *   - '/financeiro/api/insights/criar-simples/' (POST) (opcional)
- *   - '/financeiro/ia/historico/feed/v2/' (LEGACY opcional)
+ * Spaço da Jhuséna — dashboard.js (versão estável, ES5)
+ * Data: 2025-11-05
  * ==========================================================================*/
+/* global Chart */
 
 (function () {
-  "use strict";
+  ("use strict");
+
+  // ================== REGISTRO Chart.js v4 (global) ==================
+  // ================== REGISTRO Chart.js v4 (global) ==================
+  if (window.Chart && Chart.register) {
+    try {
+      var LineController = Chart.LineController;
+      var DoughnutController = Chart.DoughnutController;
+
+      var LineElement = Chart.LineElement;
+      var PointElement = Chart.PointElement;
+      var ArcElement = Chart.ArcElement;
+
+      var CategoryScale = Chart.CategoryScale;
+      var LinearScale = Chart.LinearScale;
+
+      var Title = Chart.Title;
+      var Tooltip = Chart.Tooltip;
+      var Legend = Chart.Legend;
+      var Filler = Chart.Filler;
+
+      Chart.register(
+        // controllers
+        LineController,
+        DoughnutController,
+        // elements
+        LineElement,
+        PointElement,
+        ArcElement,
+        // scales
+        CategoryScale,
+        LinearScale,
+        // plugins
+        Title,
+        Tooltip,
+        Legend,
+        Filler
+      );
+    } catch (_eReg) {
+      console.warn("Falha ao registrar elementos Chart.js:", _eReg);
+    }
+  }
 
   // ======================= FEATURE FLAGS =======================
-  const FEATURES = {
-    HYDRATE_CATEGORY_SELECT: true, // popula <select id="filtroCategoria"> com categorias reais do backend
-    LEGACY_HISTORICO_LIST: true, // ativa loader legacy do histórico para #listaHistorico se módulo novo não existir
-    SAVE_SCROLL_STATE: true, // salva/restaura rolagem do histórico
-    TURBO_BUTTON: true, // ativa botão #btnGerarDica30d (se houver)
-    SIMPLE_TIP_BUTTON: true, // ativa botão #btnGerarDica (se houver)
-    // NÃO cria DIVs extras; somente usa o que existir no HTML.
+  var FEATURES = {
+    HYDRATE_CATEGORY_SELECT: true,
   };
 
-  // ======================= THEME/COLORS ========================
-  const cssVar = (name, fallback) =>
-    getComputedStyle(document.documentElement).getPropertyValue(name).trim() ||
-    fallback;
+  // ======================= TEMA / CORES ========================
+  function cssVar(name, fallback) {
+    var v = getComputedStyle(document.documentElement).getPropertyValue(name);
+    v = v ? v.trim() : "";
+    return v || fallback;
+  }
 
-  const CHART_COLORS = {
+  var COLORS = {
     receitas: cssVar("--cor-principal", "#2e7d32"),
     despesas: "#d32f2f",
     saldo: "#f9a825",
@@ -52,196 +73,242 @@
   function applyChartDefaults() {
     if (!window.Chart) return;
     try {
-      charts.defaults.font.family =
+      Chart.defaults.font.family =
         "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
-      charts.defaults.color = CHART_COLORS.text;
-      charts.defaults.plugins.legend.labels.boxWidth = 14;
-      charts.defaults.plugins.legend.labels.boxHeight = 14;
-    } catch {}
+      Chart.defaults.color = COLORS.text;
+      Chart.defaults.plugins.legend.labels.boxWidth = 14;
+      Chart.defaults.plugins.legend.labels.boxHeight = 14;
+    } catch (_e) {
+      /* noop */
+    }
   }
   if (window.Chart) applyChartDefaults();
   document.addEventListener("DOMContentLoaded", applyChartDefaults);
 
-  // ======================== UTILITÁRIOS ========================
-  const pad2 = (n) => String(n).padStart(2, "0");
-  const fmtYMD = (d) =>
-    `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
-  const firstDayOfMonth = (d) =>
-    `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-01`;
+  // ========================== HELPERS ==========================
+  function pad2(n) {
+    return String(n).padStart(2, "0");
+  }
+  function fmtYMD(d) {
+    return (
+      d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-" + pad2(d.getDate())
+    );
+  }
+  function firstDayOfMonth(d) {
+    return d.getFullYear() + "-" + pad2(d.getMonth() + 1) + "-01";
+  }
 
   function toNumberBR(x) {
     if (x == null) return 0;
-    if (typeof x === "number" && Number.isFinite(x)) return x;
-    const s = String(x)
+    if (typeof x === "number" && isFinite(x)) return x;
+    var s = String(x)
       .replace(/\s+/g, "")
-      .replace(/\.(?=\d{3}(?:\D|$))/g, "") // remove milhar
-      .replace(",", ".") // vírgula decimal
+      .replace(/\.(?=\d{3}(?:\D|$))/g, "")
+      .replace(",", ".")
       .replace(/[^\d.+-Ee]/g, "");
-    const n = Number(s);
-    return Number.isFinite(n) ? n : 0;
+    var n = Number(s);
+    return isFinite(n) ? n : 0;
   }
 
-  function _alignSeries(labels = [], ...series) {
-    const L = Array.isArray(labels) ? labels.length : 0;
-    const out = series.map((arr) => {
-      const src = Array.isArray(arr) ? arr : [];
-      const dst = new Array(L);
-      for (let i = 0; i < L; i++) dst[i] = toNumberBR(src[i]);
-      return dst;
-    });
-    return {
-      labels: Array.isArray(labels) ? labels.slice(0, L) : [],
-      series: out,
-    };
-  }
-
-  function debounce(fn, ms = 300) {
-    let t;
-    return (...args) => {
+  function debounce(fn, ms) {
+    if (ms == null) ms = 300;
+    var t;
+    return function () {
+      var args = arguments;
       clearTimeout(t);
-      t = setTimeout(() => fn(...args), ms);
+      t = setTimeout(function () {
+        fn.apply(null, args);
+      }, ms);
     };
   }
 
   // ====================== FETCH COM ABORT ======================
-  let __lastCtrl;
-  async function sjFetchJSON(url) {
-    if (__lastCtrl) {
-      try {
-        __lastCtrl.abort();
-      } catch {}
-    }
-    __lastCtrl = new AbortController();
-    const r = await fetch(url, {
-      headers: {
-        "X-Requested-With": "XMLHttpRequest",
-        Accept: "application/json",
-      },
-      credentials: "same-origin",
-      signal: __lastCtrl.signal,
+  var __lastCtrl = null;
+  function sjFetchJSON(url) {
+    return new Promise(function (resolve, reject) {
+      if (__lastCtrl) {
+        try {
+          __lastCtrl.abort();
+        } catch (_e) {
+          /* noop */
+        }
+      }
+      __lastCtrl = new AbortController();
+      var signal = __lastCtrl.signal;
+
+      fetch(url, {
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+          Accept: "application/json",
+        },
+        credentials: "same-origin",
+        signal: signal,
+      })
+        .then(function (r) {
+          if (!r.ok)
+            return r.text().then(function (txt) {
+              throw new Error(
+                "HTTP " +
+                  r.status +
+                  " @ " +
+                  url +
+                  ": " +
+                  (txt || "").slice(0, 300)
+              );
+            });
+          return r.json();
+        })
+        .then(resolve)
+        .catch(function (e) {
+          if (e && e.name === "AbortError") {
+            var err = new Error("ABORTED");
+            err.__aborted = true;
+            reject(err);
+            return;
+          }
+          reject(e);
+        });
     });
-    if (!r.ok) {
-      const txt = await r.text().catch(() => "");
-      throw new Error(`HTTP ${r.status} @ ${url}: ${txt.slice(0, 300)}`);
-    }
-    return r.json();
   }
 
   // ========================== CHARTS ===========================
-  const charts = {};
   function destroyChartByCanvas(canvas) {
     try {
-      const inst = charts.getChart(canvas);
-      if (inst) inst.destroy();
-    } catch {}
-  }
-  function getOrCreateChart(ctx, key, config) {
-    destroyChartByCanvas(ctx.canvas); // evita “isPluginEnabled undefined.filter” do Chart.js
-    if (charts[key]) {
-      try {
-        charts[key].destroy();
-      } catch {}
-      charts[key] = null;
+      if (Chart.getChart) {
+        var inst = Chart.getChart(canvas);
+        if (inst) inst.destroy();
+      }
+    } catch (_e) {
+      /* noop */
     }
-    const ch = new charts(ctx, config);
-    charts[key] = ch;
-    queueMicrotask(() => {
-      try {
-        ch.resize();
-      } catch {}
-    });
-    return ch;
   }
 
-  function montarGraficoEvolucao(
-    dias = [],
-    receitas = [],
-    despesas = [],
-    saldo = []
-  ) {
-    const canvas = document.getElementById("graficoEvolucao");
-    const empty = document.getElementById("evolucaoEmpty");
+  // --------- Evolução diária (linhas)
+  function montarGraficoEvolucao(dias, receitas, despesas, saldo) {
+    var canvas = document.getElementById("graficoEvolucao");
+    var empty = document.getElementById("evolucaoEmpty");
     if (!canvas || !window.Chart) return;
 
-    const hasData = Array.isArray(dias) && dias.length > 0;
-    if (!hasData) {
+    // 1) valida labels
+    var hasLabels = Array.isArray(dias) && dias.length > 0;
+    if (!hasLabels) {
       if (empty) {
         empty.hidden = false;
-        empty.textContent = "Sem movimentações no período.";
+        empty.textContent = "Sem dados para o período escolhido.";
       }
-      destroyChartByCanvas(canvas);
+      try {
+        destroyChartByCanvas(canvas);
+      } catch (_e0) {
+        /* */
+      }
       canvas.style.display = "none";
       return;
     }
     if (empty) empty.hidden = true;
     canvas.style.display = "";
 
-    const {
-      labels,
-      series: [R, D, S],
-    } = _alignSeries(dias, receitas, despesas, saldo);
-    const allZero = [...R, ...D, ...S].every((v) => (v || 0) === 0);
-    const Rz = allZero ? R.map(() => 0.000001) : R;
-    const Dz = allZero ? D.map(() => 0.000001) : D;
-    const Sz = allZero ? S.map(() => 0.000001) : S;
+    // 2) normaliza números e alinha com os dias
+    function toNum(v) {
+      if (typeof v === "number") return v;
+      var s = String(v == null ? "" : v)
+        .replace(/\./g, "")
+        .replace(",", ".");
+      var n = Number(s);
+      return isFinite(n) ? n : 0;
+    }
 
-    const yScale = allZero
-      ? {
-          min: 0,
-          suggestedMax: 1,
-          grid: { color: CHART_COLORS.grid },
-          ticks: {
-            color: CHART_COLORS.text,
-            callback: (v) => v.toLocaleString("pt-BR"),
-          },
-        }
-      : {
-          beginAtZero: true,
-          grid: { color: CHART_COLORS.grid },
-          ticks: {
-            color: CHART_COLORS.text,
-            callback: (v) => v.toLocaleString("pt-BR"),
-          },
-        };
+    var L = dias.length;
+    var R = new Array(L);
+    var D = new Array(L);
+    var S;
+    var i;
 
-    const ctx = canvas.getContext("2d");
-    return getOrCreateChart(ctx, "sj-evolucao", {
+    for (i = 0; i < L; i++) {
+      R[i] = toNum((receitas || [])[i]);
+    }
+    for (i = 0; i < L; i++) {
+      D[i] = toNum((despesas || [])[i]);
+    }
+
+    if (Array.isArray(saldo) && saldo.length === L) {
+      S = new Array(L);
+      for (i = 0; i < L; i++) {
+        S[i] = toNum(saldo[i]);
+      }
+    } else {
+      var acc = 0;
+      S = new Array(L);
+      for (i = 0; i < L; i++) {
+        acc += (R[i] || 0) - (D[i] || 0);
+        S[i] = acc;
+      }
+    }
+
+    // 3) tudo zero?
+    function sumAbs(arr) {
+      var t = 0,
+        j;
+      for (j = 0; j < arr.length; j++) t += Math.abs(arr[j] || 0);
+      return t;
+    }
+    if (sumAbs(R) + sumAbs(D) + sumAbs(S) <= 0.0001) {
+      if (empty) {
+        empty.hidden = false;
+        empty.textContent = "Sem dados para o período escolhido.";
+      }
+      try {
+        destroyChartByCanvas(canvas);
+      } catch (_e1) {
+        /* */
+      }
+      return;
+    }
+
+    // 4) destrói anterior e cria novo
+    var ctx = canvas.getContext("2d");
+    try {
+      destroyChartByCanvas(canvas);
+    } catch (_e2) {
+      /* */
+    }
+
+    new Chart(ctx, {
       type: "line",
       data: {
-        labels,
+        labels: dias,
         datasets: [
           {
             label: "Receitas",
-            data: Rz,
-            borderColor: CHART_COLORS.receitas,
-            backgroundColor: CHART_COLORS.receitas + "33",
+            data: R,
+            borderColor: "#2e7d32",
+            backgroundColor: "#2e7d3233",
             borderWidth: 2,
             fill: true,
             tension: 0.35,
             pointRadius: 2,
-            pointBackgroundColor: CHART_COLORS.receitas,
+            pointBackgroundColor: "#2e7d32",
           },
           {
             label: "Despesas",
-            data: Dz,
-            borderColor: CHART_COLORS.despesas,
-            backgroundColor: CHART_COLORS.despesas + "22",
+            data: D,
+            borderColor: "#d32f2f",
+            backgroundColor: "#d32f2f22",
             borderWidth: 2,
             fill: true,
             tension: 0.35,
             pointRadius: 2,
-            pointBackgroundColor: CHART_COLORS.despesas,
+            pointBackgroundColor: "#d32f2f",
           },
           {
             label: "Saldo",
-            data: Sz,
-            borderColor: CHART_COLORS.saldo,
-            backgroundColor: CHART_COLORS.saldo + "22",
+            data: S,
+            borderColor: "#f9a825",
+            backgroundColor: "#f9a82522",
             borderWidth: 2,
             fill: false,
             tension: 0.3,
             pointRadius: 2,
-            pointBackgroundColor: CHART_COLORS.saldo,
+            pointBackgroundColor: "#f9a825",
           },
         ],
       },
@@ -253,42 +320,53 @@
         plugins: {
           legend: {
             position: "bottom",
-            labels: { color: CHART_COLORS.text, font: { size: 13 } },
+            labels: { color: "#1b5e20", font: { size: 13 } },
           },
           tooltip: {
             backgroundColor: "#fff",
             borderColor: "#a5d6a7",
             borderWidth: 1,
-            titleColor: CHART_COLORS.text,
-            bodyColor: CHART_COLORS.text,
+            titleColor: "#1b5e20",
+            bodyColor: "#1b5e20",
             callbacks: {
-              label: (ctx) => {
-                const v = Number(ctx.parsed?.y ?? 0);
-                return `${ctx.dataset?.label || ""}: R$ ${v.toLocaleString(
-                  "pt-BR",
-                  { minimumFractionDigits: 2 }
-                )}`;
+              label: function (ctx) {
+                var v = Number((ctx.parsed && ctx.parsed.y) || 0);
+                return (
+                  (ctx.dataset && ctx.dataset.label ? ctx.dataset.label : "") +
+                  ": R$ " +
+                  v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })
+                );
               },
             },
           },
         },
         scales: {
           x: {
-            grid: { color: CHART_COLORS.grid },
-            ticks: { maxRotation: 0, autoSkip: true, color: CHART_COLORS.text },
+            grid: { color: "rgba(0,0,0,0.08)" },
+            ticks: { maxRotation: 0, autoSkip: true, color: "#1b5e20" },
           },
-          y: yScale,
+          y: {
+            beginAtZero: true,
+            grid: { color: "rgba(0,0,0,0.08)" },
+            ticks: {
+              color: "#1b5e20",
+              callback: function (v) {
+                return Number(v).toLocaleString("pt-BR");
+              },
+            },
+          },
         },
       },
     });
   }
 
-  function montarGraficoCategorias(categorias = [], valores = []) {
-    const canvas = document.getElementById("graficoCategorias");
-    const empty = document.getElementById("categoriasEmpty");
+  // --------- Categorias (pizza)
+  function montarGraficoCategorias(categorias, valores) {
+    var canvas = document.getElementById("graficoCategorias");
+    var empty = document.getElementById("categoriasEmpty");
     if (!canvas || !window.Chart) return;
 
-    const hasData = Array.isArray(categorias) && categorias.length > 0;
+    var hasData = Array.isArray(categorias) && categorias.length > 0;
     if (!hasData) {
       if (empty) {
         empty.hidden = false;
@@ -301,12 +379,12 @@
     if (empty) empty.hidden = true;
     canvas.style.display = "";
 
-    const ctx = canvas.getContext("2d");
-    const dataVals = (Array.isArray(valores) ? valores : []).map((v) =>
-      toNumberBR(v)
-    );
+    var ctx = canvas.getContext("2d");
+    destroyChartByCanvas(canvas);
 
-    return getOrCreateChart(ctx, "sj-categorias", {
+    var dataVals = Array.isArray(valores) ? valores.map(toNumberBR) : [];
+
+    new Chart(ctx, {
       type: "doughnut",
       data: {
         labels: categorias,
@@ -336,468 +414,336 @@
         maintainAspectRatio: false,
         parsing: false,
         cutout: "65%",
-        plugins: {
-          legend: { position: "bottom", labels: { color: CHART_COLORS.text } },
-          tooltip: {
-            backgroundColor: "#fff",
-            borderColor: "#a5d6a7",
-            borderWidth: 1,
-            titleColor: CHART_COLORS.text,
-            bodyColor: CHART_COLORS.text,
-            callbacks: {
-              label: (ctx) => {
-                const v = Number(ctx.parsed ?? 0);
-                const val = Number.isFinite(v) ? v : 0;
-                return `${ctx.label}: R$ ${val.toLocaleString("pt-BR", {
-                  minimumFractionDigits: 2,
-                })}`;
-              },
-            },
-          },
-        },
+        plugins: { legend: { position: "bottom" } },
       },
     });
   }
 
-  // ==================== CATEGORIA: HYDRATE =====================
-  document.addEventListener("DOMContentLoaded", () => {
-    if (!FEATURES.HYDRATE_CATEGORY_SELECT) return;
-    const sel = document.getElementById("filtroCategoria");
-    if (!sel) return;
-    if (sel.dataset.hydrated === "1") return;
+  // ========================= RECARREGAR ========================
+  // --- recarregar (versão mínima e estável) ---
+  // --- recarregar (linhas + pizza) ---
+  async function recarregar() {
+    const cv = document.getElementById("graficoEvolucao");
+    const cvCat = document.getElementById("graficoCategorias");
+    const elCatEmpty = document.getElementById("categoriasEmpty");
 
-    // Mantém opções existentes; só acrescenta categorias reais abaixo
-    const url = window.URL_CATEGORIAS || "/financeiro/dashboard/categorias/";
-    fetch(url, {
-      headers: {
-        "X-Requested-With": "XMLHttpRequest",
-        Accept: "application/json",
-      },
-      credentials: "same-origin",
-    })
-      .then((r) => r.json())
-      .then((j) => {
-        if (
-          !j ||
-          !j.ok ||
-          !Array.isArray(j.categorias) ||
-          !j.categorias.length
-        ) {
-          sel.dataset.hydrated = "1";
-          return;
-        }
-        // separador
-        const sep = document.createElement("option");
-        sep.disabled = true;
-        sep.textContent = "──────────";
-        sel.appendChild(sep);
-        // categorias reais
-        for (const c of j.categorias) {
-          const opt = document.createElement("option");
-          opt.value = c;
-          opt.textContent = c;
-          sel.appendChild(opt);
-        }
-        sel.dataset.hydrated = "1";
-      })
-      .catch(() => {
-        sel.dataset.hydrated = "1";
-      });
-  });
+    if (!cv || !window.Chart) {
+      console.warn("sem canvas ou Chart");
+      return;
+    }
 
-  // ========================= DASHBOARD =========================
-  document.addEventListener("DOMContentLoaded", () => {
-    const $ini =
-      document.querySelector("#filtroInicio") ||
-      document.querySelector("#data_inicio");
-    const $fim =
-      document.querySelector("#filtroFim") ||
-      document.querySelector("#data_fim");
+    // destrói gráficos anteriores
+    try {
+      Chart.getChart(cv)?.destroy();
+    } catch {/* */}
+    if (cvCat) {
+      try {
+        Chart.getChart(cvCat)?.destroy();
+      } catch {/* */}
+    }
 
+    // datas (fallback mês atual)
+    const pad2 = (n) => String(n).padStart(2, "0");
     const hoje = new Date();
-    const iniDefault = firstDayOfMonth(hoje);
-    const fimDefault = fmtYMD(hoje);
-    if ($ini && !$ini.value) $ini.value = iniDefault;
-    if ($fim && !$fim.value) $fim.value = fimDefault;
+    const ini =
+      document.getElementById("filtroInicio")?.value ||
+      `${hoje.getFullYear()}-${pad2(hoje.getMonth() + 1)}-01`;
+    const fim =
+      document.getElementById("filtroFim")?.value ||
+      `${hoje.getFullYear()}-${pad2(hoje.getMonth() + 1)}-${pad2(hoje.getDate())}`;
 
-    async function recarregar() {
-      const base =
-        window.URL_DADOS_GRAFICO || "/financeiro/dados_grafico_filtrados/";
-      const vIni = $ini?.value || iniDefault;
-      const vFim = $fim?.value || fimDefault;
+    // endpoint
+    const base =
+      window.URL_DADOS_GRAFICO || "/financeiro/dados_grafico_filtrados/";
+    const url = `${base}?inicio=${encodeURIComponent(ini)}&fim=${encodeURIComponent(fim)}`;
+    console.log("[recarregar] GET", url);
 
-      const $cat = document.getElementById("filtroCategoria");
-      const categoria = $cat && $cat.value ? $cat.value.trim() : "";
-      const IA_LABELS_SET = new Set(["", "Geral", "Alerta", "Meta", "Dica"]);
+    // fetch
+    const r = await fetch(url, {
+      headers: { Accept: "application/json" },
+      credentials: "same-origin",
+    });
+    if (!r.ok) {
+      console.error("HTTP", r.status, "ao buscar dados");
+      return;
+    }
+    const j = await r.json();
+    console.log("[recarregar] payload", j);
 
-      const qs = new URLSearchParams();
-      qs.set("inicio", vIni);
-      qs.set("fim", vFim);
-      if (categoria && !IA_LABELS_SET.has(categoria))
-        qs.set("categoria", categoria);
+    // ----- gráfico de linhas (evolução) -----
+    const dias = Array.isArray(j.dias) ? j.dias : [];
+    const toNum = (v) =>
+      typeof v === "number"
+        ? v
+        : Number(String(v).replace(/\./g, "").replace(",", ".")) || 0;
+    const R = dias.map((_, i) => toNum(j.receitas?.[i]));
+    const D = dias.map((_, i) => toNum(j.despesas?.[i]));
+    let S =
+      Array.isArray(j.saldo) && j.saldo.length === dias.length
+        ? j.saldo.map(toNum)
+        : (() => {
+            let acc = 0;
+            return dias.map((_, i) => (acc += (R[i] || 0) - (D[i] || 0)));
+          })();
 
-      const url = `${base}?${qs.toString()}`;
-      const dados = await sjFetchJSON(url);
-      if (!dados || !Array.isArray(dados.dias))
-        throw new Error("Payload inválido (dias).");
+    new Chart(cv.getContext("2d"), {
+      type: "line",
+      data: {
+        labels: dias,
+        datasets: [
+          {
+            label: "Receitas",
+            data: R,
+            borderColor: "#2e7d32",
+            backgroundColor: "#2e7d3233",
+            borderWidth: 2,
+            tension: 0.35,
+            pointRadius: 2,
+            fill: true,
+          },
+          {
+            label: "Despesas",
+            data: D,
+            borderColor: "#d32f2f",
+            backgroundColor: "#d32f2f22",
+            borderWidth: 2,
+            tension: 0.35,
+            pointRadius: 2,
+            fill: true,
+          },
+          {
+            label: "Saldo",
+            data: S,
+            borderColor: "#f9a825",
+            backgroundColor: "#f9a82522",
+            borderWidth: 2,
+            tension: 0.3,
+            pointRadius: 2,
+            fill: false,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: { color: "#1b5e20", font: { size: 13 } },
+          },
+          tooltip: {
+            backgroundColor: "#fff",
+            borderColor: "#a5d6a7",
+            borderWidth: 1,
+            titleColor: "#1b5e20",
+            bodyColor: "#1b5e20",
+            callbacks: {
+              label: (ctx) => {
+                const v = Number(ctx.parsed?.y ?? 0);
+                return `${ctx.dataset?.label || ""}: R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            grid: { color: "rgba(0,0,0,0.08)" },
+            ticks: { color: "#1b5e20", maxRotation: 0, autoSkip: true },
+          },
+          y: {
+            beginAtZero: true,
+            grid: { color: "rgba(0,0,0,0.08)" },
+            ticks: { color: "#1b5e20" },
+          },
+        },
+      },
+    });
 
-      const aligned = _alignSeries(
-        dados.dias,
-        dados.receitas,
-        dados.despesas,
-        dados.saldo
-      );
-      const [rec, des, sal] = aligned.series;
-      montarGraficoEvolucao(aligned.labels, rec, des, sal);
+    // ----- gráfico de pizza (categorias) -----
+    if (cvCat) {
+      const hasCats =
+        Array.isArray(j.categorias) &&
+        Array.isArray(j.valores) &&
+        j.categorias.length > 0;
+      if (hasCats) {
+        cvCat.style.display = "";
+        if (elCatEmpty) elCatEmpty.hidden = true;
 
-      if (Array.isArray(dados.categorias) && Array.isArray(dados.valores)) {
-        montarGraficoCategorias(dados.categorias, dados.valores);
+        const vals = j.valores.map(toNum);
+        new Chart(cvCat.getContext("2d"), {
+          type: "doughnut",
+          data: {
+            labels: j.categorias,
+            datasets: [
+              {
+                label: "Total",
+                data: vals,
+                backgroundColor: [
+                  "#66bb6a",
+                  "#81c784",
+                  "#a5d6a7",
+                  "#c8e6c9",
+                  "#ef9a9a",
+                  "#ffcdd2",
+                  "#fff59d",
+                  "#fff176",
+                  "#80cbc4",
+                  "#4db6ac",
+                ],
+                borderColor: "#ffffff",
+                borderWidth: 2,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            parsing: false,
+            cutout: "65%",
+            plugins: {
+              legend: { position: "bottom", labels: { color: "#1b5e20" } },
+            },
+          },
+        });
       } else {
-        montarGraficoCategorias([], []);
+        // sem categorias: mostra aviso e esconde canvas
+        if (elCatEmpty) {
+          elCatEmpty.hidden = false;
+          elCatEmpty.textContent = "Sem categorias neste período.";
+        }
+        cvCat.style.display = "none";
+        try {
+          Chart.getChart(cvCat)?.destroy();
+        } catch {/* */}
       }
     }
 
-    // Primeira carga
-    recarregar().catch((e) => console.error("Erro ao carregar gráficos:", e));
+    // log
+    const ch = Chart.getChart(cv);
+    console.log(
+      "✅ linhas ok | pontos:",
+      R.length,
+      D.length,
+      S.length,
+      "| y-range:",
+      ch.scales.y.min,
+      ch.scales.y.max
+    );
+  }
 
-    // Eventos de filtro
-    const fireReload = debounce(() => {
-      recarregar().catch((e) => console.error(e));
-    }, 300);
-
-    [$ini, $fim].forEach((el) => {
-      if (!el) return;
-      el.addEventListener("change", fireReload);
-      el.addEventListener("input", fireReload);
-    });
-
-    const $cat = document.getElementById("filtroCategoria");
-    if ($cat) {
-      $cat.addEventListener("change", fireReload);
-      $cat.addEventListener("input", fireReload);
-    }
-
-    const btn =
-      document.getElementById("btnAplicarFiltros") ||
-      document.getElementById("filtrar-btn");
-    if (btn) {
-      btn.addEventListener("click", (ev) => {
-        ev.preventDefault();
-        recarregar().catch((e) => console.error(e));
-      });
-    }
-
-    // expor helpers p/ console
-    window.__SJ_DASH_DEV__ = Object.assign(window.__SJ_DASH_DEV__ || {}, {
-      evol: (dias, receitas, despesas, saldo = []) =>
-        montarGraficoEvolucao(dias, receitas, despesas, saldo),
-      cat: (categorias, valores) =>
-        montarGraficoCategorias(categorias, valores),
-      reload: () => recarregar(),
-    });
+  // expõe para o console (mantém seu atalho)
+  window.__SJ_DASH_DEV__ = Object.assign(window.__SJ_DASH_DEV__ || {}, {
+    reload: recarregar,
   });
 
-  // ====================== IA: Dica Simples =====================
-  document.addEventListener("DOMContentLoaded", () => {
-    if (!FEATURES.SIMPLE_TIP_BUTTON) return;
-    const btn = document.getElementById("btnGerarDica");
-    const st = document.getElementById("statusDica");
-    if (!btn) return;
+  // ============================ BOOT ===========================
+  document.addEventListener("DOMContentLoaded", function () {
+    // datas padrão
+    var elIni =
+      document.querySelector("#filtroInicio") ||
+      document.querySelector("#data_inicio");
+    var elFim =
+      document.querySelector("#filtroFim") ||
+      document.querySelector("#data_fim");
+    var hoje = new Date();
+    if (elIni && !elIni.value) elIni.value = firstDayOfMonth(hoje);
+    if (elFim && !elFim.value) elFim.value = fmtYMD(hoje);
 
-    function getCsrfToken() {
-      const m = document.querySelector('meta[name="csrf-token"]');
-      if (m?.content) return m.content;
-      const match = document.cookie.match(/(^|;\s*)csrftoken=([^;]+)/);
-      return match ? decodeURIComponent(match[2]) : "";
-    }
-
-    btn.addEventListener("click", async () => {
-      btn.disabled = true;
-      if (st) st.textContent = "Gerando dica...";
-      try {
-        const r = await fetch("/financeiro/api/insights/criar-simples/", {
-          method: "POST",
+    // hidratar categorias (se houver select)
+    if (FEATURES.HYDRATE_CATEGORY_SELECT) {
+      var sel = document.getElementById("filtroCategoria");
+      if (sel && sel.dataset.hydrated !== "1") {
+        var url = window.URL_CATEGORIAS || "/financeiro/dashboard/categorias/";
+        fetch(url, {
           headers: {
             "X-Requested-With": "XMLHttpRequest",
-            "X-CSRFToken": getCsrfToken(),
             Accept: "application/json",
           },
           credentials: "same-origin",
-        });
-        const j = await r.json();
-        if (j.ok) {
-          if (st) st.textContent = "✅ Nova dica gerada!";
-          // tenta atualizar histórico via módulo novo; se não, tenta botão manual
-          if (window.__HistoricoIA) window.__HistoricoIA.recarregar();
-          else document.getElementById("btnReloadDicas")?.click();
-        } else {
-          if (st) st.textContent = "⚠️ Não consegui gerar a dica.";
-        }
-      } catch (e) {
-        console.error("Erro ao gerar dica simples:", e);
-        if (st) st.textContent = "Erro na solicitação.";
-      } finally {
-        btn.disabled = false;
-        setTimeout(() => {
-          if (st) st.textContent = "";
-        }, 2000);
-      }
-    });
-  });
-
-  // ====================== IA: Dica 30 dias =====================
-  document.addEventListener("DOMContentLoaded", () => {
-    if (!FEATURES.TURBO_BUTTON) return;
-    const btn = document.getElementById("btnGerarDica30d");
-    const st = document.getElementById("stDica30d");
-    if (!btn) return;
-
-    function getCookie(name) {
-      const match = document.cookie.match(
-        new RegExp("(^|;\\s*)" + name + "=([^;]+)")
-      );
-      return match ? decodeURIComponent(match[2]) : "";
-    }
-
-    btn.addEventListener("click", async () => {
-      try {
-        btn.disabled = true;
-        if (st) st.textContent = "Gerando dica...";
-        const resp = await fetch("/financeiro/ia/dica30d/", {
-          method: "POST",
-          headers: { "X-CSRFToken": getCookie("csrftoken") },
-          credentials: "same-origin",
-        });
-        const data = await resp.json();
-        if (data.ok) {
-          if (st)
-            st.textContent = `✅ ${String(data.tipo || "").toUpperCase()}: ${
-              data.dica
-            }`;
-          if (window.__HistoricoIA) window.__HistoricoIA.recarregar();
-          else document.getElementById("btnReloadDicas")?.click();
-        } else {
-          if (st) st.textContent = "⚠️ Não consegui gerar a dica.";
-        }
-      } catch (e) {
-        console.error("💥 [Dica30d] erro:", e);
-        if (st) st.textContent = "Erro ao gerar dica.";
-      } finally {
-        setTimeout(() => {
-          if (st) st.textContent = "";
-        }, 4000);
-        btn.disabled = false;
-      }
-    });
-  });
-
-  // =================== HISTÓRICO: Modal Reload ==================
-  document.addEventListener("DOMContentLoaded", () => {
-    const btnModalReload = document.getElementById("btnReloadDicasModal");
-    if (!btnModalReload) return;
-    btnModalReload.addEventListener("click", (ev) => {
-      if (!ev.isTrusted) return;
-      try {
-        if (
-          window.__HistoricoIA &&
-          typeof window.__HistoricoIA.recarregar === "function"
-        ) {
-          window.__HistoricoIA.recarregar();
-        }
-      } catch (err) {
-        console.error("Erro ao recarregar histórico via modal:", err);
-      }
-    });
-  });
-
-  // =================== LEGACY Histórico (lista) =================
-  document.addEventListener("DOMContentLoaded", () => {
-    if (!FEATURES.LEGACY_HISTORICO_LIST) return;
-    if (window.__HistoricoIA) return; // módulo novo existe; não usar legacy
-    const wrap = document.getElementById("listaHistorico");
-    if (!wrap || !wrap.parentNode) return;
-
-    const elIni =
-      document.getElementById("filtroInicio") ||
-      document.querySelector('input[name="inicio"]') ||
-      document.querySelector('input[data-role="inicio"]');
-    const elFim =
-      document.getElementById("filtroFim") ||
-      document.querySelector('input[name="fim"]') ||
-      document.querySelector('input[data-role="fim"]');
-    const elCat =
-      document.getElementById("filtroCategoria") ||
-      document.querySelector('select[name="categoria"]') ||
-      document.querySelector('input[name="categoria"]');
-
-    const PER_PAGE = 10;
-    let page = 1;
-    let loading = false;
-
-    // botao "ver mais" (usa se existir, senão ignora)
-    let btn = document.getElementById("btnVerMaisHistorico");
-
-    function normItems(payload) {
-      return (
-        (Array.isArray(payload?.items) && payload.items) ||
-        (Array.isArray(payload?.results) && payload.results) ||
-        (Array.isArray(payload?.data?.items) && payload.data.items) ||
-        (Array.isArray(payload?.data) && payload.data) ||
-        (Array.isArray(payload) && payload) ||
-        []
-      );
-    }
-    function esc(s) {
-      return String(s ?? "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-    }
-    function renderItems(items, append = true) {
-      const arr = Array.isArray(items) ? items : [];
-      const html = arr
-        .map((i) => {
-          const quando =
-            i.created_at_br || i.created_at || i.criado_em || i.data || "";
-          const cat = i.categoria || i.tipo || "Geral";
-          const titulo = i.title || "Dica da IA";
-          const texto = (i.texto || i.text || i.dica || "").toString();
-          return `<div class="card border-success mb-3 shadow-sm">
-              <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                  <span class="badge bg-success-subtle text-success border border-success-subtle">${esc(
-                    cat
-                  )}</span>
-                  <small class="text-muted">${esc(quando)}</small>
-                </div>
-                <h6 class="card-title text-success mb-1">${esc(titulo)}</h6>
-                <p class="card-text mb-0" style="white-space: pre-wrap">${esc(
-                  texto
-                )}</p>
-              </div>
-            </div>`;
         })
-        .join("");
-      if (append) wrap.insertAdjacentHTML("beforeend", html);
-      else
-        wrap.innerHTML =
-          html ||
-          `<div class="alert alert-secondary mb-2">Nenhuma dica encontrada.</div>`;
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (j) {
+            if (
+              !j ||
+              !j.ok ||
+              !Array.isArray(j.categorias) ||
+              !j.categorias.length
+            ) {
+              sel.dataset.hydrated = "1";
+              return;
+            }
+            var sep = document.createElement("option");
+            sep.disabled = true;
+            sep.textContent = "──────────";
+            sel.appendChild(sep);
+            for (var k = 0; k < j.categorias.length; k++) {
+              var c = j.categorias[k];
+              var opt = document.createElement("option");
+              opt.value = c;
+              opt.textContent = c;
+              sel.appendChild(opt);
+            }
+            sel.dataset.hydrated = "1";
+          })
+          .catch(function () {
+            sel.dataset.hydrated = "1";
+          });
+      }
     }
 
-    function buildParams(nextPage) {
-      const params = new URLSearchParams({
-        page: String(nextPage),
-        per_page: String(PER_PAGE),
+    // eventos de filtro
+    var fireReload = debounce(function () {
+      recarregar();
+    }, 250);
+    if (elIni) {
+      elIni.addEventListener("change", fireReload);
+      elIni.addEventListener("input", fireReload);
+    }
+    if (elFim) {
+      elFim.addEventListener("change", fireReload);
+      elFim.addEventListener("input", fireReload);
+    }
+
+    var elCat = document.getElementById("filtroCategoria");
+    if (elCat) {
+      elCat.addEventListener("change", fireReload);
+      elCat.addEventListener("input", fireReload);
+    }
+
+    // botão aplicar
+    var btn =
+      document.getElementById("btnAplicarFiltros") ||
+      document.getElementById("filtrar-btn");
+    if (btn && btn.parentNode) {
+      var fresh = btn.cloneNode(true);
+      btn.parentNode.replaceChild(fresh, btn);
+      fresh.addEventListener("click", function (ev) {
+        ev.preventDefault();
+        fresh.disabled = true;
+        var label = fresh.textContent;
+        fresh.textContent = "Atualizando…";
+        Promise.resolve()
+          .then(function () {
+            recarregar();
+          })
+          .finally(function () {
+            fresh.textContent = label;
+            fresh.disabled = false;
+          });
       });
-      const vIni = elIni?.value?.trim();
-      const vFim = elFim?.value?.trim();
-      const vCat = elCat?.value?.trim();
-      if (vIni) params.set("inicio", vIni);
-      if (vFim) params.set("fim", vFim);
-      if (vCat && vCat.toLowerCase() !== "todas") params.set("categoria", vCat);
-      return params.toString();
     }
 
-    async function loadPage(nextPage, append) {
-      if (loading) return;
-      loading = true;
-      const prevLabel = btn ? btn.textContent : "";
-      if (btn) {
-        btn.disabled = true;
-        btn.textContent = append ? "Carregando…" : "Atualizando…";
-      }
-      try {
-        const url = `/financeiro/ia/historico/feed/v2/?${buildParams(
-          nextPage
-        )}`;
-        const r = await fetch(url, {
-          headers: { Accept: "application/json" },
-          credentials: "same-origin",
-        });
-        const j = await r.json();
-        const items = normItems(j);
-        renderItems(items, append);
-        page = j.page || nextPage;
-        const hasNext = Boolean(j.has_next);
-        if (btn) {
-          if (!hasNext || !items.length) {
-            btn.textContent = "Fim";
-            btn.disabled = true;
-          } else {
-            btn.textContent = prevLabel || "Ver mais";
-            btn.disabled = false;
-          }
-        }
-      } catch (e) {
-        console.error("Erro ao carregar histórico (LEGACY):", e);
-        if (btn) {
-          btn.textContent = "Tentar novamente";
-          btn.disabled = false;
-        }
-      } finally {
-        loading = false;
-      }
-    }
-
-    // eventos
-    if (btn) {
-      btn.onclick = () => loadPage(page + 1, true);
-    }
-    const onFiltersChange = () => {
-      page = 1;
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = "Ver mais";
-      }
-      loadPage(1, false);
-    };
-    if (elIni) elIni.addEventListener("change", onFiltersChange);
-    if (elFim) elFim.addEventListener("change", onFiltersChange);
-    if (elCat) elCat.addEventListener("change", onFiltersChange);
-
-    // carga inicial
-    loadPage(1, false).catch((e) => console.error(e));
+    // primeira carga
+    recarregar();
   });
 
-  // =================== SALVAR/RESTAURAR SCROLL =================
-  document.addEventListener("DOMContentLoaded", () => {
-    if (!FEATURES.SAVE_SCROLL_STATE) return;
-    const wrap = document.getElementById("listaHistorico");
-    const KEY = "iaHistoricoScroll:" + location.pathname;
-
-    function restore() {
-      try {
-        const raw = localStorage.getItem(KEY);
-        if (!raw) return;
-        const s = JSON.parse(raw);
-        if (wrap && typeof s.wrap === "number") wrap.scrollTop = s.wrap;
-        else if (typeof s.win === "number") window.scrollTo(0, s.win);
-      } catch {}
-    }
-    const save = () => {
-      try {
-        const data = {
-          ts: Date.now(),
-          wrap: wrap ? wrap.scrollTop : null,
-          win: window.scrollY,
-        };
-        localStorage.setItem(KEY, JSON.stringify(data));
-      } catch {}
-    };
-    const _deb = (fn, ms = 150) => {
-      let t;
-      return () => {
-        clearTimeout(t);
-        t = setTimeout(fn, ms);
-      };
-    };
-    const onScroll = _deb(save, 150);
-    if (wrap) wrap.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("beforeunload", save);
-    setTimeout(restore, 120);
-  });
+  // util p/ console
+  window.__SJ_DASH_DEV__ = {
+    reload: recarregar,
+    evol: montarGraficoEvolucao,
+    cat: montarGraficoCategorias,
+  };
 })();

@@ -10,7 +10,10 @@
 }
 
 /* Força tema claro contra “dark mode” externos */
-html, body { background: var(--sj-bg) !important; color: var(--sj-text) !important; }
+html, body {
+  background: var(--sj-bg) !important;
+  color: var(--sj-text) !important;
+}
 
 /* Tipografia geral */
 body {
@@ -20,11 +23,17 @@ body {
 }
 
 /* Títulos */
-h1, h2, h3, h4 { color: #1b5e20; font-weight: 700; }
+h1, h2, h3, h4 {
+  color: #1b5e20;
+  font-weight: 700;
+}
 
 /* Container principal */
 .dashboard-container,
-.container { max-width: 1100px; margin: auto; }
+.container {
+  max-width: 1100px;
+  margin: auto;
+}
 
 /* --- Cards gerais --- */
 .card {
@@ -33,7 +42,10 @@ h1, h2, h3, h4 { color: #1b5e20; font-weight: 700; }
   transition: transform .2s ease, box-shadow .2s ease;
   background: #fff;
 }
-.card:hover { transform: translateY(-3px); box-shadow: 0 4px 12px rgba(0,0,0,.12); }
+.card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 12px rgba(0,0,0,.12);
+}
 
 /* Cards de totais */
 .card.border-success { border: 1px solid #81c784 !important; background: #e8f7ef; }
@@ -47,15 +59,48 @@ h1, h2, h3, h4 { color: #1b5e20; font-weight: 700; }
 .btn-outline-success:hover { background: var(--sj-accent); color: #fff; }
 
 /* --- Filtros / inputs --- */
-.filtro-financeiro label, form label { font-weight: 700; color: var(--sj-text); }
+.filtro-financeiro label, form label {
+  font-weight: 700;
+  color: var(--sj-text);
+}
 .filtro-financeiro input, form input[type="date"] {
-  width: 100%; max-width: 180px; padding: .5rem;
-  border: 1px solid #81c784; border-radius: 6px;
+  width: 100%;
+  max-width: 180px;
+  padding: .5rem;
+  border: 1px solid #81c784;
+  border-radius: 6px;
 }
 
-/* --- Gráficos --- */
-.chart-box { min-height: 320px; position: relative; }
-#graficoEvolucao, #graficoCategorias { width: 100% !important; height: 100% !important; }
+/* ====== Gráficos (versão final, sem conflitos) ====== */
+
+
+/* Canvas de categorias (pizza) */
+#graficoCategorias {
+  display: block !important;
+  width: 100% !important;
+  min-height: 320px !important;
+  height: auto !important;
+}
+.chart-box {
+  position: relative;
+  height: 360px;      /* altura fixa para o Chart calcular o tamanho */
+  min-height: 360px;
+  overflow: visible;
+}
+.chart-container { 
+  position: relative; 
+  height: 320px; 
+}
+
+
+#graficoEvolucao {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important; /* ocupa toda a altura do .chart-box */
+}
+
+/* Mantém os cards acima de overlays/modais se necessário */
+.card.h-100 { z-index: 5; }
 
 /* --- Histórico de Dicas da IA --- */
 #listaHistorico .card { margin-bottom: .75rem; }
@@ -65,17 +110,32 @@ h1, h2, h3, h4 { color: #1b5e20; font-weight: 700; }
 
 /* Badges de tipo */
 .badge-tipo {
-  display: inline-flex; align-items: center; gap: .35rem;
-  font-weight: 600; font-size: .75rem; line-height: 1;
-  padding: .35rem .5rem; border-radius: 999px; border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  font-weight: 600;
+  font-size: .75rem;
+  line-height: 1;
+  padding: .35rem .5rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
 }
 .badge-positiva { background:#e8f7ef; color:#106a39; border-color:#bfe8cf; }
 .badge-alerta  { background:#fff3e8; color:#8a3b00; border-color:#ffd6ad; }
 .badge-neutra  { background:#eef1f5; color:#2f3a4a; border-color:#d7dde6; }
 .badge-dot { width:.5rem; height:.5rem; border-radius:50%; background:currentColor; opacity:.7; }
+/* === FIX: chart-box não é flex; título em cima e canvas ocupa o card === */
+
+
+.chart-box .card-title{
+  margin-bottom: 12px !important;     /* espaço entre título e gráfico */
+}
+
 
 /* Mensagens vazias */
 .sem-dados { font-style: italic; color: #666; text-align: center; }
+
+
 
 /* --- Impressão --- */
 @page { size: A4 landscape; margin: 12mm; }
@@ -90,4 +150,7 @@ h1, h2, h3, h4 { color: #1b5e20; font-weight: 700; }
 @media (max-width: 768px) {
   body { padding: 1rem; }
   .btn { width: 100%; }
+  #graficoEvolucao, #graficoCategorias {
+    min-height: 260px !important;
+  }
 }
