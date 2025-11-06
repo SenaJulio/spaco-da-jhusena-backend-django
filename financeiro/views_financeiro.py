@@ -55,6 +55,27 @@ except Exception:
     except Exception:
         HistoricoIA = None
 
+# --- Classificador de dicas ---
+from ia.services.classify import _map_tipo
+
+
+# Mantém o nome que sua view já usa:
+def map_tipo_oficial(texto: str) -> str:
+    return _map_tipo(texto or "")
+
+
+def _get_text(o) -> str:
+    """
+    Extrai o texto da dica da IA, independente do nome do campo.
+    """
+    return (
+        getattr(o, "texto", None)
+        or getattr(o, "mensagem", None)
+        or getattr(o, "recomendacao", None)
+        or getattr(o, "conteudo", None)
+        or ""
+    )
+
 
 # -----------------------------------------------------------------------------
 # Classificadores

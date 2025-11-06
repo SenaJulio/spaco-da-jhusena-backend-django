@@ -26,6 +26,7 @@ from .views_financeiro import (
 
 from .views_insights_api import api_criar_insight_simples
 
+
 # Se/Quando você criar a view real de categorias:
 
 
