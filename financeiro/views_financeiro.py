@@ -38,6 +38,7 @@ from django.views.decorators.http import require_GET, require_POST, require_http
 # -----------------------------
 # 🐍 App local
 # -----------------------------
+from ia.services.analysis import analisar_30d_dict
 from .models import Insight, Transacao
 from .services.ia import generate_tip_last_30d, _map_tipo as map_tipo_oficial
 
@@ -1248,3 +1249,13 @@ def diag_transacao(request):
             "count": Transacao.objects.count(),
         }
     )
+
+
+@login_required
+@require_GET
+def ia_analise_30d_preview(request):
+    try:
+        data = analisar_30d_dict(Transacao, request.user)
+        return JsonResponse({"ok": True, "analise": data})
+    except Exception as e:
+        return JsonResponse({"ok": False, "error": str(e)}, status=500)

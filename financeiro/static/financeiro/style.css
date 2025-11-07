@@ -154,3 +154,124 @@ h1, h2, h3, h4 {
     min-height: 260px !important;
   }
 }
+
+
+/* ===================================================================
+   🌙 Spaço da Jhuséna — Modo Dark Premium
+   Cores reativas a tipo de análise (fallback CSS)
+   =================================================================== */
+
+:root {
+  --sj-verde-borda: rgba(76, 175, 80, 0.45);
+  --sj-verde-fundo: rgba(46, 125, 50, 0.18);
+
+  --sj-ambar-borda: rgba(255, 193, 7, 0.55);
+  --sj-ambar-fundo: rgba(255, 193, 7, 0.20);
+
+  --sj-cinza-borda: rgba(255, 255, 255, 0.18);
+  --sj-cinza-fundo: rgba(255, 255, 255, 0.08);
+}
+
+/* ================= Plano (bloco da IA) ================= */
+#analise30dPlano {
+  border-radius: 0.8rem !important;
+  border-width: 1px !important;
+  border-style: solid !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 0 0 1px rgba(0,0,0,0.12) !important;
+  backdrop-filter: saturate(120%) !important;
+  transition: all 0.25s ease;
+}
+
+/* Positiva */
+[data-analise-tipo="positiva"] #analise30dPlano {
+  background-color: var(--sj-verde-fundo) !important;
+  border-color: var(--sj-verde-borda) !important;
+  color: #bde5c5 !important;
+}
+
+/* Alerta */
+[data-analise-tipo="alerta"] #analise30dPlano {
+  background-color: var(--sj-ambar-fundo) !important;
+  border-color: var(--sj-ambar-borda) !important;
+  color: #ffe08a !important;
+}
+
+/* Neutra */
+[data-analise-tipo="neutra"] #analise30dPlano {
+  background-color: var(--sj-cinza-fundo) !important;
+  border-color: var(--sj-cinza-borda) !important;
+  color: #d6d6d6 !important;
+}
+
+/* ================= KPIs ================= */
+#analise30dKPIs .border {
+  border-radius: 0.6rem !important;
+  transition: border-color 0.4s ease, box-shadow 0.4s ease;
+}
+
+/* Tons sutis por tipo */
+[data-analise-tipo="positiva"] #analise30dKPIs .border {
+  border-color: var(--sj-verde-borda) !important;
+  box-shadow: 0 0 4px var(--sj-verde-borda);
+}
+[data-analise-tipo="alerta"] #analise30dKPIs .border {
+  border-color: var(--sj-ambar-borda) !important;
+  box-shadow: 0 0 4px var(--sj-ambar-borda);
+}
+[data-analise-tipo="neutra"] #analise30dKPIs .border {
+  border-color: var(--sj-cinza-borda) !important;
+  box-shadow: 0 0 4px var(--sj-cinza-borda);
+}
+
+/* ================= Badge de tipo ================= */
+#a30_tipo_badge {
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  border: 1px solid transparent;
+}
+[data-analise-tipo="positiva"] #a30_tipo_badge {
+  background-color: rgba(76,175,80,0.2);
+  border-color: rgba(76,175,80,0.55);
+  color: #bde5c5;
+}
+[data-analise-tipo="alerta"] #a30_tipo_badge {
+  background-color: rgba(255,193,7,0.22);
+  border-color: rgba(255,193,7,0.6);
+  color: #ffe08a;
+}
+[data-analise-tipo="neutra"] #a30_tipo_badge {
+  background-color: rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.22);
+  color: #d6d6d6;
+}
+
+
+/* Spaço da Jhuséna — bloco de gráficos verde */
+.card.bg-success-subtle {
+  /* deixa translúcido no tema escuro */
+  background-color: rgba(46, 125, 50, 0.12) !important;
+  border-color: rgba(76, 175, 80, 0.45) !important;
+  box-shadow: 0 2px 14px rgba(76, 175, 80, 0.10) !important;
+  backdrop-filter: saturate(115%);
+  border-radius: 14px;
+}
+
+.text-success-emphasis {
+  color: #bde5c5 !important; /* título em verde suave */
+}
+
+/* margem do canvas pra legenda não colar nas bordas */
+#graficoEvolucao, #graficoCategorias {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* melhora contraste das legendas do Chart.js em tema escuro */
+.chartjs-render-monitor,
+canvas {
+  image-rendering: auto;
+}

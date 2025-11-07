@@ -1,8 +1,7 @@
 # ia/services/analysis.py
 from __future__ import annotations
 from dataclasses import dataclass, asdict
-from datetime import date, timedelta
-from decimal import Decimal
+from datetime import timedelta
 from django.db.models import Sum
 from django.utils import timezone
 
@@ -22,16 +21,14 @@ class Analise30D:
 
 
 def _pct(a: float, b: float) -> float:
-    if b == 0:
+    if not b:
         return 0.0
     return round(((a - b) / b) * 100.0, 1)
 
 
-def _as_float(x) -> float:
-    if x is None:
-        return 0.0
+def _to_float(x) -> float:
     try:
-        return float(x)
+        return float(x or 0)
     except:
         return 0.0
 
@@ -41,23 +38,22 @@ def analisar_transacoes_30d(TransacaoModel, user) -> Analise30D:
     fim = timezone.now().astimezone(tz)
     inicio = fim - timedelta(days=30)
 
-    qs = TransacaoModel.objects.filter(usuario=user, data__gte=inicio, data__lte=fim)
-    rec = _as_float(qs.filter(tipo="receita").aggregate(v=Sum("valor"))["v"])
-    des = _as_float(qs.filter(tipo="despesa").aggregate(v=Sum("valor"))["v"])
+    qs = TransacaoModel.objects.filter(data__gte=inicio, data__lte=fim)
+    rec = _to_float(qs.filter(tipo="receita").aggregate(v=Sum("valor"))["v"])
+    des = _to_float(qs.filter(tipo="despesa").aggregate(v=Sum("valor"))["v"])
     saldo = rec - des
     margem = round((saldo / rec) * 100.0, 1) if rec > 0 else 0.0
 
     # período anterior (comparação)
     prev_ini = inicio - timedelta(days=30)
     prev_fim = inicio
-    qs_prev = TransacaoModel.objects.filter(usuario=user, data__gte=prev_ini, data__lte=prev_fim)
-    rec_prev = _as_float(qs_prev.filter(tipo="receita").aggregate(v=Sum("valor"))["v"])
-    des_prev = _as_float(qs_prev.filter(tipo="despesa").aggregate(v=Sum("valor"))["v"])
+    qs_prev = TransacaoModel.objects.filter(data__gte=prev_ini, data__lte=prev_fim)
+    rec_prev = _to_float(qs_prev.filter(tipo="receita").aggregate(v=Sum("valor"))["v"])
+    des_prev = _to_float(qs_prev.filter(tipo="despesa").aggregate(v=Sum("valor"))["v"])
 
     var_rec = _pct(rec, rec_prev)
     var_des = _pct(des, des_prev)
 
-    # plano de ação simples
     if saldo <= 0 or margem < 0:
         plano = "Corte 10–15% de despesas variáveis nesta semana e adie compras não essenciais."
         tipo = "alerta"
@@ -84,11 +80,3 @@ def analisar_transacoes_30d(TransacaoModel, user) -> Analise30D:
 
 def analisar_30d_dict(TransacaoModel, user) -> dict:
     return asdict(analisar_transacoes_30d(TransacaoModel, user))
-
-
-def classificar_margem(margem_pct: float) -> str:
-    if margem_pct >= 15.0:
-        return "positiva"
-    if margem_pct <= 0 or margem_pct < 5.0:
-        return "alerta"
-    return "neutra"
