@@ -109,5 +109,6 @@ urlpatterns = [
         name="ia_historico_export_csv_v2",
     ),
     path("diag/transacao", views.diag_transacao, name="diag_transacao"),
-    path("dados_grafico_filtrados/", views.dados_grafico_filtrados, name="dados_grafico_filtrados"),
+    path("dados-grafico-filtrados/", views.dados_grafico_filtrados),  # alias
+    path("ia/analise/preview/", views.ia_analise_30d_preview, name="ia_analise_30d_preview"),
 ]

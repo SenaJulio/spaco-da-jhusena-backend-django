@@ -1,0 +1,12 @@
+.
+./estrutura.txt
+./services
+./services/analytics.py
+./services/classify.py
+./services/ia.py
+./services/__init__.py
+./services/__pycache__
+./services/__pycache__/analytics.cpython-313.pyc
+./services/__pycache__/classify.cpython-313.pyc
+./services/__pycache__/ia.cpython-313.pyc
+./__init__.py

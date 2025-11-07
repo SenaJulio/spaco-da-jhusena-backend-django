@@ -2,13 +2,15 @@
 // historico_ia.js — versão “clean”, single-flight + gate de filtro (corrigido)
 // ======================================================
 (function () {
-  "use strict";
+  ("use strict");
 
   const __LOAD_TS__ = performance.now();
 
   // ---- Guardião: impede rodar duas vezes o mesmo script (fix)
-   if (globalThis.__IA_HIST_INIT_DONE__) {
-    console.warn("⚠️ historico_ia.js já inicializado — abortando segunda carga.");
+  if (globalThis.__IA_HIST_INIT_DONE__) {
+    console.warn(
+      "⚠️ historico_ia.js já inicializado — abortando segunda carga."
+    );
     return;
   }
   globalThis.__IA_HIST_INIT_DONE__ = true;
@@ -389,7 +391,7 @@
       if (_abortCtrl) {
         try {
           _abortCtrl.abort();
-        } catch {}
+        } catch {/* */}
       }
       _abortCtrl = new AbortController();
       const signal = _abortCtrl.signal;
@@ -418,7 +420,7 @@
       if (json && json.count && typeof setContadoresBackend === "function") {
         try {
           setContadoresBackend(json.count);
-        } catch {}
+        } catch {/* */}
       }
 
       const items = (Array.isArray(arr) ? arr : []).map((x) => {
@@ -702,6 +704,60 @@
       }
     })();
   });
+  // ⚡ Gerar Nova Dica (30 dias) -> POST e recarrega o histórico
+  (function () {
+    const endpoints = [
+      document.getElementById("btnGerarDica"),
+      document.getElementById("btnGerarDica30d"),
+      document.getElementById("btnGerarNovaDica"),
+    ].filter(Boolean);
+
+    if (!endpoints.length) return;
+
+    async function gerarEDepoisRecarregar(btn) {
+      if (!btn) return;
+      if (btn.dataset.busy === "1") return;
+      btn.dataset.busy = "1";
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = "Gerando…";
+
+      try {
+        const r = await fetch("/financeiro/ia/gerar_dica_30d/", {
+          method: "POST",
+          headers: {
+            "X-CSRFToken": getCsrfToken(),
+            Accept: "application/json",
+            "Content-Type": "application/json",
+          },
+          credentials: "same-origin",
+          body: JSON.stringify({ modo: "30d" }),
+        });
+
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+       const json = await r.json();
+       console.log("⚡ dica gerada:", json);
+       lastHistUrl = ""; // <— adicione esta linha
+       _allowFilteredUntil = performance.now() + 1000; // <— opcional, preserva filtro
+       // Se o backend retornar a dica criada, beleza. Mesmo assim, garantimos:
+        await window.__HistoricoIA.recarregar(); // mantém filtro atual
+      } catch (e) {
+        console.error("Falha ao gerar dica:", e);
+        alert("Não consegui gerar a dica agora. Tente novamente em instantes.");
+      } finally {
+        btn.textContent = original;
+        btn.disabled = false;
+        btn.dataset.busy = "0";
+      }
+    }
+
+    endpoints.forEach((btn) => {
+      btn.addEventListener("click", (ev) => {
+        if (!ev.isTrusted) return;
+        gerarEDepoisRecarregar(btn);
+      });
+    });
+  })();
 
   // 🔄 Botão "Atualizar" do modal
   document.addEventListener("DOMContentLoaded", () => {
