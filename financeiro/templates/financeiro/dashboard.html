@@ -3,10 +3,14 @@
 
 {% block title %}📊 Painel Financeiro — TESTE{% endblock %}
 
-{% block stylesheet %}{% static 'financeiro/admin_override.css' %}{% endblock %}
+{% block stylesheet %}
+  <link rel="stylesheet" href="{% static 'financeiro/admin_override.css' %}">
+  <link rel="stylesheet" href="{% static 'financeiro/static/financeiro/style.css' %}">
+{% endblock %}
 
 {% block extrahead %}
   {{ block.super }}
+  <meta name="csrf-token" content="{{ csrf_token }}"/>
 {% endblock %}
 
 {% block content %}
@@ -27,9 +31,7 @@
   </div>
 </div>
 
-<meta name="csrf-token" content="{{ csrf_token }}" />
-
-<p style="opacity: 0.6">
+<p style="opacity:.6">
   DEBUG: {{ total_receitas }} | {{ total_despesas }} | {{ saldo }}
 </p>
 
@@ -43,36 +45,37 @@
 <div class="alert alert-success">
   Se você está vendo esta mensagem, o template carregou certinho. 🤝
 </div>
+<div class="d-flex justify-content-end mb-3">
+  <button id="btnToggleTema" class="btn btn-outline-dark btn-sm" type="button">
+    🌙 Modo escuro
+  </button>
+</div>
 
 <div id="boxResumoMensal" class="alert alert-info d-none"></div>
 
-
 <script>
   const MESES = ["","Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
-  const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-  const num = (x) => (typeof x === "number" ? x : Number(x) || 0);
+  const brl = new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"});
+  const num = (x)=> (typeof x==="number"? x : Number(x)||0);
 
-  function getCsrfToken() {
-    const m = document.querySelector('meta[name="csrf-token"]');
-    if (m && m.content) return m.content;
-    const match = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
-    return match ? decodeURIComponent(match[2]) : "";
+  function getCsrfToken(){
+    const m=document.querySelector('meta[name="csrf-token"]');
+    if(m?.content) return m.content;
+    const match=document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
+    return match? decodeURIComponent(match[2]) : "";
   }
 
-  async function carregarResumoMensal() {
-    const box = document.getElementById("boxResumoMensal");
-    if (!box) return;
-    try {
-      const url = window.URL_RESUMO_MENSAL || "/financeiro/ia/resumo-mensal/";
-      const r = await fetch(url, {
-        headers: { "X-Requested-With": "XMLHttpRequest" },
-        credentials: "same-origin",
-      });
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const d = await r.json();
-      const mes = Number(d.mes) || 0;
-      const ano = d.ano || "";
-      const mesLabel = mes >= 1 && mes <= 12 ? `${MESES[mes]}/${ano}` : `${mes}/${ano}`;
+  async function carregarResumoMensal(){
+    const box=document.getElementById("boxResumoMensal");
+    if(!box) return;
+    try{
+      const url=window.URL_RESUMO_MENSAL || "/financeiro/ia/resumo-mensal/";
+      const r=await fetch(url,{headers:{"X-Requested-With":"XMLHttpRequest"},credentials:"same-origin"});
+      if(!r.ok) throw new Error(`HTTP ${r.status}`);
+      const d=await r.json();
+      const mes=Number(d.mes)||0;
+      const ano=d.ano||"";
+      const mesLabel=(mes>=1 && mes<=12)? `${MESES[mes]}/${ano}` : `${mes}/${ano}`;
 
       box.classList.remove("d-none","alert-warning");
       box.classList.add("alert-info");
@@ -82,18 +85,18 @@
         Despesas: ${brl.format(num(d.total_despesas))} |
         Saldo: ${brl.format(num(d.saldo))}
       `;
-      if (d.dica) {
-        const dicaEl = document.createElement("div");
-        dicaEl.textContent = `💡 ${d.dica}`;
+      if(d.dica){
+        const dicaEl=document.createElement("div");
+        dicaEl.textContent=`💡 ${d.dica}`;
         box.appendChild(dicaEl);
       }
       document.getElementById("placeholderInsights")?.classList.add("d-none");
       document.getElementById("placeholderInsightCard")?.classList.add("d-none");
-    } catch (e) {
+    }catch(e){
       box.classList.remove("d-none","alert-info");
       box.classList.add("alert-warning");
-      box.textContent = "Não foi possível carregar o resumo mensal agora.";
-      console.error("Falha ao carregar resumo mensal:", e);
+      box.textContent="Não foi possível carregar o resumo mensal agora.";
+      console.error("Falha ao carregar resumo mensal:",e);
     }
   }
   document.addEventListener("DOMContentLoaded", carregarResumoMensal);
@@ -141,7 +144,6 @@
             ⚡ Gerar dica dos últimos 30 dias
           </button>
         </div>
-
         <div id="turboStatus" class="small text-muted mt-2 d-none">Analisando…</div>
 
         <div id="turboResult" class="mt-3 d-none">
@@ -195,36 +197,67 @@
       </button>
 
       <button id="btnReloadDicas" class="btn btn-sm btn-outline-primary me-2" type="button">Atualizar histórico</button>
-      <button id="btnGerarDica30d" class="btn btn-sm btn-success" type="button">Gerar Nova Dica (30 dias)</button>
-      <small id="stDica30d" class="text-muted ms-2"></small>
     </div>
   </div>
 </div>
 
-<!-- 🔎 Filtros do Histórico da IA -->
+<!-- 🔎 Filtros do Histórico da IA (usando V1) -->
 <div class="d-flex align-items-center gap-2 flex-wrap mb-3 mt-2">
   <div class="btn-group" role="group" aria-label="Filtros IA">
-    <button id="btnTodas" class="btn btn-outline-secondary active" type="button" data-ia-filtro="">
+    <button
+      id="btnTodas"
+      class="btn btn-outline-secondary active btn-filtro"
+      type="button"
+      data-filtro="todas"
+      data-ia-filtro="todas"
+    >
       Todas (<span id="countAll">0</span>)
     </button>
-    <button id="btnPositivas" class="btn btn-outline-success" type="button" data-ia-filtro="positiva">
+
+    <button
+      id="btnPositivas"
+      class="btn btn-outline-success btn-filtro"
+      type="button"
+      data-filtro="positiva"
+      data-ia-filtro="positiva"
+    >
       Positivas (<span id="countPos">0</span>)
     </button>
-    <button id="btnAlertas" class="btn btn-outline-warning" type="button" data-ia-filtro="alerta">
+
+    <button
+      id="btnAlertas"
+      class="btn btn-outline-warning btn-filtro"
+      type="button"
+      data-filtro="alerta"
+      data-ia-filtro="alerta"
+    >
       Alertas (<span id="countAlerta">0</span>)
     </button>
-    <button id="btnNeutras" class="btn btn-outline-secondary" type="button" data-ia-filtro="neutra">
+
+    <button
+      id="btnNeutras"
+      class="btn btn-outline-secondary btn-filtro"
+      type="button"
+      data-filtro="neutra"
+      data-ia-filtro="neutra"
+    >
       Neutras (<span id="countNeutra">0</span>)
     </button>
-  </div>
-
-  <button id="btnMarcarLidas" class="btn btn-outline-dark ms-1" type="button">Marcar como lidas</button>
-  <button id="btnExportCsv" class="btn btn-outline-success btn-sm ms-1">Exportar CSV</button>
+  </div>  
 </div>
 
+<!-- Lista principal do histórico (V1) -->
 <div id="ovlHistorico" class="d-none text-center my-2">Carregando histórico…</div>
 <div id="listaHistorico" data-feed-url="/financeiro/ia/historico/feed/v2/"></div>
-<button id="btnVerMaisHistorico" class="btn btn-outline-secondary btn-sm mt-2">Ver mais</button>
+
+<!-- Ações extras -->
+<button id="btnMarcarLidas" class="btn btn-outline-dark ms-1" type="button">
+  Marcar como lidas
+</button>
+<button id="btnExportCsv" class="btn btn-outline-success btn-sm ms-1" type="button">
+  Exportar CSV
+</button>
+
 
 <!-- Modal -->
 <div class="modal fade" id="modalHistoricoIA" tabindex="-1" aria-labelledby="modalHistoricoIALabel" aria-hidden="true">
@@ -251,50 +284,41 @@
   <div id="feedDicas" class="vstack gap-2"></div>
 </div>
 <div id="cardResumoMes" class="alert d-none mt-2"></div>
-<!-- ⬇️ CARD DO GRÁFICO (cole assim mesmo) -->
-<div class="row g-3 mt-3">
-  <!-- 📈 Evolução diária -->
-  <div class="col-12 col-lg-8">
-    <div class="card border border-success-subtle bg-success-subtle shadow-sm">
-      <div class="card-body">
-        <h5 class="text-success-emphasis mb-2">📈 Evolução diária</h5>
-        <div style="height: 340px;">
-          <canvas id="graficoEvolucao"></canvas>
-        </div>
+
+<!-- ⬇️ CARD DO GRÁFICO -->
+<div class="row g-3">
+  <div class="col-md-6">
+    <div class="card h-100 p-3">
+      <h3 class="h6 mb-2">📈 Evolução diária</h3>
+      <div class="chart-box">
+        <canvas id="graficoEvolucao"></canvas>
       </div>
+      <div id="evolucaoEmpty" class="sem-dados" hidden>Sem dados para o período escolhido.</div>
     </div>
   </div>
-
-  <!-- 🍩 Por categoria -->
-  <div class="col-12 col-lg-4">
-    <div class="card border border-success-subtle bg-success-subtle shadow-sm">
-      <div class="card-body">
-        <h5 class="text-success-emphasis mb-2">🍩 Por categoria</h5>
-        <div style="height: 340px;">
-          <canvas id="graficoCategorias"></canvas>
-        </div>
+  <div class="col-md-6">
+    <div class="card h-100 p-3">
+      <h3 class="h6 mb-2">🧩 Por categoria</h3>
+      <div class="chart-box">
+        <canvas id="graficoCategorias"></canvas>
       </div>
+      <div id="categoriasEmpty" class="sem-dados" hidden>Sem dados para o período escolhido.</div>
     </div>
   </div>
 </div>
 
-
-
 <!-- 📊 Análise 30D — Beta Avançado -->
- 
 <div class="card shadow-sm mb-3" id="cardAnalise30d">
   <div class="card-header d-flex align-items-center justify-content-between">
     <div class="d-flex align-items-center gap-2">
       <span class="badge bg-success-subtle text-success border border-success-subtle">IA Avançada</span>
       <strong>📊 Análise dos Últimos 30 Dias</strong>
-       <!-- ✅ badge dinâmica -->
-  <span id="a30_tipo_badge" class="ms-2" style="display:none"></span>
+      <span id="a30_tipo_badge" class="ms-2" style="display:none"></span>
     </div>
     <button class="btn btn-outline-success btn-sm" id="btnReloadAnalise30d">Atualizar</button>
   </div>
 
   <div class="card-body">
-    <!-- Status / Erros -->
     <div id="analise30dStatus" class="text-muted small mb-2">Carregando análise…</div>
 
     <!-- KPIs -->
@@ -314,7 +338,7 @@
       <div class="col-6 col-md-3">
         <div class="border rounded p-2 h-100">
           <div class="text-muted small">Saldo (30d)</div>
-        <div class="fs-5 fw-semibold" id="a30_saldo">—</div>
+          <div class="fs-5 fw-semibold" id="a30_saldo">—</div>
         </div>
       </div>
       <div class="col-6 col-md-3">
@@ -340,18 +364,15 @@
     <!-- Plano de ação -->
     <div class="mt-3" id="analise30dPlanoWrap" style="display:none">
       <div id="analise30dPlano" class="p-3 rounded-3 border"></div>
-        <!-- texto vem via JS -->
-      </div>
-      <small class="text-muted" id="analise30dPeriodo">Período: —</small>
     </div>
+    <small class="text-muted" id="analise30dPeriodo">Período: —</small>
   </div>
 </div>
 
 <style>
-  .loading-overlay { position: absolute; inset: 0; z-index: 10; background: rgba(255,255,255,0.6);
-    display: flex; align-items: center; justify-content: center; }
-  .fade-in { animation: fadeIn .4s ease-out; }
-  @keyframes fadeIn { from { opacity:0; transform: translateY(4px);} to { opacity:1; transform:none; } }
+  .loading-overlay{position:absolute;inset:0;z-index:10;background:rgba(255,255,255,.6);display:flex;align-items:center;justify-content:center}
+  .fade-in{animation:fadeIn .4s ease-out}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 </style>
 
 <div id="placeholderInsights" class="mt-3">
@@ -401,13 +422,48 @@
   window.URL_RESUMO_MENSAL = "{% url 'financeiro:ia_resumo_mensal' %}";
   window.URL_CATEGORIAS   = "{% url 'financeiro:categorias_transacao' %}";
 </script>
+<script>
+  (function () {
+    const STORAGE_KEY = "sj_tema";
+    const btn = document.getElementById("btnToggleTema");
+    if (!btn) return;
+
+    function aplicarTema(tema) {
+      if (tema === "dark") {
+        document.body.classList.add("sj-dark");
+        btn.textContent = "☀️ Modo claro";
+        btn.classList.remove("btn-outline-dark");
+        btn.classList.add("btn-outline-light");
+      } else {
+        document.body.classList.remove("sj-dark");
+        btn.textContent = "🌙 Modo escuro";
+        btn.classList.remove("btn-outline-light");
+        btn.classList.add("btn-outline-dark");
+      }
+    }
+
+    // Carrega tema salvo
+    const salvo = localStorage.getItem(STORAGE_KEY) || "light";
+    aplicarTema(salvo);
+
+    btn.addEventListener("click", (ev) => {
+      if (!ev.isTrusted) return;
+      const ativo = document.body.classList.contains("sj-dark");
+      const proximo = ativo ? "light" : "dark";
+      localStorage.setItem(STORAGE_KEY, proximo);
+      aplicarTema(proximo);
+    });
+  })();
+</script>
 
 <!-- Ordem correta -->
+<script src="{% static 'js/utils.js' %}"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="{% static 'js/mini_ia.js' %}?v=20251110"></script>
 <script src="{% static 'js/historico_ia.js' %}"></script>
 <script src="{% static 'js/dashboard.js' %}?v=20251105"></script>
 
-<div class="card shadow-sm mt-4 border-success-subtle" style="font-size: 0.9rem;">
+<div class="card shadow-sm mt-4 border-success-subtle" style="font-size:.9rem;">
   <div class="card-body text-center text-muted">
     <h6 class="text-success fw-bold mb-1">🐾 Spaço da Jhuséna — Painel Financeiro Inteligente 💚</h6>
     <p class="mb-2">

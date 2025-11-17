@@ -38,77 +38,43 @@ def ping(request):
 
 
 urlpatterns = [
-    path("ping/", ping, name="ping"),
+    # Ping
+    path("ping/", lambda r: v.JsonResponse({"pong": True}), name="ping"),
     # Painel
-    path("dashboard/", login_required(dashboard_financeiro), name="dashboard_financeiro"),
-    # IA / Insights
-    path("modo-turbo/dica30d/", login_required(gerar_dica_30d), name="gerar_dica_30d"),
-    path(
-        "api/insights/criar-simples/",
-        login_required(api_criar_insight_simples),
-        name="api_criar_insight_simples",
-    ),
-    path(
-        "api/insights/gerar/",
-        login_required(gerar_dica_sob_demanda),
-        name="gerar_dica_sob_demanda",
-    ),
-    # Histórico / Feeds / Resumo
-    path("ia/historico/", login_required(ia_historico), name="insights_historico"),
-    # 🔹 Endpoints de histórico da IA (com compatibilidade)
-    path("ia/historico/feed/", login_required(ia_historico_feed), name="ia_historico_feed"),
-    path("ia/historico-feed/", login_required(ia_historico_feed)),  # compatibilidade
-    path(
-        "ia/historico/feed/v2/", login_required(ia_historico_feed_v2), name="ia_historico_feed_v2"
-    ),
-    path("ia/resumo-mensal/", login_required(ia_resumo_mensal), name="ia_resumo_mensal"),
+    path("dashboard/", login_required(v.dashboard_financeiro), name="dashboard_financeiro"),
     # Dados para gráficos do dashboard
     path(
         "dados_grafico_filtrados/",
-        login_required(dados_grafico_filtrados),
+        login_required(v.dados_grafico_filtrados),
         name="dados_grafico_filtrados",
     ),
     path(
         "dashboard/dados-filtrados/",
-        login_required(dados_grafico_filtrados),
+        login_required(v.dados_financeiros_filtrados),
         name="dados_filtrados_dashboard",
     ),
-    # Diagnóstico de modelo
-    path("diag/transacao/", login_required(diag_transacao), name="diag_transacao"),
-    # (opcional futuro)
+    # Diagnóstico e utilidades
+    path("diag/transacao/", login_required(v.diag_transacao), name="diag_transacao"),
+    path("dashboard/categorias/", v.categorias_transacao, name="categorias_transacao"),
+    # IA – Preview e Gerar (alinhado com o front)
+    path("ia/analise/preview/", v.ia_analise_30d_preview, name="ia_analise_30d_preview"),
+    path("ia/analise/gerar/", v.ia_analise_30d_gerar, name="ia_analise_30d_gerar"),
+    path("ia/gerar_dica_30d/", v.gerar_dica_30d, name="api_generate_tip_30d"),  # usado pelo JS
+    # Histórico (v2 é o usado pelo historico_ia.js)    
+    path("ia/historico/feed/v2/", v.ia_historico_feed_v2, name="ia_historico_feed_v2"),
+    path("ia/historico/feed/", v.ia_historico_feed, name="ia_historico_feed"),
+    path("ia/historico/", v.ia_historico, name="ia_historico"),
+    path("ia/historico/export/csv/", historico_ia_csv_v2, name="ia_historico_export_csv_v2"),
+    # Insights utilitários/APIs extras
     path(
         "metrics/despesas-por-categoria/",
         login_required(metrics_despesas_por_categoria_view),
         name="metrics_despesas_por_categoria",
     ),
-    path("ia/gerar_dica_30d/", views_financeiro.gerar_dica_30d, name="api_generate_tip_30d"),
-    path("ia/dica30d/", ia_gerar_dica_30d, name="ia_dica30d"),
     path("insights/gerar/", gerar_insight_view, name="gerar_insight"),
-    path("dashboard/categorias/", views.categorias_transacao, name="categorias_transacao"),
-    # Dashboard
-    path("dashboard/", v.dashboard_financeiro, name="dashboard"),
-    # Dados do dashboard (gráficos/filtros)
-    path("dashboard/dados-filtrados/", v.dados_financeiros_filtrados, name="dados_filtrados"),
-    path("dados_grafico_filtrados/", v.dados_grafico_filtrados, name="dados_grafico_filtrados"),
+    path("insights/", v.listar_insights, name="listar_insights"),
+    # Endpoints antigos/alternativos (opcional)
+    path("ia/dica30d/", ia_gerar_dica_30d, name="ia_dica30d"),
     path("ia/resumo_mensal/", v.ia_resumo_mensal, name="ia_resumo_mensal"),
-    path("ia/resumo_mensal_series/", v.ia_resumo_mensal_series, name="ia_resumo_mensal_series"),
-    # IA – dica e histórico (v2 é a usada pelo historico_ia.js)
-    path("ia/dica30d/", v.gerar_dica_30d, name="gerar_dica_30d"),
-    path("ia/gerar-dica/", v.gerar_dica_sob_demanda, name="gerar_dica_sob_demanda"),
-    path("ia/historico/", v.ia_historico, name="ia_historico"),
-    path("ia/historico/feed/", v.ia_historico_feed, name="ia_historico_feed"),
-    path("ia/historico/feed/v2/", v.ia_historico_feed_v2, name="ia_historico_feed_v2"),
-    # Utilidades/diagnóstico
-    path("diag/transacao/", v.diag_transacao, name="diag_transacao"),
-    path("categorias/", v.categorias_transacao, name="categorias_transacao"),
-    path("ia/gerar_insight/", gerar_insight, name="gerar_insight"),
-    path("insights/", listar_insights, name="listar_insights"),
-    path(
-        "ia/historico/export/csv/",
-        historico_ia_csv_v2,
-        name="ia_historico_export_csv_v2",
-    ),
-    path("diag/transacao", views.diag_transacao, name="diag_transacao"),
-    path("dados-grafico-filtrados/", views.dados_grafico_filtrados),  # alias
-    path("ia/analise/preview/", views.ia_analise_30d_preview, name="ia_analise_30d_preview"),
+    path("ia/resumo-mensal/", v.ia_resumo_mensal, name="ia_resumo_mensal_dash"),
 ]

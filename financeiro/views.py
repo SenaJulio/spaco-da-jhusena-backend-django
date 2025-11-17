@@ -341,105 +341,132 @@ def categorias_transacao(request):
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)})
 
-from datetime import date, timedelta
-from django.contrib.auth.decorators import login_required
-from django.db.models import Sum, Q
+from datetime import datetime, timedelta, date
+from decimal import Decimal
+from django.db.models import Sum, Case, When, DecimalField
 from django.db.models.functions import TruncDate
 from django.http import JsonResponse
-from django.utils.dateparse import parse_date
-from django.views.decorators.http import require_GET
-
-from .models import Transacao
+from financeiro.models import Transacao
 
 
-@require_GET
-@login_required
+# define se o saldo será acumulado (linha amarela do gráfico)
+SALDO_ACUMULADO = True
+
+
+def _parse_date(s, fallback):
+    try:
+        return datetime.strptime(s, "%Y-%m-%d").date()
+    except Exception:
+        return fallback
+
+
+def _daterange(start, end):
+    cur = start
+    while cur <= end:
+        yield cur
+        cur += timedelta(days=1)
+
+
 def dados_grafico_filtrados(request):
-    """
-    Séries diárias (receitas, despesas, saldo acumulado) + pizza por categoria,
-    filtradas entre 'inicio' e 'fim' (YYYY-MM-DD).
-    """
-    inicio_str = (request.GET.get("inicio") or "").strip()
-    fim_str = (request.GET.get("fim") or "").strip()
-
     hoje = date.today()
-    inicio = parse_date(inicio_str) or (hoje - timedelta(days=30))
-    fim = parse_date(fim_str) or hoje
+    inicio = _parse_date(request.GET.get("inicio", ""), date(hoje.year, hoje.month, 1))
+    fim = _parse_date(request.GET.get("fim", ""), hoje)
+    if inicio > fim:
+        inicio, fim = fim, inicio
 
-    # Janela inclusiva [inicio, fim]
-    base_qs = Transacao.objects.filter(data__range=[inicio, fim])
-    data_field = "data"
-
-    # Se não houver por 'data', tenta 'created_at'
-    if not base_qs.exists() and hasattr(Transacao, "created_at"):
-        base_qs = Transacao.objects.filter(created_at__date__range=[inicio, fim])
-        data_field = "created_at"
-
-    # Agrega por dia
-    qs = base_qs.annotate(dia=TruncDate(data_field))
-    agg = (
-        qs.values("dia")
+    # ---------- 1) Gráfico de evolução (diário) ----------
+    qs = (
+        Transacao.objects.filter(data__range=(inicio, fim))
+        .annotate(dia=TruncDate("data"))
+        .values("dia")
         .annotate(
-            receitas=Sum("valor", filter=Q(tipo="receita")),
-            despesas=Sum("valor", filter=Q(tipo="despesa")),
+            receitas=Sum(
+                Case(
+                    When(tipo="receita", then="valor"),
+                    default=Decimal("0.00"),
+                    output_field=DecimalField(max_digits=12, decimal_places=2),
+                )
+            ),
+            despesas=Sum(
+                Case(
+                    When(tipo="despesa", then="valor"),
+                    default=Decimal("0.00"),
+                    output_field=DecimalField(max_digits=12, decimal_places=2),
+                )
+            ),
         )
         .order_by("dia")
     )
 
+    data_map = {r["dia"]: r for r in qs}
     dias, receitas, despesas, saldo = [], [], [], []
-    acc = 0.0
-    for a in agg:
-        r = float(a["receitas"] or 0)
-        d = float(a["despesas"] or 0)
-        acc += r - d
-        dias.append(a["dia"].strftime("%d/%m"))
-        receitas.append(r)
-        despesas.append(d)
-        saldo.append(acc)
 
-    # Pizza por categoria
-    cat_qs = base_qs.values("categoria").annotate(total=Sum("valor")).order_by("-total")
-    categorias = [(c["categoria"] or "Sem categoria") for c in cat_qs]
-    valores = [float(c["total"] or 0) for c in cat_qs]
+    acc = Decimal("0.00")
+    for d in _daterange(inicio, fim):
+        dias.append(d.strftime("%d/%m"))
+        r = Decimal(data_map.get(d, {}).get("receitas") or 0)
+        d_ = Decimal(data_map.get(d, {}).get("despesas") or 0)
+        acc = acc + (r - d_) if SALDO_ACUMULADO else (r - d_)
+        receitas.append(float(r))
+        despesas.append(float(d_))
+        saldo.append(float(acc))
 
-    # --- resumo da janela atual ---
-    janela_total_receitas = base_qs.filter(tipo="receita").aggregate(v=Sum("valor"))["v"] or 0
-    janela_total_despesas = base_qs.filter(tipo="despesa").aggregate(v=Sum("valor"))["v"] or 0
-    resumo_janela = {
+    # ---------- 2) Gráfico de categorias (pizza) ----------
+    cats_qs = (
+        Transacao.objects.filter(data__range=(inicio, fim))
+        .values("categoria")
+        .annotate(
+            total=Sum(
+                Case(
+                    When(tipo="despesa", then="valor"),
+                    default=Decimal("0.00"),
+                    output_field=DecimalField(max_digits=12, decimal_places=2),
+                )
+            )
+        )
+        .exclude(categoria__isnull=True)
+        .exclude(categoria="")
+        .order_by("-total")
+    )
+
+    categorias = [c["categoria"] for c in cats_qs]
+    valores = [float(c["total"] or 0) for c in cats_qs]
+
+    # ---------- 3) Resumo geral ----------
+    total_receitas = sum(receitas)
+    total_despesas = sum(despesas)
+    saldo_total = total_receitas - total_despesas
+
+    resumo = {
         "label": f"{inicio.strftime('%d/%m/%Y')}–{fim.strftime('%d/%m/%Y')}",
-        "total_receitas": float(janela_total_receitas),
-        "total_despesas": float(janela_total_despesas),
-        "saldo": float(janela_total_receitas - janela_total_despesas),
+        "total_receitas": total_receitas,
+        "total_despesas": total_despesas,
+        "saldo": saldo_total,
     }
 
-    # --- mês corrente (opcional) ---
-    inicio_mes = hoje.replace(day=1)
-    mes_qs = Transacao.objects.filter(data__range=[inicio_mes, hoje])
-    mes_total_receitas = mes_qs.filter(tipo="receita").aggregate(v=Sum("valor"))["v"] or 0
-    mes_total_despesas = mes_qs.filter(tipo="despesa").aggregate(v=Sum("valor"))["v"] or 0
-    resumo_mes_corrente = {
-        "mes_label": hoje.strftime("%b/%Y"),
-        "total_receitas": float(mes_total_receitas),
-        "total_despesas": float(mes_total_despesas),
-        "saldo": float(mes_total_receitas - mes_total_despesas),
-    }
-
-    # ⚠️ marcador de versão para ter CERTEZA que pegamos a view certa
-    debug_sig = "dados_grafico_filtrados:v2"
-
+    # ---------- 4) Retorno final ----------
     return JsonResponse(
         {
             "ok": True,
-            "inicio": str(inicio),
-            "fim": str(fim),
+            "inicio": inicio.strftime("%Y-%m-%d"),
+            "fim": fim.strftime("%Y-%m-%d"),
             "dias": dias,
             "receitas": receitas,
             "despesas": despesas,
             "saldo": saldo,
             "categorias": categorias,
             "valores": valores,
-            "resumo_janela": resumo_janela,
-            "resumo_mes_corrente": resumo_mes_corrente,
-            "debug": debug_sig,
+            "resumo_mes_corrente": resumo,  # compatível com seu dashboard.js
         }
     )
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from financeiro.services.ia_analise_30d import gerar_analise_30d
+
+
+@login_required
+def ia_analise_preview(request):
+    from financeiro.services.ia_analise_30d import gerar_analise_30d
+
+    data = gerar_analise_30d(request.user)
+    return JsonResponse({"ok": True, "analise": data})
