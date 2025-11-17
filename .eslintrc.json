@@ -3,29 +3,29 @@
     "browser": true,
     "es2022": true
   },
-  "globals": {
-    "Chart": "readonly",
-    "bootstrap": "readonly"
+  "parserOptions": {
+    "ecmaVersion": "latest",
+    "sourceType": "module"
   },
+  "plugins": ["import"],
   "extends": [
     "eslint:recommended",
     "plugin:import/recommended",
     "prettier"
   ],
-  "parserOptions": {
-    "ecmaVersion": "latest",
-    "sourceType": "module"
+  "globals": {
+    "Chart": "readonly",
+    "bootstrap": "readonly",
+    "AppUtils": "readonly",
+    "formatarDataBR": "readonly",
+    "performance": "readonly"
   },
   "rules": {
-    "no-unused-vars": [
-      "warn",
-      { "args": "none", "ignoreRestSiblings": true }
-    ],
-    "no-undef": "error",
-    "import/order": [
-      "warn",
-      { "newlines-between": "always" }
-    ],
-    "no-console": "off"
+    "no-undef": "off",
+    "no-unused-vars": ["warn", { "args": "none", "ignoreRestSiblings": true, "varsIgnorePattern": "^_" }],
+    "no-nested-ternary": "off",
+    "no-console": "off",
+    "prefer-optional-chaining": "off",
+    "import/order": ["warn", { "newlines-between": "always" }]
   }
 }

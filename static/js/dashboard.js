@@ -27,17 +27,13 @@
       var Filler = Chart.Filler;
 
       Chart.register(
-        // controllers
         LineController,
         DoughnutController,
-        // elements
         LineElement,
         PointElement,
         ArcElement,
-        // scales
         CategoryScale,
         LinearScale,
-        // plugins
         Title,
         Tooltip,
         Legend,
@@ -49,9 +45,7 @@
   }
 
   // ======================= FEATURE FLAGS =======================
-  var FEATURES = {
-    HYDRATE_CATEGORY_SELECT: true,
-  };
+  var FEATURES = { HYDRATE_CATEGORY_SELECT: true };
 
   // ======================= TEMA / CORES ========================
   function cssVar(name, fallback) {
@@ -121,55 +115,6 @@
     };
   }
 
-  // ====================== FETCH COM ABORT ======================
-  var __lastCtrl = null;
-  function sjFetchJSON(url) {
-    return new Promise(function (resolve, reject) {
-      if (__lastCtrl) {
-        try {
-          __lastCtrl.abort();
-        } catch (_e) {
-          /* noop */
-        }
-      }
-      __lastCtrl = new AbortController();
-      var signal = __lastCtrl.signal;
-
-      fetch(url, {
-        headers: {
-          "X-Requested-With": "XMLHttpRequest",
-          Accept: "application/json",
-        },
-        credentials: "same-origin",
-        signal: signal,
-      })
-        .then(function (r) {
-          if (!r.ok)
-            return r.text().then(function (txt) {
-              throw new Error(
-                "HTTP " +
-                  r.status +
-                  " @ " +
-                  url +
-                  ": " +
-                  (txt || "").slice(0, 300)
-              );
-            });
-          return r.json();
-        })
-        .then(resolve)
-        .catch(function (e) {
-          if (e && e.name === "AbortError") {
-            var err = new Error("ABORTED");
-            err.__aborted = true;
-            reject(err);
-            return;
-          }
-          reject(e);
-        });
-    });
-  }
-
   // ========================== CHARTS ===========================
   function destroyChartByCanvas(canvas) {
     try {
@@ -182,96 +127,69 @@
     }
   }
 
+
+  
+
   // --------- Evolução diária (linhas)
-  function montarGraficoEvolucao(dias, receitas, despesas, saldo) {
-    var canvas = document.getElementById("graficoEvolucao");
-    var empty = document.getElementById("evolucaoEmpty");
+  // EXPÕE NO GLOBAL:
+  // (cole exatamente isso no lugar da sua função atual)
+  window.montarGraficoEvolucao = function montarGraficoEvolucao(
+    dias,
+    receitas,
+    despesas,
+    saldo
+  ) {
+    const canvas = document.getElementById("graficoEvolucao");
+    const empty = document.getElementById("evolucaoEmpty");
     if (!canvas || !window.Chart) return;
 
-    // 1) valida labels
-    var hasLabels = Array.isArray(dias) && dias.length > 0;
+    const hasLabels = Array.isArray(dias) && dias.length > 0;
     if (!hasLabels) {
       if (empty) {
         empty.hidden = false;
         empty.textContent = "Sem dados para o período escolhido.";
       }
       try {
-        destroyChartByCanvas(canvas);
-      } catch (_e0) {
-        /* */
-      }
-      canvas.style.display = "none";
+        Chart.getChart(canvas)?.destroy();
+      } catch {/* */}
       return;
     }
     if (empty) empty.hidden = true;
-    canvas.style.display = "";
 
-    // 2) normaliza números e alinha com os dias
-    function toNum(v) {
+    const toNum = (v) => {
       if (typeof v === "number") return v;
-      var s = String(v == null ? "" : v)
-        .replace(/\./g, "")
-        .replace(",", ".");
-      var n = Number(s);
+      const n = Number(
+        String(v ?? "")
+          .replace(/\./g, "")
+          .replace(",", ".")
+      );
       return isFinite(n) ? n : 0;
-    }
+    };
 
-    var L = dias.length;
-    var R = new Array(L);
-    var D = new Array(L);
-    var S;
-    var i;
-
-    for (i = 0; i < L; i++) {
-      R[i] = toNum((receitas || [])[i]);
-    }
-    for (i = 0; i < L; i++) {
-      D[i] = toNum((despesas || [])[i]);
-    }
+    const R = (receitas || []).map(toNum);
+    const D = (despesas || []).map(toNum);
+    const L = dias.length;
+    let S = [];
 
     if (Array.isArray(saldo) && saldo.length === L) {
-      S = new Array(L);
-      for (i = 0; i < L; i++) {
-        S[i] = toNum(saldo[i]);
-      }
+      S = saldo.map(toNum);
     } else {
-      var acc = 0;
-      S = new Array(L);
-      for (i = 0; i < L; i++) {
+      let acc = 0;
+      for (let i = 0; i < L; i++) {
         acc += (R[i] || 0) - (D[i] || 0);
-        S[i] = acc;
+        S.push(acc);
       }
     }
 
-    // 3) tudo zero?
-    function sumAbs(arr) {
-      var t = 0,
-        j;
-      for (j = 0; j < arr.length; j++) t += Math.abs(arr[j] || 0);
-      return t;
-    }
-    if (sumAbs(R) + sumAbs(D) + sumAbs(S) <= 0.0001) {
-      if (empty) {
-        empty.hidden = false;
-        empty.textContent = "Sem dados para o período escolhido.";
-      }
-      try {
-        destroyChartByCanvas(canvas);
-      } catch (_e1) {
-        /* */
-      }
-      return;
-    }
-
-    // 4) destrói anterior e cria novo
-    var ctx = canvas.getContext("2d");
+    // destrói gráfico anterior
     try {
-      destroyChartByCanvas(canvas);
-    } catch (_e2) {
+      Chart.getChart(canvas)?.destroy();
+    } catch {
       /* */
     }
 
-    new Chart(ctx, {
+    // cria novo gráfico
+    new Chart(canvas, {
       type: "line",
       data: {
         labels: dias,
@@ -280,41 +198,40 @@
             label: "Receitas",
             data: R,
             borderColor: "#2e7d32",
-            backgroundColor: "#2e7d3233",
-            borderWidth: 2,
-            fill: true,
-            tension: 0.35,
-            pointRadius: 2,
+            backgroundColor: "rgba(46,125,50,0.15)",
+            borderWidth: 3,
+            tension: 0.3,
+            pointRadius: 3,
             pointBackgroundColor: "#2e7d32",
+            fill: false,
           },
           {
             label: "Despesas",
             data: D,
             borderColor: "#d32f2f",
-            backgroundColor: "#d32f2f22",
-            borderWidth: 2,
-            fill: true,
-            tension: 0.35,
-            pointRadius: 2,
+            backgroundColor: "rgba(211,47,47,0.15)",
+            borderWidth: 3,
+            tension: 0.3,
+            pointRadius: 3,
             pointBackgroundColor: "#d32f2f",
+            fill: false,
           },
           {
             label: "Saldo",
             data: S,
             borderColor: "#f9a825",
-            backgroundColor: "#f9a82522",
-            borderWidth: 2,
-            fill: false,
+            backgroundColor: "rgba(249,168,37,0.15)",
+            borderWidth: 3,
             tension: 0.3,
-            pointRadius: 2,
+            pointRadius: 3,
             pointBackgroundColor: "#f9a825",
+            fill: false,
           },
         ],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        parsing: false,
         interaction: { mode: "index", intersect: false },
         plugins: {
           legend: {
@@ -328,36 +245,34 @@
             titleColor: "#1b5e20",
             bodyColor: "#1b5e20",
             callbacks: {
-              label: function (ctx) {
-                var v = Number((ctx.parsed && ctx.parsed.y) || 0);
-                return (
-                  (ctx.dataset && ctx.dataset.label ? ctx.dataset.label : "") +
-                  ": R$ " +
-                  v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })
-                );
+              label: (ctx) => {
+                const v = Number(ctx.parsed.y || 0);
+                return `${ctx.dataset.label}: R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
               },
             },
           },
         },
+        elements: {
+          line: { borderWidth: 3, fill: false },
+          point: { radius: 3 },
+        },
         scales: {
           x: {
             grid: { color: "rgba(0,0,0,0.08)" },
-            ticks: { maxRotation: 0, autoSkip: true, color: "#1b5e20" },
+            ticks: { color: "#1b5e20", maxRotation: 0, autoSkip: true },
           },
           y: {
             beginAtZero: true,
             grid: { color: "rgba(0,0,0,0.08)" },
             ticks: {
               color: "#1b5e20",
-              callback: function (v) {
-                return Number(v).toLocaleString("pt-BR");
-              },
+              callback: (v) => Number(v).toLocaleString("pt-BR"),
             },
           },
         },
       },
     });
-  }
+  };
 
   // --------- Categorias (pizza)
   function montarGraficoCategorias(categorias, valores) {
@@ -458,7 +373,7 @@
       "Saldo: ",
       brl.format(toNum(origem.saldo)),
     ].join("");
-    // --- aplica automaticamente o humor/badge com base no saldo ---
+
     __sjApplyMoodFromSaldo(Number(origem.saldo || 0));
   }
 
@@ -475,7 +390,6 @@
       b.style.fontSize = "12px";
       b.style.fontWeight = "700";
       b.style.letterSpacing = "0.2px";
-
       if (tipo === "positiva") {
         b.textContent = "Positiva";
         b.style.backgroundColor = "rgba(46,125,50,0.18)";
@@ -496,7 +410,8 @@
 
     // Bordas dos KPIs
     var cards = document.querySelectorAll("#analise30dKPIs .border");
-    cards.forEach(function (el) {
+    for (var i = 0; i < cards.length; i++) {
+      var el = cards[i];
       if (tipo === "positiva") {
         el.style.borderColor = "rgba(76,175,80,0.55)";
         el.style.boxShadow = "0 0 4px rgba(76,175,80,0.33)";
@@ -507,397 +422,331 @@
         el.style.borderColor = "rgba(255,255,255,0.18)";
         el.style.boxShadow = "0 0 4px rgba(255,255,255,0.12)";
       }
-    });
+    }
 
     document.body.setAttribute("data-analise-tipo", tipo);
   }
 
   // ========================= RECARREGAR ========================
+  function __getBtn() {
+    return document.querySelector(
+      "#btnAplicarFiltros, #filtrar-btn, button[data-oldText]"
+    );
+  }
+
   async function recarregar() {
-    var cv = document.getElementById("graficoEvolucao");
-    var cvCat = document.getElementById("graficoCategorias");
-    var elCatEmpty = document.getElementById("categoriasEmpty");
+    if (window.__SJ_LOADING) return;
+    window.__SJ_LOADING = true;
 
-    if (!cv || !window.Chart) {
-      console.warn("sem canvas ou Chart");
-      return;
+    var btn = __getBtn();
+    if (btn) {
+      btn.disabled = true;
+      btn.dataset.oldText = btn.textContent;
+      btn.textContent = "Atualizando…";
     }
 
-    // destrói gráficos anteriores
     try {
-      Chart.getChart(cv) && Chart.getChart(cv).destroy();
-    } catch (e0) {
-      /* */
-    }
-    if (cvCat) {
+      var cv = document.getElementById("graficoEvolucao");
+      var cvCat = document.getElementById("graficoCategorias");
+      var elCatEmpty = document.getElementById("categoriasEmpty");
+      if (!cv || !window.Chart) throw new Error("SEM_CANVAS_OU_CHART");
+
       try {
-        Chart.getChart(cvCat) && Chart.getChart(cvCat).destroy();
-      } catch (e1) {
+        Chart.getChart(cv) && Chart.getChart(cv).destroy();
+      } catch (_e0) {
         /* */
       }
-    }
-
-    // datas (fallback mês atual)
-    var hoje = new Date();
-    var ini =
-      (document.getElementById("filtroInicio") || {}).value ||
-      firstDayOfMonth(hoje);
-    var fim =
-      (document.getElementById("filtroFim") || {}).value || fmtYMD(hoje);
-
-    // endpoint
-    var base =
-      window.URL_DADOS_GRAFICO || "/financeiro/dados_grafico_filtrados/";
-    var url =
-      base +
-      "?inicio=" +
-      encodeURIComponent(ini) +
-      "&fim=" +
-      encodeURIComponent(fim);
-    console.log("[recarregar] GET", url);
-
-    // fetch
-    var r = await fetch(url, {
-      headers: { Accept: "application/json" },
-      credentials: "same-origin",
-    });
-    if (!r.ok) {
-      console.error("HTTP", r.status, "ao buscar dados");
-      return;
-    }
-    var j = await r.json();
-    console.log("[recarregar] payload", j);
-
-    // --------- resumo (src) + mood + card + KPIs ---------
-    var toNum = function (v) {
-      return typeof v === "number"
-        ? v
-        : Number(String(v).replace(/\./g, "").replace(",", ".")) || 0;
-    };
-
-    // monta src de onde virão os totais
-    var src =
-      j.resumo_janela ||
-      j.resumo_mes_corrente ||
-      (function () {
-        var totalR = (j.receitas || []).reduce(function (a, b) {
-          return a + toNum(b);
-        }, 0);
-        var totalD = (j.despesas || []).reduce(function (a, b) {
-          return a + toNum(b);
-        }, 0);
-        return {
-          label: j.inicio && j.fim ? j.inicio + "–" + j.fim : "Janela atual",
-          total_receitas: totalR,
-          total_despesas: totalD,
-          saldo: totalR - totalD,
-        };
-      })();
-
-    // humor + badge sempre
-    __sjApplyMoodFromSaldo(Number(src.saldo || 0));
-
-    // card resumo
-    __updateCardResumo(src);
-
-    // KPIs (Receitas/Despesas/Saldo)
-    (function () {
-      var brl = new Intl.NumberFormat("pt-BR", {
-        style: "currency",
-        currency: "BRL",
-      });
-      var kpis = document.getElementById("analise30dKPIs");
-      var elR = document.getElementById("a30_receitas");
-      var elD = document.getElementById("a30_despesas");
-      var elS = document.getElementById("a30_saldo");
-      if (elR) elR.textContent = brl.format(Number(src.total_receitas || 0));
-      if (elD) elD.textContent = brl.format(Number(src.total_despesas || 0));
-      if (elS) elS.textContent = brl.format(Number(src.saldo || 0));
-      if (kpis) kpis.style.display = "";
-    })();
-
-    // Margem (preferir mês corrente se houver)
-    (function () {
-      var elM = document.getElementById("a30_margem");
-      if (!elM) return;
-      var baseRef = j.resumo_mes_corrente || src;
-      var rTot = Number(baseRef.total_receitas || 0);
-      var sTot = Number(baseRef.saldo || 0);
-      if (rTot > 0) {
-        var pct = (sTot / rTot) * 100;
-        elM.textContent =
-          pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + " %";
-      } else {
-        elM.textContent = "—";
-      }
-    })();
-
-    // Variações (%): compara com janela anterior de mesmo tamanho
-    (function () {
-      var vRec = document.getElementById("a30_var_rec");
-      var vDes = document.getElementById("a30_var_des");
-      if (!vRec && !vDes) return;
-
-      var inicio = new Date(j.inicio);
-      var fimDt = new Date(j.fim);
-      var diffDias = Math.max(1, (fimDt - inicio) / (1000 * 60 * 60 * 24));
-
-      var inicioAnt = new Date(inicio);
-      inicioAnt.setDate(inicioAnt.getDate() - diffDias);
-      var fimAnt = new Date(inicio);
-      fimAnt.setDate(fimAnt.getDate() - 1);
-
-      var _pad2 = function (n) {
-        return String(n).padStart(2, "0");
-      };
-      var _fmt = function (d) {
-        return (
-          d.getFullYear() +
-          "-" +
-          _pad2(d.getMonth() + 1) +
-          "-" +
-          _pad2(d.getDate())
-        );
-      };
-
-      fetch(
-        (window.URL_DADOS_GRAFICO || "/financeiro/dados_grafico_filtrados/") +
-          "?inicio=" +
-          _fmt(inicioAnt) +
-          "&fim=" +
-          _fmt(fimAnt),
-        {
-          headers: { Accept: "application/json" },
-          credentials: "same-origin",
-        }
-      )
-        .then(function (r) {
-          return r.json();
-        })
-        .then(function (prev) {
-          var num = function (v) {
-            return Number(v || 0);
-          };
-          var totalR = (j.receitas || []).reduce(function (a, b) {
-            return a + num(b);
-          }, 0);
-          var totalD = (j.despesas || []).reduce(function (a, b) {
-            return a + num(b);
-          }, 0);
-          var prevR = (prev.receitas || []).reduce(function (a, b) {
-            return a + num(b);
-          }, 0);
-          var prevD = (prev.despesas || []).reduce(function (a, b) {
-            return a + num(b);
-          }, 0);
-
-          var decideVar = function (curr, prevVal) {
-            if (prevVal > 0) {
-              var pct = ((curr - prevVal) / prevVal) * 100;
-              return {
-                text: (pct >= 0 ? "+" : "") + pct.toFixed(1) + " %",
-                sign: Math.sign(pct),
-              };
-            }
-            if (curr > 0) return { text: "+100 % (vs 0)", sign: 1 };
-            return { text: "0,0 %", sign: 0 };
-          };
-
-          var vr = decideVar(totalR, prevR);
-          var vd = decideVar(totalD, prevD);
-
-          if (vRec) {
-            vRec.textContent = vr.text;
-            vRec.style.fontWeight = "600";
-            vRec.style.color =
-              vr.sign > 0 ? "#66bb6a" : vr.sign < 0 ? "#ef9a9a" : "";
-          }
-          if (vDes) {
-            vDes.textContent = vd.text;
-            vDes.style.fontWeight = "600";
-            vDes.style.color =
-              vd.sign > 0 ? "#ef9a9a" : vd.sign < 0 ? "#66bb6a" : "";
-          }
-        })
-        .catch(function () {
-          if (vRec) vRec.textContent = "—";
-          if (vDes) vDes.textContent = "—";
-        });
-    })();
-
-    // ----- gráfico de linhas (evolução) -----
-    var dias = Array.isArray(j.dias) ? j.dias : [];
-    var R = dias.map(function (_, i) {
-      return toNum((j.receitas || [])[i]);
-    });
-    var D = dias.map(function (_, i) {
-      return toNum((j.despesas || [])[i]);
-    });
-    var S =
-      Array.isArray(j.saldo) && j.saldo.length === dias.length
-        ? j.saldo.map(toNum)
-        : (function () {
-            var acc = 0;
-            return dias.map(function (_, i) {
-              acc += (R[i] || 0) - (D[i] || 0);
-              return acc;
-            });
-          })();
-
-    new Chart(cv.getContext("2d"), {
-      type: "line",
-      data: {
-        labels: dias,
-        datasets: [
-          {
-            label: "Receitas",
-            data: R,
-            borderColor: "#2e7d32",
-            backgroundColor: "#2e7d3233",
-            borderWidth: 2,
-            tension: 0.35,
-            pointRadius: 2,
-            fill: true,
-          },
-          {
-            label: "Despesas",
-            data: D,
-            borderColor: "#d32f2f",
-            backgroundColor: "#d32f2f22",
-            borderWidth: 2,
-            tension: 0.35,
-            pointRadius: 2,
-            fill: true,
-          },
-          {
-            label: "Saldo",
-            data: S,
-            borderColor: "#f9a825",
-            backgroundColor: "#f9a82522",
-            borderWidth: 2,
-            tension: 0.3,
-            pointRadius: 2,
-            fill: false,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: "index", intersect: false },
-        plugins: {
-          legend: {
-            position: "bottom",
-            labels: { color: "#1b5e20", font: { size: 13 } },
-          },
-          tooltip: {
-            backgroundColor: "#fff",
-            borderColor: "#a5d6a7",
-            borderWidth: 1,
-            titleColor: "#1b5e20",
-            bodyColor: "#1b5e20",
-            callbacks: {
-              label: function (ctx) {
-                var v = Number((ctx.parsed && ctx.parsed.y) || 0);
-                return (
-                  (ctx.dataset && ctx.dataset.label ? ctx.dataset.label : "") +
-                  ": R$ " +
-                  v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })
-                );
-              },
-            },
-          },
-        },
-        scales: {
-          x: {
-            grid: { color: "rgba(0,0,0,0.08)" },
-            ticks: { color: "#1b5e20", maxRotation: 0, autoSkip: true },
-          },
-          y: {
-            beginAtZero: true,
-            grid: { color: "rgba(0,0,0,0.08)" },
-            ticks: { color: "#1b5e20" },
-          },
-        },
-      },
-    });
-
-    // ----- gráfico de pizza (categorias) -----
-    if (cvCat) {
-      var hasCats =
-        Array.isArray(j.categorias) &&
-        Array.isArray(j.valores) &&
-        j.categorias.length > 0;
-      if (hasCats) {
-        cvCat.style.display = "";
-        if (elCatEmpty) elCatEmpty.hidden = true;
-
-        var vals = j.valores.map(toNum);
-        new Chart(cvCat.getContext("2d"), {
-          type: "doughnut",
-          data: {
-            labels: j.categorias,
-            datasets: [
-              {
-                label: "Total",
-                data: vals,
-                backgroundColor: [
-                  "#66bb6a",
-                  "#81c784",
-                  "#a5d6a7",
-                  "#c8e6c9",
-                  "#ef9a9a",
-                  "#ffcdd2",
-                  "#fff59d",
-                  "#fff176",
-                  "#80cbc4",
-                  "#4db6ac",
-                ],
-                borderColor: "#ffffff",
-                borderWidth: 2,
-              },
-            ],
-          },
-          options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            parsing: false,
-            cutout: "65%",
-            plugins: {
-              legend: { position: "bottom", labels: { color: "#1b5e20" } },
-            },
-          },
-        });
-      } else {
-        if (elCatEmpty) {
-          elCatEmpty.hidden = false;
-          elCatEmpty.textContent = "Sem categorias neste período.";
-        }
-        cvCat.style.display = "none";
+      if (cvCat) {
         try {
           Chart.getChart(cvCat) && Chart.getChart(cvCat).destroy();
-        } catch (e2) {
+        } catch (_e1) {
           /* */
         }
       }
-    }
 
-    var ch = Chart.getChart(cv);
-    console.log(
-      "✅ linhas ok | pontos:",
-      R.length,
-      D.length,
-      S.length,
-      "| y-range:",
-      ch && ch.scales.y.min,
-      ch && ch.scales.y.max
-    );
+      var hoje = new Date();
+      var ini =
+        (document.getElementById("filtroInicio") || {}).value ||
+        firstDayOfMonth(hoje);
+      var fim =
+        (document.getElementById("filtroFim") || {}).value || fmtYMD(hoje);
+
+      var base =
+        window.URL_DADOS_GRAFICO || "/financeiro/dados_grafico_filtrados/";
+      var url =
+        base +
+        "?inicio=" +
+        encodeURIComponent(ini) +
+        "&fim=" +
+        encodeURIComponent(fim);
+      console.log("[recarregar] GET", url);
+
+      var r = await fetch(url, {
+        headers: { Accept: "application/json" },
+        credentials: "same-origin",
+      });
+      if (!r.ok) throw new Error("HTTP_" + r.status);
+      var j = await r.json();
+      console.log("[recarregar] payload", j);
+      console.log("🍕 categorias/valores:", j.categorias, j.valores);
+
+      // --------- resumo (src) + mood + card + KPIs ---------
+      var toNum = function (v) {
+        return typeof v === "number"
+          ? v
+          : Number(String(v).replace(/\./g, "").replace(",", ".")) || 0;
+      };
+
+      var src =
+        j.resumo_janela ||
+        j.resumo_mes_corrente ||
+        (function () {
+          var totalR = (j.receitas || []).reduce(function (a, b) {
+            return a + toNum(b);
+          }, 0);
+          var totalD = (j.despesas || []).reduce(function (a, b) {
+            return a + toNum(b);
+          }, 0);
+          return {
+            label: j.inicio && j.fim ? j.inicio + "–" + j.fim : "Janela atual",
+            total_receitas: totalR,
+            total_despesas: totalD,
+            saldo: totalR - totalD,
+          };
+        })();
+
+      __sjApplyMoodFromSaldo(Number(src.saldo || 0));
+      __updateCardResumo(src);
+
+      (function () {
+        var brl = new Intl.NumberFormat("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        });
+        var kpis = document.getElementById("analise30dKPIs");
+        var elR = document.getElementById("a30_receitas");
+        var elD = document.getElementById("a30_despesas");
+        var elS = document.getElementById("a30_saldo");
+        if (elR) elR.textContent = brl.format(Number(src.total_receitas || 0));
+        if (elD) elD.textContent = brl.format(Number(src.total_despesas || 0));
+        if (elS) elS.textContent = brl.format(Number(src.saldo || 0));
+        if (kpis) kpis.style.display = "";
+      })();
+
+      // Margem (preferir mês corrente se houver) — com UX para 100% (saldo total)
+      (function () {
+        var elM = document.getElementById("a30_margem");
+        if (!elM) return;
+
+        var baseRef = j.resumo_mes_corrente || src;
+        var rTot = Number(baseRef.total_receitas || 0);
+        var sTot = Number(baseRef.saldo || 0);
+
+        if (rTot > 0) {
+          var pct = (sTot / rTot) * 100;
+          // Se saldo == receitas (sem despesas), mostrar “100 % (saldo total)”
+          if (pct >= 99.9) {
+            elM.textContent = "100 % (saldo total)";
+          } else {
+            elM.textContent =
+              pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + " %";
+          }
+        } else {
+          elM.textContent = "—";
+        }
+      })();
+
+      (function () {
+        var vRec = document.getElementById("a30_var_rec");
+        var vDes = document.getElementById("a30_var_des");
+        if (!vRec && !vDes) return;
+
+        var inicio = new Date(j.inicio);
+        var fimDt = new Date(j.fim);
+        var diffDias = Math.max(1, (fimDt - inicio) / (1000 * 60 * 60 * 24));
+
+        var inicioAnt = new Date(inicio);
+        inicioAnt.setDate(inicioAnt.getDate() - diffDias);
+        var fimAnt = new Date(inicio);
+        fimAnt.setDate(fimAnt.getDate() - 1);
+
+        var _fmt = function (d) {
+          return (
+            d.getFullYear() +
+            "-" +
+            pad2(d.getMonth() + 1) +
+            "-" +
+            pad2(d.getDate())
+          );
+        };
+
+        fetch(
+          (window.URL_DADOS_GRAFICO || "/financeiro/dados_grafico_filtrados/") +
+            "?inicio=" +
+            _fmt(inicioAnt) +
+            "&fim=" +
+            _fmt(fimAnt),
+          {
+            headers: { Accept: "application/json" },
+            credentials: "same-origin",
+          }
+        )
+          .then(function (r) {
+            return r.json();
+          })
+          .then(function (prev) {
+            var num = function (v) {
+              return Number(v || 0);
+            };
+            var totalR = (j.receitas || []).reduce(function (a, b) {
+              return a + num(b);
+            }, 0);
+            var totalD = (j.despesas || []).reduce(function (a, b) {
+              return a + num(b);
+            }, 0);
+            var prevR = (prev.receitas || []).reduce(function (a, b) {
+              return a + num(b);
+            }, 0);
+            var prevD = (prev.despesas || []).reduce(function (a, b) {
+              return a + num(b);
+            }, 0);
+
+            function decideVar(curr, prevVal) {
+              if (prevVal > 0) {
+                var pct = ((curr - prevVal) / prevVal) * 100;
+                return {
+                  text: (pct >= 0 ? "+" : "") + pct.toFixed(1) + " %",
+                  sign: Math.sign(pct),
+                };
+              }
+              if (curr > 0) return { text: "+100 % (vs 0)", sign: 1 };
+              return { text: "0,0 %", sign: 0 };
+            }
+
+            var vr = decideVar(totalR, prevR),
+              vd = decideVar(totalD, prevD);
+            if (vRec) {
+              vRec.textContent = vr.text;
+              vRec.style.fontWeight = "600";
+              vRec.style.color =
+                vr.sign > 0 ? "#66bb6a" : vr.sign < 0 ? "#ef9a9a" : "";
+            }
+            if (vDes) {
+              vDes.textContent = vd.text;
+              vDes.style.fontWeight = "600";
+              vDes.style.color =
+                vd.sign > 0 ? "#ef9a9a" : vd.sign < 0 ? "#66bb6a" : "";
+            }
+          })
+          .catch(function () {
+            if (vRec) vRec.textContent = "—";
+            if (vDes) vDes.textContent = "—";
+          });
+      })();
+
+      // ----- gráfico de linhas (normalizado em Reais) -----
+      var dias = Array.isArray(j.dias) ? j.dias : [];
+
+      // normaliza array numérico vindo do backend (corrige centavos)
+      function __sjNormArray(arr) {
+        if (!Array.isArray(arr)) return [];
+        var out = [];
+        for (var i = 0; i < arr.length; i++) {
+          var v = arr[i];
+          // parse seguro
+          var n =
+            typeof v === "number" && isFinite(v)
+              ? v
+              : Number(
+                  String(v || "0")
+                    .replace(/\./g, "")
+                    .replace(",", ".")
+                );
+          if (!isFinite(n)) n = 0;
+
+          // Heurística de centavos:
+          // se é inteiro e grande (>= 1000), assume que veio em centavos e divide por 100
+          if (Math.abs(n) >= 1000 && Math.floor(n) === n) {
+            n = n / 100;
+          }
+          out.push(n);
+        }
+        return out;
+      }
+
+      var R = __sjNormArray(j.receitas || []);
+      var D = __sjNormArray(j.despesas || []);
+      var S;
+
+      // se o backend já mandar saldo diário, normaliza; senão calcula acumulado (R-D)
+      if (Array.isArray(j.saldo) && j.saldo.length === dias.length) {
+        S = __sjNormArray(j.saldo);
+      } else {
+        S = [];
+        var acc = 0;
+        for (var ii = 0; ii < dias.length; ii++) {
+          acc += (R[ii] || 0) - (D[ii] || 0);
+          S.push(acc);
+        }
+      }
+
+      window.montarGraficoEvolucao(dias, R, D, S);
+
+      // ----- gráfico de pizza -----
+      if (cvCat) {
+        var hasCats =
+          Array.isArray(j.categorias) &&
+          Array.isArray(j.valores) &&
+          j.categorias.length > 0;
+        if (hasCats) {
+          cvCat.style.display = "";
+          if (elCatEmpty) elCatEmpty.hidden = true;
+          montarGraficoCategorias(j.categorias, j.valores);
+        } else {
+          if (elCatEmpty) {
+            elCatEmpty.hidden = false;
+            elCatEmpty.textContent = "Sem categorias neste período.";
+          }
+          cvCat.style.display = "none";
+          try {
+            Chart.getChart(cvCat) && Chart.getChart(cvCat).destroy();
+          } catch (_e2) {
+            /* */
+          }
+        }
+      }
+
+      var ch = Chart.getChart(document.getElementById("graficoEvolucao"));
+      console.log(
+        "✅ linhas ok | pontos:",
+        R.length,
+        D.length,
+        S.length,
+        "| y-range:",
+        ch && ch.scales.y.min,
+        ch && ch.scales.y.max
+      );
+    } catch (e) {
+      console.error("recarregar() falhou:", e);
+    } finally {
+      var btn2 = __getBtn();
+      if (btn2) {
+        btn2.disabled = false;
+        btn2.textContent = btn2.dataset.oldText || "Aplicar";
+        try {
+          delete btn2.dataset.oldText;
+        } catch (_e) {
+          btn2.removeAttribute("data-oldText");
+        }
+      }
+      window.__SJ_LOADING = false;
+    }
   }
 
   // expõe para o console (mantém seu atalho)
   window.__SJ_DASH_DEV__ = Object.assign(window.__SJ_DASH_DEV__ || {}, {
     reload: recarregar,
-    evol: montarGraficoEvolucao,
+    evol: window.montarGraficoEvolucao,
     cat: montarGraficoCategorias,
   });
 
@@ -958,24 +807,18 @@
       }
     }
 
-    // eventos de filtro
+    // eventos de filtro — sincroniza card + gráficos automaticamente
     var fireReload = debounce(function () {
+      console.log("⚙️ Filtros alterados — recarregando dashboard completo...");
       recarregar();
-    }, 250);
-    if (elIni) {
-      elIni.addEventListener("change", fireReload);
-      elIni.addEventListener("input", fireReload);
-    }
-    if (elFim) {
-      elFim.addEventListener("change", fireReload);
-      elFim.addEventListener("input", fireReload);
-    }
+    }, 300);
 
-    var elCat = document.getElementById("filtroCategoria");
-    if (elCat) {
-      elCat.addEventListener("change", fireReload);
-      elCat.addEventListener("input", fireReload);
-    }
+    ["#filtroInicio", "#filtroFim", "#filtroCategoria"].forEach(function (sel) {
+      var el = document.querySelector(sel);
+      if (!el) return;
+      el.addEventListener("change", fireReload);
+      el.addEventListener("input", fireReload);
+    });
 
     // botão aplicar
     var btn =
@@ -986,17 +829,7 @@
       btn.parentNode.replaceChild(fresh, btn);
       fresh.addEventListener("click", function (ev) {
         ev.preventDefault();
-        fresh.disabled = true;
-        var label = fresh.textContent;
-        fresh.textContent = "Atualizando…";
-        Promise.resolve()
-          .then(function () {
-            recarregar();
-          })
-          .finally(function () {
-            fresh.textContent = label;
-            fresh.disabled = false;
-          });
+        recarregar();
       });
     }
 
@@ -1006,9 +839,8 @@
 
   // === IA Avançada: Análise 30D ===
   (function () {
-    ("use strict");
+    "use strict";
 
-    // helpers locais
     var byId = function (id) {
       return document.getElementById(id);
     };
@@ -1022,7 +854,6 @@
       return (Number(v) || 0).toLocaleString("pt-BR") + " %";
     };
 
-    // Paleta dark harmonizada (translúcida) — usada só no plano da IA
     var DARK_TINTS = {
       positiva: {
         bg: "rgba(46,125,50,0.18)",
@@ -1054,14 +885,11 @@
       if (!el) return;
       var t = (tipo || "neutra").toLowerCase();
       var c = DARK_TINTS[t] || DARK_TINTS.neutra;
-
       el.className = "p-3 rounded-3 border";
       el.removeAttribute("style");
-
       el.style.setProperty("background-color", c.bg, "important");
       el.style.setProperty("border-color", c.borda, "important");
       el.style.setProperty("color", c.texto, "important");
-
       el.style.setProperty(
         "box-shadow",
         "inset 0 1px 0 rgba(255,255,255,0.03), 0 0 0 1px rgba(0,0,0,0.12)",
@@ -1072,22 +900,21 @@
     function colorirKPIs(tipo) {
       var t = (tipo || "neutra").toLowerCase();
       var c = DARK_TINTS[t] || DARK_TINTS.neutra;
-
       var cards = document.querySelectorAll("#analise30dKPIs .border");
-      cards.forEach(function (el) {
+      for (var i = 0; i < cards.length; i++) {
+        var el = cards[i];
         el.style.setProperty("border-color", c.borda, "important");
         el.style.setProperty(
           "box-shadow",
           "0 0 4px " + c.borda + "33",
           "important"
         );
-      });
+      }
     }
     function setTipoBadge(el, tipo) {
       if (!el) return;
       var t = (tipo || "neutra").toLowerCase();
       var c = DARK_TINTS[t] || DARK_TINTS.neutra;
-
       el.textContent =
         t === "positiva" ? "Positiva" : t === "alerta" ? "Alerta" : "Neutra";
       el.style.display = "inline-block";
@@ -1109,7 +936,6 @@
       var planoEl = byId("analise30dPlano");
       var periodoEl = byId("analise30dPeriodo");
       var tipoBadge = byId("a30_tipo_badge");
-
       try {
         if (btn) {
           btn.disabled = true;
@@ -1130,18 +956,8 @@
         var json = await r.json();
         if (!json.ok || !json.analise)
           throw new Error(json.error || "Falha ao obter análise.");
-
         var a = json.analise;
 
-        // KPIs — desligado; números vêm do resumo do gráfico
-        // byId("a30_receitas").textContent = fmtBRL(a.receitas);
-        // byId("a30_despesas").textContent = fmtBRL(a.despesas);
-        // byId("a30_saldo").textContent   = fmtBRL(a.saldo);
-        // byId("a30_margem").textContent  = fmtPct(a.margem_pct);
-        // byId("a30_var_rec").textContent = fmtPct(a.variacao_receitas_pct);
-        // byId("a30_var_des").textContent = fmtPct(a.variacao_despesas_pct);
-
-        // Plano + tipo + período
         if (planoEl) {
           planoEl.textContent = a.plano_acao || "—";
           setPlanoClass(planoEl, (a.tipo || "neutra").toLowerCase());
@@ -1160,7 +976,7 @@
         if (status) status.style.display = "none";
       } catch (e) {
         console.error("Análise 30d falhou:", e);
-        document.body.setAttribute("data-analise-tipo", "neutra"); // fallback
+        document.body.setAttribute("data-analise-tipo", "neutra");
         if (status) {
           status.textContent = "Não foi possível carregar a análise agora.";
           status.classList.add("text-danger");
@@ -1185,6 +1001,56 @@
       carregarAnalise30d();
     });
   })();
+
   // expõe função de humor para debug no console
   window.__sjApplyMoodFromSaldo = __sjApplyMoodFromSaldo;
+
+  document
+    .getElementById("btnGerarDica")
+    ?.addEventListener("click", async () => {
+      try {
+        // função auxiliar para pegar o token CSRF
+        async function getCsrfToken() {
+          const meta = document.querySelector('meta[name="csrf-token"]');
+          if (meta) return meta.content;
+          const match = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
+          return match ? decodeURIComponent(match[2]) : "";
+        }
+
+        // faz o POST para gerar a análise 30d com o token CSRF correto
+        const r = await fetch("/financeiro/ia/analise/gerar/", {
+          method: "POST",
+          headers: {
+            "X-CSRFToken": await getCsrfToken(),
+            "X-Requested-With": "XMLHttpRequest",
+          },
+          credentials: "same-origin",
+        });
+
+        if (!r.ok) {
+          const text = await r.text();
+          console.error("⚠️ Erro ao gerar análise:", r.status, text);
+          throw new Error(`HTTP ${r.status}`);
+        }
+
+        const j = await r.json();
+        if (!j.ok) throw new Error("Falha ao salvar dica");
+        console.log("💾 Dica salva:", j.salvo);
+
+        // recarregar o histórico atual mantendo o filtro escolhido
+        if (window.carregarHistorico) {
+          await window.carregarHistorico(
+            20,
+            window.__FILTRO_HISTORICO_ATUAL || "todas",
+            false
+          );
+        }
+
+        // opcional: toast ou feedback visual
+        // showToast("✅ Dica gerada e salva no histórico!");
+      } catch (e) {
+        console.error("💥 Erro no processo de geração da dica:", e);
+        // showToast("❌ Erro ao gerar dica");
+      }
+    });
 })();
