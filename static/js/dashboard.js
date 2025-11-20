@@ -4,6 +4,195 @@
  * Data: 2025-11-06
  * ==========================================================================*/
 /* global Chart */
+// === Plugins visuais do donut "Por categoria" ===
+
+// sombra interna leve no centro
+const sjDonutInnerShadow = {
+  id: "sjDonutInnerShadow",
+  afterDatasetsDraw(chart, args, opts) {
+    const meta = chart.getDatasetMeta(0);
+    if (!meta || !meta.data || !meta.data.length) return;
+
+    const { ctx } = chart;
+    const arc = meta.data[0];
+    const { x, y, innerRadius } = arc;
+
+    ctx.save();
+    const grad = ctx.createRadialGradient(
+      x,
+      y,
+      innerRadius * 0.4,
+      x,
+      y,
+      innerRadius * 1.1
+    );
+    grad.addColorStop(0, "rgba(0,0,0,0)");
+    grad.addColorStop(1, "rgba(0,0,0,0.5)");
+
+    ctx.globalCompositeOperation = "multiply";
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(x, y, innerRadius * 1.1, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  },
+};
+
+// brilho suave no centro do donut
+const sjDonutHighlight = {
+  id: "sjDonutHighlight",
+  afterDatasetsDraw(chart, args, opts) {
+    const meta = chart.getDatasetMeta(0);
+    if (!meta || !meta.data || !meta.data.length) return;
+
+    const { ctx } = chart;
+    const arc = meta.data[0];
+    const { x, y, innerRadius } = arc;
+
+    ctx.save();
+    const grad = ctx.createRadialGradient(
+      x, y, 0,
+      x, y, innerRadius * 0.9
+    );
+    grad.addColorStop(0, "rgba(255,255,255,0.22)");
+    grad.addColorStop(0.6, "rgba(255,255,255,0.05)");
+    grad.addColorStop(1, "rgba(255,255,255,0)");
+
+    ctx.globalCompositeOperation = "screen";
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(x, y, innerRadius * 0.9, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  },
+};
+
+
+// gradiente suave em cada fatia
+const sjDonutGradient = {
+  id: "sjDonutGradient",
+  beforeDatasetsDraw(chart, args, opts) {
+    const { ctx, chartArea } = chart;
+    if (!chartArea) return;
+
+    const dataset = chart.data.datasets[0];
+    const baseColors = [
+      { from: "#66bb6a", to: "rgba(102,187,106,0.65)" },
+      { from: "#81c784", to: "rgba(129,199,132,0.65)" },
+      { from: "#a5d6a7", to: "rgba(165,214,167,0.65)" },
+      { from: "#c8e6c9", to: "rgba(200,230,201,0.65)" },
+    ];
+
+    dataset.backgroundColor = dataset.data.map((_, i) => {
+      const b = baseColors[i % baseColors.length];
+      const g = ctx.createLinearGradient(
+        0, chartArea.top,
+        0, chartArea.bottom
+      );
+      g.addColorStop(0, b.from);
+      g.addColorStop(1, b.to);
+      return g;
+    });
+  },
+};
+
+// labels internas exibindo percentual
+const sjDonutLabels = {
+  id: "sjDonutLabels",
+  afterDatasetsDraw(chart, args, opts) {
+    const meta = chart.getDatasetMeta(0);
+    const data = chart.data.datasets[0].data;
+    const labels = chart.data.labels;
+    const total = data.reduce((s, v) => s + Number(v), 0);
+
+    const { ctx } = chart;
+    ctx.save();
+    ctx.fillStyle = "#e8f5e9";
+    ctx.font = "11px system-ui";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    meta.data.forEach((arc, idx) => {
+      const raw = Number(data[idx]);
+      if (raw <= 0) return;
+
+      const percentage = ((raw / total) * 100).toFixed(0) + "%";
+
+      const angle = (arc.startAngle + arc.endAngle) / 2;
+      const radius = (arc.innerRadius + arc.outerRadius) / 2;
+
+      const x = arc.x + Math.cos(angle) * radius;
+      const y = arc.y + Math.sin(angle) * radius;
+
+      ctx.fillText(percentage, x, y);
+    });
+
+    ctx.restore();
+  },
+};
+
+// === Plugins visuais para o gráfico de evolução diária ===
+const glowPlugin = {
+  id: "sjGlow",
+  beforeDatasetsDraw(chart, args, opts) {
+    const { ctx } = chart;
+    const glowDatasets = chart.data.datasets || [];
+
+    glowDatasets.forEach((dataset, datasetIndex) => {
+      if (!dataset._glow) return;
+
+      const meta = chart.getDatasetMeta(datasetIndex);
+      if (!meta || !meta.data || !meta.data.length) return;
+
+      ctx.save();
+      ctx.shadowColor = dataset._glow.color || "rgba(102,187,106,0.7)";
+      ctx.shadowBlur = dataset._glow.blur || 18;
+      ctx.lineWidth = (dataset.borderWidth || 2) + 1;
+      ctx.strokeStyle = dataset.borderColor;
+
+      ctx.beginPath();
+      meta.data.forEach((pt, i) => {
+        if (!pt || typeof pt.x !== "number" || typeof pt.y !== "number") return;
+        if (i === 0) ctx.moveTo(pt.x, pt.y);
+        else ctx.lineTo(pt.x, pt.y);
+      });
+      ctx.stroke();
+      ctx.restore();
+    });
+  },
+};
+
+const gradientFillPlugin = {
+  id: "sjGradientFill",
+  beforeDatasetsDraw(chart, args, opts) {
+    const { ctx, chartArea } = chart;
+    if (!chartArea) return;
+
+    const { top, bottom } = chartArea;
+
+    chart.data.datasets.forEach((dataset) => {
+      if (!dataset._gradient) return;
+
+      const gradient = ctx.createLinearGradient(0, top, 0, bottom);
+      const stops =
+        dataset._gradient.stops ||
+        [
+          { offset: 0, color: "rgba(102,187,106,0.5)" },
+          { offset: 1, color: "rgba(102,187,106,0.02)" },
+        ];
+
+      stops.forEach((s) => gradient.addColorStop(s.offset, s.color));
+      dataset.backgroundColor = gradient;
+    });
+  },
+};
+
+// Formatação BRL para tooltip
+const sjBRL = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+});
+
 
 (function () {
   ("use strict");
@@ -127,9 +316,6 @@
     }
   }
 
-
-  
-
   // --------- Evolução diária (linhas)
   // EXPÕE NO GLOBAL:
   // (cole exatamente isso no lugar da sua função atual)
@@ -151,7 +337,9 @@
       }
       try {
         Chart.getChart(canvas)?.destroy();
-      } catch {/* */}
+      } catch {
+        /* */
+      }
       return;
     }
     if (empty) empty.hidden = true;
@@ -188,6 +376,24 @@
       /* */
     }
 
+    // === Série de média móvel 7 dias da Receita (R) ===
+    const R_media7 = (function () {
+      if (!Array.isArray(R)) return [];
+
+      return R.map((_, idx) => {
+        if (idx < 6) return null; // primeiros 6 dias sem média
+
+        let soma = 0;
+        let count = 0;
+        for (let j = idx - 6; j <= idx; j++) {
+          const v = Number(R[j]) || 0;
+          soma += v;
+          count++;
+        }
+        return +(soma / count).toFixed(2);
+      });
+    })();
+
     // cria novo gráfico
     new Chart(canvas, {
       type: "line",
@@ -197,35 +403,65 @@
           {
             label: "Receitas",
             data: R,
-            borderColor: "#2e7d32",
-            backgroundColor: "rgba(46,125,50,0.15)",
-            borderWidth: 3,
-            tension: 0.3,
-            pointRadius: 3,
-            pointBackgroundColor: "#2e7d32",
-            fill: false,
+            borderColor: "#66bb6a",
+            backgroundColor: "rgba(102,187,106,0.18)", // vai ser sobrescrito pelo gradiente
+            borderWidth: 2,
+            tension: 0.35,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            fill: true,
+            spanGaps: true,
+            _glow: {
+              color: "rgba(255,202,40,0.25)",
+              blur: 10,
+            },
+            _gradient: {
+              stops: [
+                { offset: 0, color: "rgba(102,187,106,0.55)" },
+                { offset: 1, color: "rgba(102,187,106,0.02)" },
+              ],
+            },
           },
           {
             label: "Despesas",
             data: D,
-            borderColor: "#d32f2f",
-            backgroundColor: "rgba(211,47,47,0.15)",
-            borderWidth: 3,
-            tension: 0.3,
-            pointRadius: 3,
-            pointBackgroundColor: "#d32f2f",
-            fill: false,
+            borderColor: "#ef5350",
+            backgroundColor: "rgba(239,83,80,0.15)",
+            borderWidth: 2,
+            tension: 0.35,
+            pointRadius: 0,
+            pointHoverRadius: 4,
+            fill: true,
+            spanGaps: true,
           },
           {
             label: "Saldo",
             data: S,
-            borderColor: "#f9a825",
-            backgroundColor: "rgba(249,168,37,0.15)",
+            borderColor: "#ffca28",
+            backgroundColor: "rgba(255,202,40,0.08)",
             borderWidth: 3,
-            tension: 0.3,
-            pointRadius: 3,
-            pointBackgroundColor: "#f9a825",
+            tension: 0.35,
+            pointRadius: 0,
+            pointHoverRadius: 4,
             fill: false,
+            spanGaps: true,
+            _glow: {
+              color: "rgba(255,202,40,0.45)",
+              blur: 16,
+            },
+          },
+          {
+            label: "Média móvel (7d)",
+            data: R_media7,
+            borderColor: "#80deea",
+            backgroundColor: "rgba(128,222,234,0.05)",
+            borderWidth: 2,
+            borderDash: [6, 6],
+            tension: 0.35,
+            pointRadius: 0,
+            pointHoverRadius: 0,
+            fill: false,
+            spanGaps: true,
           },
         ],
       },
@@ -236,7 +472,7 @@
         plugins: {
           legend: {
             position: "bottom",
-            labels: { color: "#1b5e20", font: { size: 13 } },
+            labels: { color: "#c8e6c9", font: { size: 13 } },
           },
           tooltip: {
             backgroundColor: "#fff",
@@ -245,9 +481,21 @@
             titleColor: "#1b5e20",
             bodyColor: "#1b5e20",
             callbacks: {
-              label: (ctx) => {
-                const v = Number(ctx.parsed.y || 0);
-                return `${ctx.dataset.label}: R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
+              title(items) {
+                // primeira linha do tooltip = data (label do eixo X)
+                const item = items[0];
+                return item.label || "";
+              },
+              label(ctx) {
+                const label = ctx.dataset.label || "";
+                const v = ctx.parsed.y;
+                if (v == null) return null;
+
+                const valor = Number(v).toLocaleString("pt-BR", {
+                  minimumFractionDigits: 2,
+                });
+
+                return `${label}: R$ ${valor}`;
               },
             },
           },
@@ -269,6 +517,16 @@
               callback: (v) => Number(v).toLocaleString("pt-BR"),
             },
           },
+        },
+      },
+      plugins: [glowPlugin, gradientFillPlugin],
+      animation: {
+        duration: 900,
+        easing: "easeOutQuart",
+        delay(ctx) {
+          const i = ctx.dataIndex ?? 0;
+          const ds = ctx.datasetIndex ?? 0;
+          return (i + ds) * 25; // efeito de "onda" na entrada
         },
       },
     });
@@ -318,21 +576,71 @@
               "#80cbc4",
               "#4db6ac",
             ],
-            borderColor: "#ffffff",
-            borderWidth: 2,
+            borderColor: "#020b06", // borda mais escura, bem discreta
+            borderWidth: 3, // um pouco mais grossa
+            hoverOffset: 12, // “salta” mais quando passa o mouse
           },
         ],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        parsing: false,
         cutout: "65%",
-        plugins: { legend: { position: "bottom" } },
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: {
+              color: "#c8e6c9",
+              usePointStyle: true,
+              padding: 18,
+              font: { size: 12 },
+            },
+          },
+          tooltip: {
+            backgroundColor: "rgba(0,0,0,0.9)",
+            borderColor: "#66bb6a",
+            borderWidth: 1,
+            titleColor: "#e8f5e9",
+            bodyColor: "#e8f5e9",
+            cornerRadius: 8,
+            padding: 10,
+            callbacks: {
+              label(ctx) {
+                const label = ctx.label || "";
+                const v = Number(ctx.parsed) || 0;
+
+                const total = ctx.chart.data.datasets[0].data.reduce(
+                  (a, b) => a + Number(b),
+                  0
+                );
+
+                const perc = total ? ((v / total) * 100).toFixed(1) : "0.0";
+
+                const valor = v.toLocaleString("pt-BR", {
+                  minimumFractionDigits: 2,
+                });
+
+                return `${label}: R$ ${valor} (${perc}%)`;
+              },
+            },
+          },
+        },
+        animation: {
+          animateRotate: true,
+          animateScale: true,
+          duration: 900,
+          easing: "easeOutQuart",
+        },
       },
+      // AGORA sim usando os plugins de donut:
+      plugins: [
+        sjDonutInnerShadow,
+        sjDonutGradient,
+        sjDonutLabels,
+        sjDonutHighlight,
+      ],
     });
   }
-
   // --------- Atualiza card resumo (reutilizável)
   function __updateCardResumo(origem) {
     var box = document.getElementById("cardResumoMes");
@@ -642,6 +950,30 @@
             if (vRec) vRec.textContent = "—";
             if (vDes) vDes.textContent = "—";
           });
+      })();
+
+      // === Série de média móvel 7 dias da Receita (R) ===
+      // === Série de média móvel 7 dias da Receita (R) ===
+      const R_media7 = (function () {
+        if (!Array.isArray(R)) return [];
+
+        return R.map((_, idx) => {
+          // só começa a partir do 7º ponto
+          if (idx < 6) return null;
+
+          let soma = 0;
+          let count = 0;
+
+          for (let j = idx - 6; j <= idx; j++) {
+            const v = Number(R[j]) || 0;
+            if (v <= 0) continue; // ignora dias sem movimento real
+            soma += v;
+            count++;
+          }
+
+          if (!count) return null; // se só tinha zero, não plota nada
+          return +(soma / count).toFixed(2);
+        });
       })();
 
       // ----- gráfico de linhas (normalizado em Reais) -----
@@ -1005,52 +1337,93 @@
   // expõe função de humor para debug no console
   window.__sjApplyMoodFromSaldo = __sjApplyMoodFromSaldo;
 
-  document
-    .getElementById("btnGerarDica")
-    ?.addEventListener("click", async () => {
-      try {
-        // função auxiliar para pegar o token CSRF
-        async function getCsrfToken() {
-          const meta = document.querySelector('meta[name="csrf-token"]');
-          if (meta) return meta.content;
-          const match = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
-          return match ? decodeURIComponent(match[2]) : "";
-        }
+  // expõe função de humor para debug no console
+  window.__sjApplyMoodFromSaldo = __sjApplyMoodFromSaldo;
 
-        // faz o POST para gerar a análise 30d com o token CSRF correto
-        const r = await fetch("/financeiro/ia/analise/gerar/", {
+  // === Botões "Gerar nova dica" (azul em cima + verdinho do histórico) ===
+  document.addEventListener("DOMContentLoaded", function () {
+   const ids = ["btnGerarDica", "btnGerarDicaSimples"]; // azul (topo) + verde (histórico)
+
+    const botoes = ids.map((id) => document.getElementById(id)).filter(Boolean);
+
+    if (!botoes.length) return;
+
+    async function getCsrfToken() {
+      const meta = document.querySelector('meta[name="csrf-token"]');
+      if (meta && meta.content) return meta.content;
+      const match = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
+      return match ? decodeURIComponent(match[2]) : "";
+    }
+
+    async function handleClick(ev) {
+      if (!ev.isTrusted) return;
+      const btn = ev.currentTarget;
+
+      const oldLabel = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = "Gerando…";
+
+      try {
+        const r = await fetch("/financeiro/ia/gerar_dica_30d/", {
           method: "POST",
           headers: {
             "X-CSRFToken": await getCsrfToken(),
             "X-Requested-With": "XMLHttpRequest",
+            Accept: "application/json",
+            "Content-Type": "application/json",
           },
           credentials: "same-origin",
+          body: JSON.stringify({ origem: btn.id || "btnGerarDica" }),
         });
 
         if (!r.ok) {
           const text = await r.text();
-          console.error("⚠️ Erro ao gerar análise:", r.status, text);
-          throw new Error(`HTTP ${r.status}`);
+          console.error("⚠️ Erro ao gerar dica 30d:", r.status, text);
+          throw new Error("HTTP " + r.status);
         }
 
         const j = await r.json();
         if (!j.ok) throw new Error("Falha ao salvar dica");
-        console.log("💾 Dica salva:", j.salvo);
+        console.log("💾 Dica salva (GerarNovaDica):", j.salvo);
 
-        // recarregar o histórico atual mantendo o filtro escolhido
-        if (window.carregarHistorico) {
-          await window.carregarHistorico(
-            20,
-            window.__FILTRO_HISTORICO_ATUAL || "todas",
-            false
-          );
+        // 1) Atualiza texto da dica no card principal (se existir)
+        const box = document.getElementById("iaTurboTexto");
+        if (box) {
+          box.textContent =
+            (j.salvo && j.salvo.texto) ||
+            j.texto ||
+            j.dica ||
+            "Nenhuma dica retornada.";
         }
 
-        // opcional: toast ou feedback visual
-        // showToast("✅ Dica gerada e salva no histórico!");
+        // 2) Marca ID para destacar no histórico
+        if (j.salvo && j.salvo.id != null) {
+          window.__LAST_DICA_ID__ = j.salvo.id;
+        }
+
+        // 3) Recarrega o histórico com o filtro atual
+        if (typeof window.carregarHistorico === "function") {
+          const filtroAtual =
+            (window.__HistoricoIA && window.__HistoricoIA.filtro) || "";
+          await window.carregarHistorico(20, filtroAtual, false);
+        }
       } catch (e) {
-        console.error("💥 Erro no processo de geração da dica:", e);
-        // showToast("❌ Erro ao gerar dica");
+        console.error(
+          "💥 Erro no processo de geração da dica (GerarNovaDica):",
+          e
+        );
+        alert("Não consegui gerar a dica agora. Tente novamente em instantes.");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = oldLabel;
       }
+    }
+
+    // liga o MESMO handler em todos os botões encontrados
+    botoes.forEach((btn) => {
+      btn.addEventListener("click", handleClick);
     });
+  });
 })();
+
+

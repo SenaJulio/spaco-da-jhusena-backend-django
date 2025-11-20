@@ -188,6 +188,40 @@ def _fallback_classify(txt: str) -> str:
     return "neutra"
 
 
+def map_tipo_textual(texto: str) -> str:
+    """
+    Normaliza o texto de dica em:
+      - 'positiva'
+      - 'alerta'
+      - 'neutra'
+
+    Usa, na ordem:
+      1) map_tipo_oficial (se existir)
+      2) _map_tipo_texto (helper local)
+      3) _fallback_classify (hardcorezão)
+    """
+    tx = (texto or "").strip()
+    if not tx:
+        return "neutra"
+
+    # 1) tenta o classificador oficial (importado lá em cima com fallback)
+    try:
+        k = map_tipo_oficial(tx)
+    except NameError:
+        k = ""
+
+    if k in ("positiva", "alerta", "neutra"):
+        return k
+
+    # 2) tenta o helper local
+    k2 = _map_tipo_texto(tx)
+    if k2 in ("positiva", "alerta", "neutra"):
+        return k2
+
+    # 3) fallback hardcore
+    return _fallback_classify(tx)
+
+
 # -----------------------------------------------------------------------------
 # Helpers
 # -----------------------------------------------------------------------------
@@ -274,12 +308,30 @@ from ia.services.analysis import analisar_30d_dict  # já existe e funciona
 @login_required
 def gerar_dica_30d(request):
     try:
+        # 1) calcula métricas dos últimos 30 dias
         metrics = analisar_30d_dict(Transacao, request.user)
-        dica = metrics.get("plano_acao") or metrics.get("mensagem") or ""
-        saved_id = None  # se quiser salvar em RecomendacaoIA depois, pode incluir
+        dica = (metrics.get("plano_acao") or metrics.get("mensagem") or "").strip()
+
+        # classifica a dica em positiva/alerta/neutra (já existe no seu código)
+        tipo_classificado = map_tipo_ia(dica)
+
+        # 2) SALVA NO HISTÓRICO (RecomendacaoIA)
+        #    assim o feed /ia/historico/feed/v2 passa a enxergar essa dica
+        rec = RecomendacaoIA.objects.create(
+            usuario=request.user,
+            texto=dica,
+            # aqui você pode usar tanto "economia/alerta/oportunidade/meta"
+            # quanto "positiva/alerta/neutra". Como o frontend trabalha com
+            # positiva/alerta/neutra, vamos guardar exatamente esse valor:
+            tipo=tipo_classificado or "economia",
+        )
+        saved_id = rec.id
+        criado_em = rec.criado_em
+
     except Exception as e:
         return JsonResponse({"ok": False, "error": str(e)}, status=500)
 
+    # período analisado
     ps_str = (metrics.get("periodo") or {}).get("inicio") if isinstance(metrics, dict) else None
     pe_str = (metrics.get("periodo") or {}).get("fim") if isinstance(metrics, dict) else None
     try:
@@ -288,16 +340,21 @@ def gerar_dica_30d(request):
     except Exception:
         ps = pe = timezone.localdate()
 
-    agora = timezone.localtime()
+    # se por algum motivo der erro lá em cima, garante um datetime
+    if "criado_em" not in locals():
+        criado_em = timezone.localtime()
 
     payload = {
         "ok": True,
         "salvo": {
             "id": saved_id,
-            "tipo": map_tipo_ia(dica),
-            "texto": (dica or "").strip(),
-            "text": (dica or "").strip(),
-            "created_at": agora.strftime("%d/%m/%Y %H:%M"),
+            "tipo": tipo_classificado,
+            "texto": dica,
+            "text": dica,
+            # o historico_ia.js consegue entender esse formato dd/mm/aaaa HH:MM
+            "created_at": criado_em.strftime("%d/%m/%Y %H:%M"),
+            "criado_em": criado_em.strftime("%d/%m/%Y %H:%M"),
+            "criado_em_fmt": criado_em.strftime("%d/%m/%Y %H:%M"),
             "metrics": metrics,
             "periodo": {"inicio": str(ps), "fim": str(pe)},
         },

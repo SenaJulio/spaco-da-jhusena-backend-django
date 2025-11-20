@@ -145,7 +145,6 @@
     p.className = "mt-2 mb-2";
     p.style.whiteSpace = "pre-wrap";
 
-    // 🌈 cor da frase por tipo
     if (tipo === "positiva") {
       p.classList.add("ia-text-positiva");
     } else if (tipo === "alerta") {
@@ -155,7 +154,6 @@
     }
 
     p.appendChild(textNode(texto));
-
 
     const foot = document.createElement("div");
     foot.className = "text-muted small";
@@ -253,7 +251,6 @@
       return;
     }
 
-
     renderListaSafe(container, filtered);
 
     const lastId = globalThis.__LAST_DICA_ID__ ?? null;
@@ -299,7 +296,6 @@
     if (typeof performance === "undefined") return false;
     const elapsed = performance.now() - LOAD_TS;
 
-    // Evita filtros logo no comecinho do load
     if (
       elapsed < 1500 &&
       (t === "neutra" || t === "alerta" || t === "positiva")
@@ -448,7 +444,7 @@
         _offsetAtual = items.length;
       }
     } else if (!args.append) {
-      allItems = prevItems; // preserva
+      allItems = prevItems;
       _offsetAtual = prevOffset;
     }
 
@@ -640,7 +636,6 @@
     const buttons = document.querySelectorAll("[data-ia-filtro],[data-filter]");
     if ((buttons?.length ?? 0) <= 0) return;
 
-    // Remove listeners antigos duplicados
     const clones = [];
     for (const btn of buttons) clones.push(btn.cloneNode(true));
     let idx = 0;
@@ -683,9 +678,10 @@
   }
 
   function bindGerarDica() {
+    // ⚠️ IMPORTANTE:
+    // btnTurbo é tratado em mini_ia.js (Mini-IA).
+    // Aqui só lidamos com outros botões que também geram dica 30d.
     const endpoints = [
-      document.getElementById("btnTurbo"),
-      document.getElementById("btnGerarDica"),
       document.getElementById("btnGerarDica30d"),
       document.getElementById("btnGerarNovaDica"),
     ].filter(Boolean);
@@ -714,6 +710,10 @@
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const json = await r.json();
         log("⚡ dica gerada:", json);
+
+        // marca ID para destaque
+        globalThis.__LAST_DICA_ID__ = json?.salvo?.id || json?.id || null;
+
         lastHistUrl = "";
         _allowFilteredUntil = (performance?.now?.() ?? 0) + FILTER_GRACE_MS;
         await globalThis.__HistoricoIA.recarregar();
@@ -800,7 +800,6 @@
     FEED_URL = fromData;
     log("FEED_URL =", FEED_URL);
 
-    // elementos de UI
     const badgeEl = document.getElementById("badgeNovasDicas");
     const btnReload =
       document.getElementById("btnReloadDicas") ||
@@ -817,7 +816,6 @@
 
     lastSeenAt = localStorage.getItem(KEY_LAST_SEEN) || null;
 
-    // binds isolados
     bindModalMirror(list);
     const btnVerMais = ensureVerMaisButton(list);
     onVerMaisClick(btnVerMais);
@@ -827,7 +825,6 @@
     bindGerarDica();
     bindModalReload();
 
-    // botões de filtro rápidos (compat com HTML atual)
     const quick = {
       todas: document.getElementById("btnTodas"),
       positivas: document.getElementById("btnPositivas"),
@@ -839,20 +836,18 @@
     bindQuickFilter(quick.alertas, "alerta");
     bindQuickFilter(quick.neutras, "neutra");
 
-    // ações dos botões principais
     btnReload?.addEventListener("click", () =>
       globalThis.__HistoricoIA.recarregar()
     );
 
-    // boot inicial
     (async () => {
       await globalThis.carregarHistorico(PREVIEW_LIMIT, null);
       startAutoRefresh();
       const cont = document.getElementById("listaHistorico");
-      renderLista(cont, countersEls, badgeEl);
+      const badge = document.getElementById("badgeNovasDicas");
+      renderLista(cont, countersEls, badge);
     })();
 
-    // diagnóstico simples
     (function diag() {
       const req = {
         listaHistorico: !!document.getElementById("listaHistorico"),
