@@ -50,7 +50,7 @@ INSTALLED_APPS = [
     "produtos",
     "servicos",
     "agendamentos",
-    "vendas",
+    "vendas.apps.VendasConfig",
     "usuarios",
     "relatorios",
     "core",
