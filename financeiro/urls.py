@@ -60,7 +60,7 @@ urlpatterns = [
     path("ia/analise/preview/", v.ia_analise_30d_preview, name="ia_analise_30d_preview"),
     path("ia/analise/gerar/", v.ia_analise_30d_gerar, name="ia_analise_30d_gerar"),
     path("ia/gerar_dica_30d/", v.gerar_dica_30d, name="api_generate_tip_30d"),  # usado pelo JS
-    # Histórico (v2 é o usado pelo historico_ia.js)    
+    # Histórico (v2 é o usado pelo historico_ia.js)
     path("ia/historico/feed/v2/", v.ia_historico_feed_v2, name="ia_historico_feed_v2"),
     path("ia/historico/feed/", v.ia_historico_feed, name="ia_historico_feed"),
     path("ia/historico/", v.ia_historico, name="ia_historico"),
@@ -77,4 +77,9 @@ urlpatterns = [
     path("ia/dica30d/", ia_gerar_dica_30d, name="ia_dica30d"),
     path("ia/resumo_mensal/", v.ia_resumo_mensal, name="ia_resumo_mensal"),
     path("ia/resumo-mensal/", v.ia_resumo_mensal, name="ia_resumo_mensal_dash"),
+    path(
+        "ia/gerar_dica_sob_demanda/",
+        v.gerar_dica_sob_demanda,
+        name="ia_gerar_dica_sob_demanda",
+    ),
 ]
