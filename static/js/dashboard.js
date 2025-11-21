@@ -1,9 +1,9 @@
 /* eslint-disable no-unused-vars */
 /* ==========================================================================
  * Spaço da Jhuséna — dashboard.js (versão estável, ES5)
- * Data: 2025-11-06
  * ==========================================================================*/
 /* global Chart */
+
 // === Plugins visuais do donut "Por categoria" ===
 
 // sombra interna leve no centro
@@ -50,10 +50,7 @@ const sjDonutHighlight = {
     const { x, y, innerRadius } = arc;
 
     ctx.save();
-    const grad = ctx.createRadialGradient(
-      x, y, 0,
-      x, y, innerRadius * 0.9
-    );
+    const grad = ctx.createRadialGradient(x, y, 0, x, y, innerRadius * 0.9);
     grad.addColorStop(0, "rgba(255,255,255,0.22)");
     grad.addColorStop(0.6, "rgba(255,255,255,0.05)");
     grad.addColorStop(1, "rgba(255,255,255,0)");
@@ -66,7 +63,6 @@ const sjDonutHighlight = {
     ctx.restore();
   },
 };
-
 
 // gradiente suave em cada fatia
 const sjDonutGradient = {
@@ -85,10 +81,7 @@ const sjDonutGradient = {
 
     dataset.backgroundColor = dataset.data.map((_, i) => {
       const b = baseColors[i % baseColors.length];
-      const g = ctx.createLinearGradient(
-        0, chartArea.top,
-        0, chartArea.bottom
-      );
+      const g = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
       g.addColorStop(0, b.from);
       g.addColorStop(1, b.to);
       return g;
@@ -174,12 +167,10 @@ const gradientFillPlugin = {
       if (!dataset._gradient) return;
 
       const gradient = ctx.createLinearGradient(0, top, 0, bottom);
-      const stops =
-        dataset._gradient.stops ||
-        [
-          { offset: 0, color: "rgba(102,187,106,0.5)" },
-          { offset: 1, color: "rgba(102,187,106,0.02)" },
-        ];
+      const stops = dataset._gradient.stops || [
+        { offset: 0, color: "rgba(102,187,106,0.5)" },
+        { offset: 1, color: "rgba(102,187,106,0.02)" },
+      ];
 
       stops.forEach((s) => gradient.addColorStop(s.offset, s.color));
       dataset.backgroundColor = gradient;
@@ -192,7 +183,6 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
 });
-
 
 (function () {
   ("use strict");
@@ -317,8 +307,6 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
   }
 
   // --------- Evolução diária (linhas)
-  // EXPÕE NO GLOBAL:
-  // (cole exatamente isso no lugar da sua função atual)
   window.montarGraficoEvolucao = function montarGraficoEvolucao(
     dias,
     receitas,
@@ -369,13 +357,6 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
       }
     }
 
-    // destrói gráfico anterior
-    try {
-      Chart.getChart(canvas)?.destroy();
-    } catch {
-      /* */
-    }
-
     // === Série de média móvel 7 dias da Receita (R) ===
     const R_media7 = (function () {
       if (!Array.isArray(R)) return [];
@@ -394,7 +375,13 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
       });
     })();
 
-    // cria novo gráfico
+    // destrói gráfico anterior
+    try {
+      Chart.getChart(canvas)?.destroy();
+    } catch {
+      /* */
+    }
+
     new Chart(canvas, {
       type: "line",
       data: {
@@ -404,7 +391,7 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
             label: "Receitas",
             data: R,
             borderColor: "#66bb6a",
-            backgroundColor: "rgba(102,187,106,0.18)", // vai ser sobrescrito pelo gradiente
+            backgroundColor: "rgba(102,187,106,0.18)",
             borderWidth: 2,
             tension: 0.35,
             pointRadius: 0,
@@ -482,7 +469,6 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
             bodyColor: "#1b5e20",
             callbacks: {
               title(items) {
-                // primeira linha do tooltip = data (label do eixo X)
                 const item = items[0];
                 return item.label || "";
               },
@@ -526,7 +512,7 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
         delay(ctx) {
           const i = ctx.dataIndex ?? 0;
           const ds = ctx.datasetIndex ?? 0;
-          return (i + ds) * 25; // efeito de "onda" na entrada
+          return (i + ds) * 25;
         },
       },
     });
@@ -576,9 +562,9 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
               "#80cbc4",
               "#4db6ac",
             ],
-            borderColor: "#020b06", // borda mais escura, bem discreta
-            borderWidth: 3, // um pouco mais grossa
-            hoverOffset: 12, // “salta” mais quando passa o mouse
+            borderColor: "#020b06",
+            borderWidth: 3,
+            hoverOffset: 12,
           },
         ],
       },
@@ -632,7 +618,6 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
           easing: "easeOutQuart",
         },
       },
-      // AGORA sim usando os plugins de donut:
       plugins: [
         sjDonutInnerShadow,
         sjDonutGradient,
@@ -641,6 +626,7 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
       ],
     });
   }
+
   // --------- Atualiza card resumo (reutilizável)
   function __updateCardResumo(origem) {
     var box = document.getElementById("cardResumoMes");
@@ -689,7 +675,6 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
   function __sjApplyMoodFromSaldo(saldo) {
     var tipo = saldo > 0 ? "positiva" : saldo < 0 ? "alerta" : "neutra";
 
-    // Badge dinâmica
     var b = document.getElementById("a30_tipo_badge");
     if (b) {
       b.style.display = "inline-block";
@@ -716,7 +701,6 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
       }
     }
 
-    // Bordas dos KPIs
     var cards = document.querySelectorAll("#analise30dKPIs .border");
     for (var i = 0; i < cards.length; i++) {
       var el = cards[i];
@@ -798,7 +782,6 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
       console.log("[recarregar] payload", j);
       console.log("🍕 categorias/valores:", j.categorias, j.valores);
 
-      // --------- resumo (src) + mood + card + KPIs ---------
       var toNum = function (v) {
         return typeof v === "number"
           ? v
@@ -841,7 +824,6 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
         if (kpis) kpis.style.display = "";
       })();
 
-      // Margem (preferir mês corrente se houver) — com UX para 100% (saldo total)
       (function () {
         var elM = document.getElementById("a30_margem");
         if (!elM) return;
@@ -852,7 +834,6 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
 
         if (rTot > 0) {
           var pct = (sTot / rTot) * 100;
-          // Se saldo == receitas (sem despesas), mostrar “100 % (saldo total)”
           if (pct >= 99.9) {
             elM.textContent = "100 % (saldo total)";
           } else {
@@ -952,40 +933,13 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
           });
       })();
 
-      // === Série de média móvel 7 dias da Receita (R) ===
-      // === Série de média móvel 7 dias da Receita (R) ===
-      const R_media7 = (function () {
-        if (!Array.isArray(R)) return [];
-
-        return R.map((_, idx) => {
-          // só começa a partir do 7º ponto
-          if (idx < 6) return null;
-
-          let soma = 0;
-          let count = 0;
-
-          for (let j = idx - 6; j <= idx; j++) {
-            const v = Number(R[j]) || 0;
-            if (v <= 0) continue; // ignora dias sem movimento real
-            soma += v;
-            count++;
-          }
-
-          if (!count) return null; // se só tinha zero, não plota nada
-          return +(soma / count).toFixed(2);
-        });
-      })();
-
-      // ----- gráfico de linhas (normalizado em Reais) -----
       var dias = Array.isArray(j.dias) ? j.dias : [];
 
-      // normaliza array numérico vindo do backend (corrige centavos)
       function __sjNormArray(arr) {
         if (!Array.isArray(arr)) return [];
         var out = [];
         for (var i = 0; i < arr.length; i++) {
           var v = arr[i];
-          // parse seguro
           var n =
             typeof v === "number" && isFinite(v)
               ? v
@@ -996,8 +950,6 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
                 );
           if (!isFinite(n)) n = 0;
 
-          // Heurística de centavos:
-          // se é inteiro e grande (>= 1000), assume que veio em centavos e divide por 100
           if (Math.abs(n) >= 1000 && Math.floor(n) === n) {
             n = n / 100;
           }
@@ -1010,7 +962,6 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
       var D = __sjNormArray(j.despesas || []);
       var S;
 
-      // se o backend já mandar saldo diário, normaliza; senão calcula acumulado (R-D)
       if (Array.isArray(j.saldo) && j.saldo.length === dias.length) {
         S = __sjNormArray(j.saldo);
       } else {
@@ -1024,7 +975,6 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
 
       window.montarGraficoEvolucao(dias, R, D, S);
 
-      // ----- gráfico de pizza -----
       if (cvCat) {
         var hasCats =
           Array.isArray(j.categorias) &&
@@ -1075,7 +1025,7 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
     }
   }
 
-  // expõe para o console (mantém seu atalho)
+  // expõe para o console
   window.__SJ_DASH_DEV__ = Object.assign(window.__SJ_DASH_DEV__ || {}, {
     reload: recarregar,
     evol: window.montarGraficoEvolucao,
@@ -1084,7 +1034,6 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
 
   // ============================ BOOT ===========================
   document.addEventListener("DOMContentLoaded", function () {
-    // datas padrão
     var elIni =
       document.querySelector("#filtroInicio") ||
       document.querySelector("#data_inicio");
@@ -1095,7 +1044,6 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
     if (elIni && !elIni.value) elIni.value = firstDayOfMonth(hoje);
     if (elFim && !elFim.value) elFim.value = fmtYMD(hoje);
 
-    // hidratar categorias (se houver select)
     if (FEATURES.HYDRATE_CATEGORY_SELECT) {
       var sel = document.getElementById("filtroCategoria");
       if (sel && sel.dataset.hydrated !== "1") {
@@ -1139,7 +1087,6 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
       }
     }
 
-    // eventos de filtro — sincroniza card + gráficos automaticamente
     var fireReload = debounce(function () {
       console.log("⚙️ Filtros alterados — recarregando dashboard completo...");
       recarregar();
@@ -1152,7 +1099,6 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
       el.addEventListener("input", fireReload);
     });
 
-    // botão aplicar
     var btn =
       document.getElementById("btnAplicarFiltros") ||
       document.getElementById("filtrar-btn");
@@ -1165,7 +1111,6 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
       });
     }
 
-    // primeira carga
     recarregar();
   });
 
@@ -1337,16 +1282,12 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
   // expõe função de humor para debug no console
   window.__sjApplyMoodFromSaldo = __sjApplyMoodFromSaldo;
 
-  // expõe função de humor para debug no console
-  window.__sjApplyMoodFromSaldo = __sjApplyMoodFromSaldo;
-
   // === Botões "Gerar nova dica" (azul em cima + verdinho do histórico) ===
   document.addEventListener("DOMContentLoaded", function () {
-   const ids = ["btnGerarDica", "btnGerarDicaSimples"]; // azul (topo) + verde (histórico)
+    const btnTurbo = document.getElementById("btnGerarDica"); // botão azul (Mini-IA)
+    const btnSimples = document.getElementById("btnGerarDicaSimples"); // botão verde (histórico)
 
-    const botoes = ids.map((id) => document.getElementById(id)).filter(Boolean);
-
-    if (!botoes.length) return;
+    if (!btnTurbo && !btnSimples) return;
 
     async function getCsrfToken() {
       const meta = document.querySelector('meta[name="csrf-token"]');
@@ -1355,16 +1296,20 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
       return match ? decodeURIComponent(match[2]) : "";
     }
 
-    async function handleClick(ev) {
-      if (!ev.isTrusted) return;
-      const btn = ev.currentTarget;
+    async function recarregarHistoricoComFiltroAtual() {
+      if (typeof window.carregarHistorico !== "function") return;
+      const filtroAtual =
+        (window.__HistoricoIA && window.__HistoricoIA.filtro) || "todas";
+      await window.carregarHistorico(20, filtroAtual, false);
+    }
 
+    async function gerarDica(path, origem, btn) {
       const oldLabel = btn.textContent;
       btn.disabled = true;
       btn.textContent = "Gerando…";
 
       try {
-        const r = await fetch("/financeiro/ia/gerar_dica_30d/", {
+        const r = await fetch(path, {
           method: "POST",
           headers: {
             "X-CSRFToken": await getCsrfToken(),
@@ -1373,45 +1318,37 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
             "Content-Type": "application/json",
           },
           credentials: "same-origin",
-          body: JSON.stringify({ origem: btn.id || "btnGerarDica" }),
+          body: JSON.stringify({ origem }),
         });
 
         if (!r.ok) {
           const text = await r.text();
-          console.error("⚠️ Erro ao gerar dica 30d:", r.status, text);
+          console.error("⚠️ Erro ao gerar dica:", r.status, text);
           throw new Error("HTTP " + r.status);
         }
 
         const j = await r.json();
         if (!j.ok) throw new Error("Falha ao salvar dica");
-        console.log("💾 Dica salva (GerarNovaDica):", j.salvo);
+        console.log("💾 Dica salva (" + origem + "):", j);
 
-        // 1) Atualiza texto da dica no card principal (se existir)
+        const texto =
+          (j.salvo && j.salvo.texto) ||
+          j.texto ||
+          j.dica ||
+          "Nenhuma dica retornada.";
+
+        const idRec = (j.salvo && j.salvo.id) || j.id || null;
+
         const box = document.getElementById("iaTurboTexto");
-        if (box) {
-          box.textContent =
-            (j.salvo && j.salvo.texto) ||
-            j.texto ||
-            j.dica ||
-            "Nenhuma dica retornada.";
+        if (box) box.textContent = texto;
+
+        if (idRec != null) {
+          window.__LAST_DICA_ID__ = idRec;
         }
 
-        // 2) Marca ID para destacar no histórico
-        if (j.salvo && j.salvo.id != null) {
-          window.__LAST_DICA_ID__ = j.salvo.id;
-        }
-
-        // 3) Recarrega o histórico com o filtro atual
-        if (typeof window.carregarHistorico === "function") {
-          const filtroAtual =
-            (window.__HistoricoIA && window.__HistoricoIA.filtro) || "";
-          await window.carregarHistorico(20, filtroAtual, false);
-        }
+        await recarregarHistoricoComFiltroAtual();
       } catch (e) {
-        console.error(
-          "💥 Erro no processo de geração da dica (GerarNovaDica):",
-          e
-        );
+        console.error("💥 Erro no processo de geração da dica:", e);
         alert("Não consegui gerar a dica agora. Tente novamente em instantes.");
       } finally {
         btn.disabled = false;
@@ -1419,11 +1356,22 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
       }
     }
 
-    // liga o MESMO handler em todos os botões encontrados
-    botoes.forEach((btn) => {
-      btn.addEventListener("click", handleClick);
-    });
+    if (btnTurbo) {
+      btnTurbo.addEventListener("click", function (ev) {
+        if (!ev.isTrusted) return;
+        gerarDica("/financeiro/ia/gerar_dica_30d/", btnTurbo.id, btnTurbo);
+      });
+    }
+
+    if (btnSimples) {
+      btnSimples.addEventListener("click", function (ev) {
+        if (!ev.isTrusted) return;
+        gerarDica(
+          "/financeiro/ia/gerar_dica_sob_demanda/",
+          btnSimples.id,
+          btnSimples
+        );
+      });
+    }
   });
 })();
-
-
