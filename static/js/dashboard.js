@@ -178,12 +178,6 @@ const gradientFillPlugin = {
   },
 };
 
-// Formatação BRL para tooltip
-const sjBRL = new Intl.NumberFormat("pt-BR", {
-  style: "currency",
-  currency: "BRL",
-});
-
 (function () {
   ("use strict");
 
@@ -219,7 +213,7 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
         Filler
       );
     } catch (_eReg) {
-      console.warn("Falha ao registrar elementos Chart.js:", _eReg);
+      /* registro Chart.js falhou; segue com defaults */
     }
   }
 
@@ -227,6 +221,7 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
   var FEATURES = { HYDRATE_CATEGORY_SELECT: true };
 
   // ======================= TEMA / CORES ========================
+
   function cssVar(name, fallback) {
     var v = getComputedStyle(document.documentElement).getPropertyValue(name);
     v = v ? v.trim() : "";
@@ -771,7 +766,6 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
         encodeURIComponent(ini) +
         "&fim=" +
         encodeURIComponent(fim);
-      console.log("[recarregar] GET", url);
 
       var r = await fetch(url, {
         headers: { Accept: "application/json" },
@@ -779,8 +773,6 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
       });
       if (!r.ok) throw new Error("HTTP_" + r.status);
       var j = await r.json();
-      console.log("[recarregar] payload", j);
-      console.log("🍕 categorias/valores:", j.categorias, j.valores);
 
       var toNum = function (v) {
         return typeof v === "number"
@@ -997,17 +989,6 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
           }
         }
       }
-
-      var ch = Chart.getChart(document.getElementById("graficoEvolucao"));
-      console.log(
-        "✅ linhas ok | pontos:",
-        R.length,
-        D.length,
-        S.length,
-        "| y-range:",
-        ch && ch.scales.y.min,
-        ch && ch.scales.y.max
-      );
     } catch (e) {
       console.error("recarregar() falhou:", e);
     } finally {
@@ -1088,7 +1069,6 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
     }
 
     var fireReload = debounce(function () {
-      console.log("⚙️ Filtros alterados — recarregando dashboard completo...");
       recarregar();
     }, 300);
 
@@ -1329,7 +1309,6 @@ const sjBRL = new Intl.NumberFormat("pt-BR", {
 
         const j = await r.json();
         if (!j.ok) throw new Error("Falha ao salvar dica");
-        console.log("💾 Dica salva (" + origem + "):", j);
 
         const texto =
           (j.salvo && j.salvo.texto) ||

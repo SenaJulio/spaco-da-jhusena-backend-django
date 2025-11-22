@@ -91,3 +91,4 @@ class MovimentoEstoque(models.Model):
 
     def __str__(self):
         return f"{self.get_tipo_display()} de {self.quantidade} de {self.produto}"
+   

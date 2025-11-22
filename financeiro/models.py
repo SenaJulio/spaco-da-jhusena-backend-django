@@ -15,6 +15,16 @@ class Transacao(models.Model):
     valor = models.DecimalField(max_digits=10, decimal_places=2)
     data = models.DateField()
 
+    # 🔗 ligação opcional com Venda
+    venda = models.ForeignKey(
+        "vendas.Venda",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="transacoes",
+        verbose_name="Venda relacionada",
+    )
+
     def __str__(self):
         return f"{self.descricao} - {self.tipo} - R$ {self.valor}"
 
