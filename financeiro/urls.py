@@ -11,6 +11,7 @@ from . import views_financeiro as views
 from . import views_financeiro as v
 from .views_financeiro import gerar_insight, listar_insights
 from .views_export import historico_ia_csv_v2
+from .views import api_enviar_whatsapp
 
 from .views_financeiro import (
     dashboard_financeiro,
@@ -82,4 +83,60 @@ urlpatterns = [
         v.gerar_dica_sob_demanda,
         name="ia_gerar_dica_sob_demanda",
     ),
+    path(
+        "ia/resumo-mensal/series/",
+        views.ia_resumo_mensal_series,
+        name="ia_resumo_mensal_series",
+    ),
+    path(
+        "ia/analise-mensal/preview/",
+        views.ia_analise_mensal_preview,
+        name="ia_analise_mensal_preview",
+    ),
+    path(
+        "metrics/ranking-categorias-mensal/",
+        views.ranking_categorias_mensal,
+        name="ranking_categorias_mensal",
+    ),
+    path(
+        "metrics/ranking-servicos-mensal/",
+        views.ranking_servicos_mensal,
+        name="ranking_servicos_mensal",
+    ),
+    path(
+        "metrics/crescimento-categoria/",
+        views.categoria_que_mais_cresceu,
+        name="categoria_que_mais_cresceu",
+    ),
+    path(
+        "metrics/despesas-fixas-variaveis/",
+        views.despesas_fixas_variaveis_mensal,
+        name="despesas_fixas_variaveis_mensal",
+    ),
+    path(
+        "ia/gerar_dica_30d/",
+        views.gerar_dica_30d,
+        name="gerar_dica_30d",
+    ),
+    path(
+        "ia/enviar_dica_30d/",
+        views.enviar_dica_30d,
+        name="enviar_dica_30d",
+    ),
+    path(
+        "ranking/servicos_mensal/",
+        views.ranking_servicos_mensal,
+        name="ranking_servicos_mensal",
+    ),
+    path(
+        "ia/alertas_periodos_criticos/",
+        views.ia_alertas_periodos_criticos,
+        name="ia_alertas_periodos_criticos",
+    ),
+    path(
+        "ia/resumo_mensal_series/",
+        views.ia_resumo_mensal_series,
+        name="ia_resumo_mensal_series",
+    ),
+    path("whatsapp/enviar/", api_enviar_whatsapp),
 ]

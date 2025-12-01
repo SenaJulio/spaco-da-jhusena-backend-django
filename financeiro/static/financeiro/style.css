@@ -554,3 +554,279 @@ body.sj-dark .chart-box {
   background: #020617;
   border-radius: 12px;
 }
+
+
+/* ============================
+ * Spaço da Jhuséna – Mini-IA
+ * ============================ */
+
+.sj-card-ia {
+  border-radius: 0.75rem;
+  border: 1px solid rgba(46, 125, 50, 0.18);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  background: radial-gradient(circle at top left, #f4fdf5 0, #ffffff 45%, #f9f9ff 100%);
+}
+
+.sj-badge-beta {
+  background: linear-gradient(135deg, #2e7d32, #4caf50);
+  color: #fff;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+}
+
+/* Texto principal da dica */
+.sj-ia-text {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #1b4332;
+}
+
+/* Lista de métricas */
+.sj-ia-metrics {
+  list-style: none;
+  padding-left: 0;
+}
+
+.sj-ia-metrics li {
+  margin-bottom: 0.15rem;
+}
+
+/* Chips de tipo */
+.sj-ia-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.05rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.sj-ia-chip-positive,
+.sj-ia-chip-positiva {
+  background-color: rgba(46, 204, 113, 0.12);
+  color: #218838;
+}
+
+.sj-ia-chip-alert,
+.sj-ia-chip-alerta {
+  background-color: rgba(231, 76, 60, 0.12);
+  color: #c0392b;
+}
+
+.sj-ia-chip-neutral,
+.sj-ia-chip-neutra {
+  background-color: rgba(52, 152, 219, 0.12);
+  color: #1d6fa5;
+}
+
+/* Estados do card conforme tipo */
+.sj-ia-card-positive {
+  border-color: rgba(46, 204, 113, 0.7);
+  box-shadow: 0 0 12px rgba(46, 204, 113, 0.35);
+}
+
+.sj-ia-card-alert {
+  border-color: rgba(231, 76, 60, 0.7);
+  box-shadow: 0 0 12px rgba(231, 76, 60, 0.35);
+}
+
+.sj-ia-card-neutral {
+  border-color: rgba(52, 152, 219, 0.7);
+  box-shadow: 0 0 12px rgba(52, 152, 219, 0.35);
+}
+
+/* Fade suave da dica */
+.sj-ia-fade {
+  animation: sjFadeInUp 0.45s ease-out forwards;
+}
+
+@keyframes sjFadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Barra de sucesso */
+.sj-ia-success-bar {
+  height: 4px;
+  background: linear-gradient(90deg, #20c997, #2ecc71);
+  border-radius: 999px;
+  animation: sjGrow 0.5s ease-out;
+}
+
+@keyframes sjGrow {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+/* Icone da IA girando enquanto processa */
+.sj-ia-spin {
+  display: inline-block;
+  animation: sjSpin 0.6s linear infinite;
+}
+
+@keyframes sjSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(180deg);
+  }
+}
+
+/* Container do resultado da IA */
+.sj-ia-result {
+  border-radius: 0.5rem;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 0.75rem 0.9rem;
+  border: 1px dashed rgba(0, 0, 0, 0.06);
+}
+/* === Destaque da nova dica === */
+.sj-new-item-highlight {
+  animation: sjHighlight 1.8s ease-out;
+  background: linear-gradient(90deg, #e8fce9, #ffffff);
+  border-left: 4px solid #2ecc71;
+}
+
+@keyframes sjHighlight {
+  0% { background: #d5f7d8; }
+  50% { background: #e8fce9; }
+  100% { background: #ffffff; }
+}
+
+/* === Badge de nova dica adicionada === */
+.sj-hist-badge-new {
+  position: absolute;
+  right: 12px;
+  top: -10px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  border-radius: 999px;
+  background: #28a745;
+  color: #fff;
+  animation: sjFadeBadge 2s ease-out forwards;
+  opacity: 0;
+}
+
+@keyframes sjFadeBadge {
+  0% { opacity: 0; transform: translateY(-5px); }
+  20% { opacity: 1; transform: translateY(0); }
+  70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* Cards do Histórico IA */
+.ia-card {
+  position: relative;
+  border-radius: 0.75rem;
+  transition:
+    background-color 0.4s ease,
+    box-shadow 0.4s ease,
+    transform 0.2s ease;
+}
+
+/* Efeito geral de entrada suave para os cards carregados */
+.ia-card.fade-in {
+  animation: iaFadeIn 0.25s ease-out;
+}
+
+@keyframes iaFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 🌟 Destaque da nova dica */
+.ia-card.just-added {
+  background: linear-gradient(90deg, #e8fce9, #ffffff);
+  border-left: 4px solid #2ecc71;
+  box-shadow: 0 0 10px rgba(46, 204, 113, 0.4);
+  transform: translateY(-1px);
+  transition: all 0.4s ease;
+}
+
+.ia-card.just-added::after {
+  content: "Nova dica adicionada";
+  position: absolute;
+  right: 16px;
+  top: -10px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  border-radius: 999px;
+  background: #28a745;
+  color: #fff;
+  animation: iaBadge 1.8s ease-out forwards;
+  opacity: 0;
+}
+
+@keyframes iaBadge {
+  0% { opacity: 0; transform: translateY(-4px); }
+  20% { opacity: 1; transform: translateY(0); }
+  70% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* === Card de previsão mensal (bordinha pulsando) === */
+.sj-previsao-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  border: 1px solid rgba(144, 202, 249, 0.6);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.7),
+    0 0 12px rgba(144, 202, 249, 0.35);
+  animation: sjBorderPulse 3s ease-out infinite;
+}
+
+.sj-previsao-card .sj-previsao-sub {
+  font-size: 0.78rem;
+  opacity: 0.85;
+}
+
+@keyframes sjBorderPulse {
+  0% {
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.7),
+      0 0 4px rgba(144, 202, 249, 0.2);
+  }
+  40% {
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.7),
+      0 0 16px rgba(144, 202, 249, 0.55);
+  }
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(0, 0, 0, 0.7),
+      0 0 4px rgba(144, 202, 249, 0.2);
+  }
+}
+
+/* Card grande da previsão da IA */
+.sj-previsao-card {
+  border: 1px solid rgba(0, 255, 140, 0.25) !important;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.35),
+    0 0 16px rgba(0, 255, 140, 0.10);
+  background: radial-gradient(
+      circle at top left,
+      rgba(0, 255, 140, 0.12),
+      transparent 55%
+    ),
+    rgba(7, 26, 17, 0.96);
+}

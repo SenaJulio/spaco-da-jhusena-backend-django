@@ -3,7 +3,8 @@
  * Spaço da Jhuséna — dashboard.js (versão estável, ES5)
  * ==========================================================================*/
 /* global Chart */
-
+let sjChartRankingIa = null;
+let sjChartSerieIa = null;
 // === Plugins visuais do donut "Por categoria" ===
 
 // sombra interna leve no centro
@@ -622,6 +623,960 @@ const gradientFillPlugin = {
     });
   }
 
+
+  function sjCarregarPainelIaMensal() {
+    var elCanvas = document.getElementById("graficoRankingServicosIa");
+    var elMesLabel = document.getElementById("painelIaMesLabel");
+    var elListaInsights = document.getElementById("listaInsightsIaMensal");
+
+    if (!elCanvas || !elListaInsights) {
+      return;
+    }
+
+    elListaInsights.innerHTML =
+      '<li class="list-group-item text-muted">Carregando análise da IA...</li>';
+
+    fetch("/financeiro/ranking/servicos_mensal/", {
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+        Accept: "application/json",
+      },
+      credentials: "same-origin",
+    })
+      .then(function (resp) {
+        if (!resp.ok) {
+          throw new Error("HTTP " + resp.status);
+        }
+        return resp.json();
+      })
+      .then(function (data) {
+        if (!data || data.ok !== true) {
+          throw new Error("Resposta inválida do backend IA.");
+        }
+
+        // Label do mês
+        if (elMesLabel && data.mes_label) {
+          elMesLabel.textContent = data.mes_label;
+        }
+
+        var servicos = data.servicos || [];
+
+        if (!servicos.length) {
+          // limpa gráfico
+          var ctxClear = elCanvas.getContext("2d");
+          ctxClear.clearRect(0, 0, elCanvas.width, elCanvas.height);
+
+          elListaInsights.innerHTML =
+            '<li class="list-group-item">Nenhum serviço com receita neste mês. 👀</li>' +
+            '<li class="list-group-item small text-muted">Dica: registre vendas e serviços para a IA conseguir analisar seus resultados.</li>';
+          return;
+        }
+
+        // Ordena desc só por garantia
+        servicos.sort(function (a, b) {
+          return (b.total || 0) - (a.total || 0);
+        });
+
+        // Ajusta nomes e valores
+        var labels = servicos.map(function (s) {
+          return s.nome || s.label || "Serviço";
+        });
+        var valores = servicos.map(function (s) {
+          return s.total || 0;
+        });
+
+        // Destroi gráfico anterior pra evitar erro “Chart already exists”
+        if (sjChartRankingIa) {
+          sjChartRankingIa.destroy();
+        }
+
+        var ctx = elCanvas.getContext("2d");
+        sjChartRankingIa = new Chart(ctx, {
+          type: "bar",
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: "Receita por serviço (R$)",
+                data: valores,
+              },
+            ],
+          },
+          options: {
+            indexAxis: "y", // barras horizontais estilo ranking
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { display: false },
+              tooltip: {
+                callbacks: {
+                  label: function (context) {
+                    var valor = context.parsed.x || 0;
+                    return (
+                      " R$ " +
+                      valor.toLocaleString("pt-BR", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })
+                    );
+                  },
+                },
+              },
+            },
+            scales: {
+              x: {
+                ticks: {
+                  callback: function (value) {
+                    return "R$ " + value.toLocaleString("pt-BR");
+                  },
+                },
+              },
+            },
+          },
+        });
+
+        // ======================
+        // Insights estilo Nubank
+        // ======================
+        var top1 = servicos[0];
+        var top2 = servicos[1];
+        var totalGeral = valores.reduce(function (acc, v) {
+          return acc + v;
+        }, 0);
+
+        var html = "";
+
+        if (top1) {
+          var perc1 = totalGeral ? (top1.total / totalGeral) * 100 : 0;
+          html +=
+            '<li class="list-group-item">' +
+            "💚 Serviço destaque: <strong>" +
+            (top1.nome || "Serviço") +
+            "</strong> gerou " +
+            "R$ " +
+            (top1.total || 0).toLocaleString("pt-BR", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }) +
+            " (" +
+            perc1.toFixed(1) +
+            "% da receita do mês)." +
+            "</li>";
+        }
+
+        if (top2) {
+          html +=
+            '<li class="list-group-item small">' +
+            "⚖ Segundo lugar: " +
+            (top2.nome || "Serviço") +
+            " também teve boa participação na receita." +
+            "</li>";
+        }
+
+        html +=
+          '<li class="list-group-item small text-muted">' +
+          "Sugestão da IA: fortaleça os serviços que mais trazem resultado e pense em combos ou pacotes com eles. 😉" +
+          "</li>";
+
+        elListaInsights.innerHTML = html;
+      })
+      .catch(function (err) {
+        console.error("[Painel IA Mensal]", err);
+        elListaInsights.innerHTML =
+          '<li class="list-group-item text-danger">Não foi possível carregar o painel mensal da IA.</li>' +
+          '<li class="list-group-item small text-muted">Verifique se a URL /financeiro/ia/resumo_mensal_series/ existe e está retornando ok=true.</li>';
+      });
+  }
+
+
+  function sjCarregarAlertasIaMensal() {
+    var elLista = document.getElementById("listaAlertasIaMensal");
+    if (!elLista) return;
+
+    elLista.innerHTML =
+      '<li class="list-group-item text-muted">Carregando alertas da IA...</li>';
+
+    fetch("/financeiro/ia/alertas_periodos_criticos/", {
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+        Accept: "application/json",
+      },
+      credentials: "same-origin",
+    })
+      .then(function (resp) {
+        if (!resp.ok) {
+          throw new Error("HTTP " + resp.status);
+        }
+        return resp.json();
+      })
+      .then(function (data) {
+        if (!data || data.ok !== true) {
+          throw new Error("Payload inválido em alertas_periodos_criticos");
+        }
+
+        var alertas = data.alertas || [];
+
+        if (!alertas.length) {
+          elLista.innerHTML =
+            '<li class="list-group-item small text-muted">' +
+            "Nenhum período crítico detectado pela IA no ano atual. 👌" +
+            "</li>";
+          return;
+        }
+
+        var html = alertas
+          .map(function (a) {
+            var tipo = (a.tipo || "").toLowerCase();
+            var emoji = "🟢";
+            if (tipo === "critico") emoji = "🔴";
+            else if (tipo === "atencao") emoji = "⚠️";
+            else if (tipo === "alerta") emoji = "🟡";
+
+            return (
+              '<li class="list-group-item small">' +
+              "<strong>" +
+              emoji +
+              " " +
+              (a.titulo || "Alerta") +
+              " — " +
+              (a.mes || "") +
+              ":</strong><br>" +
+              (a.texto || "") +
+              "</li>"
+            );
+          })
+          .join("");
+
+        elLista.innerHTML = html;
+      })
+      .catch(function (err) {
+        console.error("[IA Alertas Mensais]", err);
+        elLista.innerHTML =
+          '<li class="list-group-item text-danger">Não foi possível carregar os alertas de períodos críticos.</li>' +
+          '<li class="list-group-item small text-muted">Verifique se a URL /financeiro/ia/alertas_periodos_criticos/ está acessível.</li>';
+      });
+  }
+
+ function sjCarregarGraficoSerieMensalIa() {
+   var elCanvas = document.getElementById("graficoSerieMensalIa");
+   if (!elCanvas) return;
+
+   fetch("/financeiro/ia/resumo_mensal_series/", {
+     headers: {
+       "X-Requested-With": "XMLHttpRequest",
+       Accept: "application/json",
+     },
+     credentials: "same-origin",
+   })
+     .then(function (resp) {
+       if (!resp.ok) {
+         throw new Error("HTTP " + resp.status);
+       }
+       return resp.json();
+     })
+     .then(function (data) {
+       if (!data || data.ok !== true || !Array.isArray(data.series)) {
+         throw new Error("Payload inválido em ia_resumo_mensal_series");
+       }
+
+       var series = data.series;
+       if (!series.length) {
+         var ctxClear = elCanvas.getContext("2d");
+         ctxClear.clearRect(0, 0, elCanvas.width, elCanvas.height);
+         return;
+       }
+
+       // ---------- Séries base ----------
+       var labels = series.map(function (s) {
+         return s.label || "";
+       });
+       var receitas = series.map(function (s) {
+         return s.total_receitas || 0;
+       });
+       var despesas = series.map(function (s) {
+         return s.total_despesas || 0;
+       });
+       var saldos = series.map(function (s) {
+         return s.saldo || 0;
+       });
+
+       var lastSaldo = saldos[saldos.length - 1] || 0;
+       var lastLabel = labels[labels.length - 1] || "";
+
+       // ---------- Forecast (regressão linear) ----------
+       var forecast = null; // próximo mês
+       var nextLabel = null; // label do próximo mês
+       var forecast2 = null; // +2 meses
+       var forecast3 = null; // +3 meses
+       var label2 = null;
+       var label3 = null;
+       var faixaMin = null;
+       var faixaMax = null;
+
+       if (saldos.length >= 2) {
+         var n = saldos.length;
+         var xs = [];
+         for (var i = 0; i < n; i++) xs.push(i);
+
+         var sumx = 0;
+         var sumy = 0;
+         var sumxy = 0;
+         var sumx2 = 0;
+         for (var j = 0; j < n; j++) {
+           var x = xs[j];
+           var y = saldos[j];
+           sumx += x;
+           sumy += y;
+           sumxy += x * y;
+           sumx2 += x * x;
+         }
+         var denom = n * sumx2 - sumx * sumx;
+         if (denom === 0) denom = 1;
+
+         var a = (n * sumxy - sumx * sumy) / denom;
+         var b = (sumy - a * sumx) / n;
+
+         // x base do último ponto real
+         var lastX = n - 1;
+
+         // previsão +1 mês
+         var nextX = lastX + 1;
+         forecast = a * nextX + b;
+
+         // label do próximo mês (MM/AAAA)
+         var last = series[series.length - 1];
+         var ano = last.ano;
+         var mes = last.mes;
+
+         var proxMes1 = mes === 12 ? 1 : mes + 1;
+         var proxAno1 = mes === 12 ? ano + 1 : ano;
+         nextLabel =
+           (proxMes1 < 10 ? "0" + proxMes1 : String(proxMes1)) + "/" + proxAno1;
+
+         // previsão +2 meses
+         var proxMes2 = proxMes1 === 12 ? 1 : proxMes1 + 1;
+         var proxAno2 = proxMes1 === 12 ? proxAno1 + 1 : proxAno1;
+         var x2 = lastX + 2;
+         forecast2 = a * x2 + b;
+         label2 =
+           (proxMes2 < 10 ? "0" + proxMes2 : String(proxMes2)) + "/" + proxAno2;
+
+         // previsão +3 meses
+         var proxMes3 = proxMes2 === 12 ? 1 : proxMes2 + 1;
+         var proxAno3 = proxMes2 === 12 ? proxAno2 + 1 : proxAno2;
+         var x3 = lastX + 3;
+         forecast3 = a * x3 + b;
+         label3 =
+           (proxMes3 < 10 ? "0" + proxMes3 : String(proxMes3)) + "/" + proxAno3;
+
+         // faixa de incerteza em torno do horizonte mais distante
+         var baseFaixa = forecast3 || forecast2 || forecast || 0;
+         var margemErro = Math.abs(baseFaixa) * 0.15; // ~15% de "erro"
+         faixaMin = baseFaixa - margemErro;
+         faixaMax = baseFaixa + margemErro;
+       }
+
+       // ---------- Array da linha prevista ----------
+       var forecastData = new Array(saldos.length).fill(null);
+       var trendShadeData = new Array(saldos.length).fill(null);
+
+       var delta = 0;
+       var pct = null;
+
+       if (forecast !== null && nextLabel) {
+         // estende labels com o mês projetado
+         labels.push(nextLabel);
+         receitas.push(null);
+         despesas.push(null);
+         saldos.push(null);
+
+         // forecast somente no último ponto
+         forecastData = new Array(labels.length).fill(null);
+         forecastData[forecastData.length - 1] = forecast;
+
+         // área de tendência: último saldo + forecast
+         trendShadeData = new Array(labels.length).fill(null);
+         trendShadeData[trendShadeData.length - 2] =
+           saldos[saldos.length - 2] || lastSaldo;
+         trendShadeData[trendShadeData.length - 1] = forecast;
+
+         delta = forecast - lastSaldo;
+         if (lastSaldo !== 0) {
+           pct = (delta / Math.abs(lastSaldo)) * 100;
+         }
+       }
+
+       // ---------- Estilo dinâmico do ponto dourado ----------
+       var forecastColor = "#ffcc33"; // padrão
+
+       // textos que vão para o CARD
+       var linhaResumo = "";
+       var linhaInterp = "";
+       var linhaHorizonte = "";
+       var linhaRisco = "";
+
+       // ---------- INSIGHT "Previsão da IA" + CARD ----------
+       if (forecast !== null && nextLabel) {
+         var ul2 = document.getElementById("listaInsightsIaMensal");
+         if (ul2) {
+           var li2 = document.getElementById("iaInsightForecast");
+           if (!li2) {
+             li2 = document.createElement("li");
+             li2.id = "iaInsightForecast";
+             li2.className = "list-group-item small";
+             ul2.appendChild(li2);
+           }
+
+           var forecastFmt2 =
+             "R$ " +
+             forecast.toLocaleString("pt-BR", {
+               minimumFractionDigits: 2,
+               maximumFractionDigits: 2,
+             });
+
+           var lastSaldoFmt2 =
+             "R$ " +
+             lastSaldo.toLocaleString("pt-BR", {
+               minimumFractionDigits: 2,
+               maximumFractionDigits: 2,
+             });
+
+           var delta2 = forecast - lastSaldo;
+           var pct2 = null;
+           if (lastSaldo !== 0) {
+             pct2 = (delta2 / Math.abs(lastSaldo)) * 100;
+           }
+
+           // -------- badge de tendência (paleta unificada) --------
+           var badgeText2 = "Estável";
+           var badgeClass2 =
+             "bg-secondary-subtle text-secondary border border-secondary-subtle";
+           var icon2 = "📊";
+
+           if (lastSaldo < 0 && forecast >= 0) {
+             badgeText2 = "Recuperação";
+             badgeClass2 = "bg-success text-light border border-success";
+             icon2 = "🟢";
+           } else if (delta2 > 0 && pct2 !== null) {
+             if (pct2 >= 30) {
+               // ALTA FORTE
+               badgeText2 = "Alta forte";
+               badgeClass2 = "bg-success text-light border border-success";
+               icon2 = "📈";
+             } else {
+               // ALTA LEVE
+               badgeText2 = "Alta leve";
+               badgeClass2 =
+                 "bg-success-subtle text-success border border-success-subtle";
+               icon2 = "📈";
+             }
+           } else if (delta2 < 0 && pct2 !== null) {
+             if (pct2 <= -30) {
+               // QUEDA FORTE
+               badgeText2 = "Queda forte";
+               badgeClass2 =
+                 "bg-danger-subtle text-danger border border-danger-subtle";
+               icon2 = "🔻";
+             } else {
+               // RISCO DE QUEDA
+               badgeText2 = "Risco de queda";
+               badgeClass2 =
+                 "bg-warning-subtle text-warning border border-warning-subtle";
+               icon2 = "⚠️";
+             }
+           } else {
+             // ESTÁVEL
+             badgeText2 = "Estável";
+             badgeClass2 =
+               "bg-secondary-subtle text-secondary border border-secondary-subtle";
+             icon2 = "⚖️";
+           }
+
+           // -------- textos principais --------
+           linhaResumo =
+             "Saldo projetado para " + nextLabel + ": " + forecastFmt2 + ".";
+
+           if (pct2 !== null) {
+             var sinalValor = delta2 >= 0 ? "+" : "-";
+             var valorAbs = Math.abs(delta2).toLocaleString("pt-BR", {
+               minimumFractionDigits: 2,
+               maximumFractionDigits: 2,
+             });
+             var sinalPct = pct2 >= 0 ? "+" : "-";
+             var pctAbs = Math.abs(pct2).toFixed(1).replace(".", ",");
+
+             linhaResumo +=
+               " Variação esperada frente a " +
+               lastLabel +
+               ": " +
+               sinalValor +
+               "R$ " +
+               valorAbs +
+               " (" +
+               sinalPct +
+               pctAbs +
+               "%).";
+           }
+
+           linhaInterp =
+             "Leitura executiva: o modelo indica " +
+             (delta2 > 0
+               ? "movimento de melhora do caixa, com tendência de reforço do saldo."
+               : delta2 < 0
+                 ? "pressão adicional sobre o caixa, exigindo maior controle de despesas."
+                 : "estabilidade no curto prazo, sem grandes oscilações de saldo.");
+
+           // horizonte 3 meses + faixa de incerteza
+           if (forecast3 !== null || forecast2 !== null) {
+             var alvo = forecast3 !== null ? forecast3 : forecast2;
+             var alvoLabel = label3 || label2 || nextLabel;
+             var faixaMinFmt =
+               "R$ " +
+               (faixaMin || 0).toLocaleString("pt-BR", {
+                 minimumFractionDigits: 2,
+                 maximumFractionDigits: 2,
+               });
+             var faixaMaxFmt =
+               "R$ " +
+               (faixaMax || 0).toLocaleString("pt-BR", {
+                 minimumFractionDigits: 2,
+                 maximumFractionDigits: 2,
+               });
+
+             linhaHorizonte =
+               "Cenário de 3 meses: para " +
+               alvoLabel +
+               ", a faixa projetada de saldo está entre " +
+               faixaMinFmt +
+               " e " +
+               faixaMaxFmt +
+               " (intervalo aproximado de confiança da IA).";
+           }
+
+           if (delta2 >= 0) {
+             linhaRisco =
+               "Risco & cuidado: ainda assim, vale monitorar despesas variáveis semanalmente para evitar reversão da tendência.";
+           } else {
+             linhaRisco =
+               "Risco & cuidado: mantenha atenção especial em gastos recorrentes e decisões pontuais de compra para não comprometer o fluxo de caixa.";
+           }
+
+           li2.innerHTML =
+             '<div class="d-flex justify-content-between align-items-start mb-1">' +
+             "<div>" +
+             "<strong>🔮 Previsão Financeira (IA) — próximo mês</strong><br>" +
+             '<span class="badge bg-dark-subtle text-info border border-info-subtle mt-1">' +
+             "Modelo: regressão linear • horizonte 3 meses" +
+             "</span>" +
+             "</div>" +
+             '<span class="badge ' +
+             badgeClass2 +
+             '">' +
+             badgeText2 +
+             "</span>" +
+             "</div>" +
+             '<div class="mb-1"><strong>Saldo previsto:</strong> ' +
+             forecastFmt2 +
+             " (vs " +
+             lastLabel +
+             ": " +
+             lastSaldoFmt2 +
+             ")." +
+             "</div>" +
+             (pct2 !== null
+               ? '<div class="mb-1"><strong>Sinal da IA:</strong> ' +
+                 (delta2 > 0
+                   ? "tendência de melhora do caixa, com aumento do saldo."
+                   : delta2 < 0
+                     ? "pressão sobre o caixa, com risco de redução do saldo."
+                     : "estabilidade no curto prazo, sem grandes oscilações.") +
+                 " Variação esperada: " +
+                 (delta2 >= 0 ? "+" : "-") +
+                 "R$ " +
+                 Math.abs(delta2).toLocaleString("pt-BR", {
+                   minimumFractionDigits: 2,
+                   maximumFractionDigits: 2,
+                 }) +
+                 " (" +
+                 (pct2 >= 0 ? "+" : "-") +
+                 Math.abs(pct2).toFixed(1).replace(".", ",") +
+                 "%)." +
+                 "</div>"
+               : "") +
+             '<div class="small text-muted mb-1"><strong>Ação prática:</strong> ' +
+             (delta2 >= 0
+               ? "reforçar a reserva e manter despesas variáveis sob vigilância para aproveitar a fase positiva."
+               : "rever despesas não essenciais, segurar novas contratações e focar em serviços com melhor margem.") +
+             "</div>" +
+             '<div class="small text-muted">' +
+             "<strong>Cenário & faixa:</strong> " +
+             (linhaHorizonte ||
+               "Modelo ainda com poucos pontos para projetar horizonte mais longo.") +
+             "</div>";
+         }
+
+         // === Preenche também o CARD abaixo do gráfico ===
+         var cardResumo = document.getElementById("sjPrevResumoLinha");
+         var cardInterp = document.getElementById("sjPrevInterpLinha");
+         var cardFaixa = document.getElementById("sjPrevFaixaLinha");
+         var cardWrap = document.getElementById("cardPrevisaoMensal");
+
+         if (cardResumo) cardResumo.textContent = linhaResumo;
+         if (cardInterp) cardInterp.textContent = linhaInterp;
+         if (cardFaixa)
+           cardFaixa.textContent = (linhaHorizonte || "").trim() || linhaRisco;
+
+         if (cardWrap) {
+           cardWrap.classList.remove("d-none");
+           cardWrap.classList.add("sj-previsao-card");
+         }
+       } else {
+         // se não tiver forecast, esconde os cards de previsão
+         var cardOff1 = document.getElementById("cardPrevisaoMensal");
+         if (cardOff1) cardOff1.classList.add("d-none");
+         var cardOff2 = document.getElementById("cardPrevisaoResumoIa");
+         if (cardOff2) cardOff2.classList.add("d-none");
+       }
+
+       // ---------- Monta o gráfico ----------
+       if (sjChartSerieIa) {
+         sjChartSerieIa.destroy();
+       }
+
+       var ctx = elCanvas.getContext("2d");
+       sjChartSerieIa = new Chart(ctx, {
+         type: "line",
+         data: {
+           labels: labels,
+           datasets: [
+             {
+               label: "Receitas",
+               data: receitas,
+               tension: 0.3,
+             },
+             {
+               label: "Despesas",
+               data: despesas,
+               tension: 0.3,
+             },
+             {
+               label: "Saldo",
+               data: saldos,
+               tension: 0.3,
+             },
+             // Sombra da tendência (não aparece na legenda)
+             {
+               label: "_Tendência",
+               data: trendShadeData,
+               tension: 0.3,
+               fill: "origin",
+               borderWidth: 0,
+               pointRadius: 0,
+               pointHoverRadius: 0,
+               backgroundColor: "rgba(255,204,51,0.10)",
+             },
+             // Ponto dourado da previsão
+             {
+               label: "Saldo (previsto)",
+               data: forecastData,
+               tension: 0.3,
+               borderDash: [6, 4],
+               spanGaps: true,
+               borderColor: forecastColor,
+               backgroundColor: forecastColor,
+               pointBackgroundColor: forecastColor,
+               pointBorderColor: "#00000088",
+               // responsivo: menor no mobile, maior no desktop
+               pointRadius: function (ctx2) {
+                 var w =
+                   ctx2 && ctx2.chart && ctx2.chart.width
+                     ? ctx2.chart.width
+                     : 600;
+                 return w < 480 ? 5 : 8;
+               },
+               pointHoverRadius: function (ctx2) {
+                 var w =
+                   ctx2 && ctx2.chart && ctx2.chart.width
+                     ? ctx2.chart.width
+                     : 600;
+                 return w < 480 ? 8 : 12;
+               },
+               pointStyle: "circle",
+               borderWidth: 2,
+             },
+           ],
+         },
+         options: {
+           responsive: true,
+           maintainAspectRatio: false,
+           plugins: {
+             legend: {
+               position: "bottom",
+               labels: {
+                 filter: function (item) {
+                   // esconde dataset interno "_Tendência"
+                   return item.text && item.text.indexOf("_") !== 0;
+                 },
+               },
+             },
+             tooltip: {
+               callbacks: {
+                 label: function (context) {
+                   var dsLabel = context.dataset.label || "";
+                   var v = context.parsed.y;
+                   if (v == null) return null;
+
+                   var valor = v.toLocaleString("pt-BR", {
+                     minimumFractionDigits: 2,
+                     maximumFractionDigits: 2,
+                   });
+
+                   // tooltip especial do ponto previsto
+                   if (dsLabel.indexOf("Saldo (previsto") === 0) {
+                     var linhas = ["Saldo (previsto): R$ " + valor];
+
+                     if (forecast !== null && pct !== null) {
+                       var sinalValor = delta >= 0 ? "+" : "-";
+                       var valorAbs = Math.abs(delta).toLocaleString("pt-BR", {
+                         minimumFractionDigits: 2,
+                         maximumFractionDigits: 2,
+                       });
+                       var sinalPct = pct >= 0 ? "+" : "-";
+                       var pctAbs = Math.abs(pct).toFixed(1).replace(".", ",");
+
+                       linhas.push(
+                         "Diferença vs " +
+                           lastLabel +
+                           ": " +
+                           sinalValor +
+                           "R$ " +
+                           valorAbs +
+                           " (" +
+                           sinalPct +
+                           pctAbs +
+                           "%)"
+                       );
+                     }
+
+                     return linhas;
+                   }
+
+                   return dsLabel + ": R$ " + valor;
+                 },
+               },
+             },
+           },
+           scales: {
+             y: {
+               ticks: {
+                 callback: function (value) {
+                   return "R$ " + value.toLocaleString("pt-BR");
+                 },
+               },
+             },
+           },
+         },
+       });
+     })
+     .catch(function (err) {
+       console.error("[IA Série Mensal]", err);
+       var ctxClear = elCanvas.getContext("2d");
+       ctxClear.clearRect(0, 0, elCanvas.width, elCanvas.height);
+     });
+ }
+
+
+  function sjCarregarComparacaoIaMensal() {
+    var elLista = document.getElementById("listaComparacaoIaMensal");
+    if (!elLista) return;
+
+    elLista.innerHTML =
+      '<li class="list-group-item text-muted">Carregando comparação da IA...</li>';
+
+    fetch("/financeiro/ia/resumo_mensal_series/", {
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+        Accept: "application/json",
+      },
+      credentials: "same-origin",
+    })
+      .then(function (resp) {
+        if (!resp.ok) {
+          throw new Error("HTTP " + resp.status);
+        }
+        return resp.json();
+      })
+      .then(function (data) {
+        if (!data || data.ok !== true || !Array.isArray(data.series)) {
+          throw new Error("Payload inválido em ia_resumo_mensal_series");
+        }
+
+        var series = data.series;
+        if (series.length < 2) {
+          elLista.innerHTML =
+            '<li class="list-group-item small text-muted">' +
+            "Ainda não há meses suficientes para comparação. 👀" +
+            "</li>";
+          return;
+        }
+
+        var prev = series[series.length - 2];
+        var cur = series[series.length - 1];
+
+        var recPrev = prev.total_receitas || 0;
+        var recCur = cur.total_receitas || 0;
+        var depPrev = prev.total_despesas || 0;
+        var depCur = cur.total_despesas || 0;
+        var saldoPrev = prev.saldo || 0;
+        var saldoCur = cur.saldo || 0;
+
+        function fmtMoney(v) {
+          return v.toLocaleString("pt-BR", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          });
+        }
+
+        function fmtPerc(v) {
+          return (
+            v.toLocaleString("pt-BR", {
+              minimumFractionDigits: 1,
+              maximumFractionDigits: 1,
+            }) + "%"
+          );
+        }
+
+        function varPerc(atual, anterior) {
+          if (!anterior) return null;
+          var diff = atual - anterior;
+          return (diff / anterior) * 100;
+        }
+
+        var recVar = varPerc(recCur, recPrev);
+        var depVar = varPerc(depCur, depPrev);
+        var saldoVar = varPerc(saldoCur, saldoPrev);
+
+        var margemPrev = recPrev > 0 ? (saldoPrev / recPrev) * 100 : 0;
+        var margemCur = recCur > 0 ? (saldoCur / recCur) * 100 : 0;
+        var margemVar = margemCur - margemPrev;
+
+        var html = "";
+
+        // 1) Receitas
+        if (recPrev === 0 && recCur > 0) {
+          html +=
+            '<li class="list-group-item small">' +
+            "📈 As receitas surgiram em " +
+            cur.label +
+            " (não havia receitas em " +
+            prev.label +
+            ")." +
+            "</li>";
+        } else if (recVar != null) {
+          var recEmoji = recVar >= 0 ? "📈" : "📉";
+          html +=
+            '<li class="list-group-item small">' +
+            recEmoji +
+            " Receitas: de R$ " +
+            fmtMoney(recPrev) +
+            " em " +
+            prev.label +
+            " para R$ " +
+            fmtMoney(recCur) +
+            " em " +
+            cur.label +
+            " (" +
+            fmtPerc(recVar) +
+            ")." +
+            "</li>";
+        }
+
+        // 2) Despesas
+        if (depPrev === 0 && depCur > 0) {
+          html +=
+            '<li class="list-group-item small">' +
+            "💸 Despesas apareceram em " +
+            cur.label +
+            " (não havia despesas em " +
+            prev.label +
+            ")." +
+            "</li>";
+        } else if (depVar != null) {
+          var depEmoji = depVar >= 0 ? "💸" : "🧹";
+          html +=
+            '<li class="list-group-item small">' +
+            depEmoji +
+            " Despesas: de R$ " +
+            fmtMoney(depPrev) +
+            " em " +
+            prev.label +
+            " para R$ " +
+            fmtMoney(depCur) +
+            " em " +
+            cur.label +
+            " (" +
+            fmtPerc(depVar) +
+            ")." +
+            "</li>";
+        }
+
+        // 3) Saldo
+        if (saldoVar != null && saldoPrev !== 0) {
+          var saldoEmoji = saldoVar >= 0 ? "💚" : "🔻";
+          html +=
+            '<li class="list-group-item small">' +
+            saldoEmoji +
+            " Saldo: de R$ " +
+            fmtMoney(saldoPrev) +
+            " em " +
+            prev.label +
+            " para R$ " +
+            fmtMoney(saldoCur) +
+            " em " +
+            cur.label +
+            " (" +
+            fmtPerc(saldoVar) +
+            ")." +
+            "</li>";
+        } else {
+          html +=
+            '<li class="list-group-item small">' +
+            "ℹ Saldo atual em " +
+            cur.label +
+            " é de R$ " +
+            fmtMoney(saldoCur) +
+            " (referência limitada para comparação)." +
+            "</li>";
+        }
+
+        // 4) Margem
+        html +=
+          '<li class="list-group-item small">' +
+          "📊 Margem: de " +
+          fmtPerc(margemPrev) +
+          " em " +
+          prev.label +
+          " para " +
+          fmtPerc(margemCur) +
+          " em " +
+          cur.label +
+          " (variação de " +
+          fmtPerc(margemVar) +
+          ")." +
+          "</li>";
+
+        elLista.innerHTML = html;
+      })
+      .catch(function (err) {
+        console.error("[IA Comparação Mensal]", err);
+        elLista.innerHTML =
+          '<li class="list-group-item text-danger">Não foi possível carregar a comparação mês a mês.</li>' +
+          '<li class="list-group-item small text-muted">Verifique se a URL /financeiro/ia/resumo_mensal_series/ está acessível.</li>';
+      });
+  }
+
+
+
   // --------- Atualiza card resumo (reutilizável)
   function __updateCardResumo(origem) {
     var box = document.getElementById("cardResumoMes");
@@ -1070,6 +2025,10 @@ const gradientFillPlugin = {
 
     var fireReload = debounce(function () {
       recarregar();
+      sjCarregarPainelIaMensal();
+      sjCarregarAlertasIaMensal();
+      sjCarregarComparacaoIaMensal();
+      sjCarregarGraficoSerieMensalIa();
     }, 300);
 
     ["#filtroInicio", "#filtroFim", "#filtroCategoria"].forEach(function (sel) {
@@ -1087,11 +2046,15 @@ const gradientFillPlugin = {
       btn.parentNode.replaceChild(fresh, btn);
       fresh.addEventListener("click", function (ev) {
         ev.preventDefault();
-        recarregar();
+        fireReload();
       });
     }
 
     recarregar();
+    sjCarregarPainelIaMensal();
+    sjCarregarAlertasIaMensal();
+    sjCarregarComparacaoIaMensal();
+    sjCarregarGraficoSerieMensalIa();
   });
 
   // === IA Avançada: Análise 30D ===
@@ -1282,6 +2245,8 @@ const gradientFillPlugin = {
         (window.__HistoricoIA && window.__HistoricoIA.filtro) || "todas";
       await window.carregarHistorico(20, filtroAtual, false);
     }
+    // deixa a função acessível globalmente
+    window.recarregarHistoricoComFiltroAtual = recarregarHistoricoComFiltroAtual;
 
     async function gerarDica(path, origem, btn) {
       const oldLabel = btn.textContent;
@@ -1354,3 +2319,571 @@ const gradientFillPlugin = {
     }
   });
 })();
+// ==========================================================
+// 📈 Spaço da Jhuséna — Gráfico Mensal (Receitas x Despesas x Saldo)
+// Fonte: /financeiro/ia/resumo-mensal/series/
+// ==========================================================
+
+/* global  */
+
+let sjChartMensalIA = null;
+
+function sjMostrarMsgGraficoMensal(msg, isErro) {
+  var box = document.getElementById("msgGraficoMensalIA");
+  if (!box) return;
+
+  box.style.display = msg ? "block" : "none";
+  box.textContent = msg || "";
+
+  if (isErro) {
+    box.classList.remove("text-muted");
+    box.classList.add("text-danger");
+  } else {
+    box.classList.remove("text-danger");
+    box.classList.add("text-muted");
+  }
+}
+
+function carregarGraficoMensalIA() {
+  var cv = document.getElementById("graficoMensalIA");
+  if (!cv) {
+    console.warn("📈 graficoMensalIA não encontrado no DOM.");
+    return;
+  }
+
+  sjMostrarMsgGraficoMensal("Carregando resumo mensal...", false);
+
+  fetch("/financeiro/ia/resumo-mensal/series/")
+    .then(function (resp) {
+      return resp.json();
+    })
+    .then(function (data) {
+      if (!data || !data.ok) {
+        sjMostrarMsgGraficoMensal(
+          "Não foi possível carregar o resumo mensal.",
+          true
+        );
+        return;
+      }
+
+      var series = data.series || [];
+      if (!series.length) {
+        sjMostrarMsgGraficoMensal(
+          "Sem dados mensais suficientes para montar o gráfico.",
+          false
+        );
+        if (sjChartMensalIA) {
+          sjChartMensalIA.destroy();
+          sjChartMensalIA = null;
+        }
+        return;
+      }
+
+      sjMostrarMsgGraficoMensal("", false);
+
+      var labels = [];
+      var receitas = [];
+      var despesas = [];
+      var saldos = [];
+
+      for (var i = 0; i < series.length; i++) {
+        var s = series[i];
+        labels.push(s.label); // "10/2025", "11/2025", etc.
+        receitas.push(s.total_receitas || 0);
+        despesas.push(s.total_despesas || 0);
+        saldos.push(s.saldo || 0);
+      }
+
+      // ==========================================
+      // 🔮 PROJEÇÃO DO PRÓXIMO MÊS (Saldo)
+      // ==========================================
+      var saldoProj = [];
+      if (series.length > 0) {
+        var ultimo = series[series.length - 1];
+        var proxMes = ultimo.mes + 1;
+        var proxAno = ultimo.ano;
+        if (proxMes > 12) {
+          proxMes = 1;
+          proxAno += 1;
+        }
+
+        var proxLabel =
+          (proxMes < 10 ? "0" + proxMes : String(proxMes)) + "/" + proxAno;
+
+        // valor projetado do saldo
+        var projValor = saldos[saldos.length - 1] || 0;
+        if (saldos.length >= 2) {
+          var diff =
+            (saldos[saldos.length - 1] || 0) - (saldos[saldos.length - 2] || 0);
+          projValor = (saldos[saldos.length - 1] || 0) + diff;
+        }
+        if (projValor < 0) projValor = 0; // não deixa a projeção ir pra negativo, por enquanto
+
+        // adiciona o próximo mês nas labels
+        labels.push(proxLabel);
+
+        // alinhamento dos outros datasets:
+        // colocamos null para o mês projetado
+        receitas.push(null);
+        despesas.push(null);
+        saldos.push(null);
+
+        // monta o array do saldo projetado:
+        // null para meses passados + valor só no último ponto
+        for (var j = 0; j < labels.length - 1; j++) {
+          saldoProj.push(null);
+        }
+        saldoProj.push(projValor);
+      }
+
+      try {
+        if (sjChartMensalIA) {
+          sjChartMensalIA.destroy();
+        }
+
+        sjChartMensalIA = new Chart(cv, {
+          type: "line",
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: "Receitas",
+                data: receitas,
+                tension: 0.25,
+                fill: false,
+                borderWidth: 2,
+                pointRadius: 3,
+                borderColor: "#2e7d32",
+              },
+              {
+                label: "Despesas",
+                data: despesas,
+                tension: 0.25,
+                fill: false,
+                borderWidth: 2,
+                pointRadius: 3,
+                borderColor: "#c62828",
+              },
+              {
+                label: "Saldo",
+                data: saldos,
+                tension: 0.25,
+                fill: false,
+                borderWidth: 2,
+                pointRadius: 3,
+                borderColor: "#1565c0",
+              },
+              // 🔮 Linha de projeção
+              {
+                label: "Saldo (proj.)",
+                data: saldoProj,
+                tension: 0.25,
+                fill: false,
+                borderWidth: 2,
+                pointRadius: 3,
+                borderColor: "#90caf9", // azul mais claro
+                borderDash: [6, 4], // linha pontilhada
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                display: true,
+                position: "bottom",
+              },
+              tooltip: {
+                mode: "index",
+                intersect: false,
+              },
+            },
+            interaction: {
+              mode: "index",
+              intersect: false,
+            },
+            scales: {
+              y: {
+                beginAtZero: true,
+              },
+            },
+          },
+        });
+      } catch (e) {
+        console.error("Erro ao montar gráfico mensal IA:", e);
+        sjMostrarMsgGraficoMensal("Erro ao montar o gráfico mensal.", true);
+      }
+    })
+    .catch(function (err) {
+      console.error("Erro ao buscar resumo mensal IA:", err);
+      sjMostrarMsgGraficoMensal("Falha ao carregar os dados mensais.", true);
+    });
+}
+
+
+// dispara junto com os outros gráficos do dashboard
+document.addEventListener("DOMContentLoaded", function () {
+  try {
+    carregarGraficoMensalIA();
+  } catch (e) {
+    console.error("Falha ao inicializar gráfico mensal IA:", e);
+  }
+});
+
+// ==========================================================
+// 💡 Spaço da Jhuséna — Análise Mensal IA (texto)
+// ==========================================================
+
+function sjSetIaAnaliseMsg(msg, isErro) {
+  var box = document.getElementById("iaAnaliseMensalMsg");
+  if (!box) return;
+  if (!msg) {
+    box.style.display = "none";
+    box.textContent = "";
+    return;
+  }
+  box.style.display = "block";
+  box.textContent = msg;
+  if (isErro) {
+    box.classList.remove("text-muted");
+    box.classList.add("text-danger");
+  } else {
+    box.classList.remove("text-danger");
+    box.classList.add("text-muted");
+  }
+}
+
+function carregarAnaliseMensalIA() {
+  var elResumo = document.getElementById("iaAnaliseMensalResumo");
+  var elDetalhe = document.getElementById("iaAnaliseMensalDetalhe");
+  var elRecom = document.getElementById("iaAnaliseMensalRecomendacao");
+
+  if (!elResumo || !elDetalhe || !elRecom) {
+    console.warn("⚠ elementos da análise mensal IA não encontrados.");
+    return;
+  }
+
+  sjSetIaAnaliseMsg("Gerando análise do mês com IA...", false);
+
+  fetch("/financeiro/ia/analise-mensal/preview/")
+    .then(function (resp) { return resp.json(); })
+    .then(function (data) {
+      if (!data || !data.ok) {
+        sjSetIaAnaliseMsg("Não foi possível gerar a análise mensal.", true);
+        return;
+      }
+
+      sjSetIaAnaliseMsg("", false);
+
+      elResumo.textContent = data.resumo || "—";
+      elDetalhe.textContent = data.detalhe || "—";
+      elRecom.textContent = data.recomendacao || "—";
+
+      // opcional: pintar conforme o tipo
+      var tipo = data.tipo || "neutra";
+      elResumo.classList.remove("text-success", "text-warning", "text-danger");
+      if (tipo === "positiva") {
+        elResumo.classList.add("text-success");
+      } else if (tipo === "alerta") {
+        elResumo.classList.add("text-danger");
+      } else {
+        elResumo.classList.add("text-warning");
+      }
+    })
+    .catch(function (err) {
+      console.error("Erro ao buscar análise mensal IA:", err);
+      sjSetIaAnaliseMsg("Falha ao carregar a análise mensal.", true);
+    });
+}
+
+// dispara junto com os outros componentes do dashboard
+document.addEventListener("DOMContentLoaded", function () {
+  try {
+    carregarAnaliseMensalIA();
+  } catch (e) {
+    console.error("Falha ao inicializar análise mensal IA:", e);
+  }
+});
+
+// ==========================================================
+// 🏆 Spaço da Jhuséna — Ranking de Categorias (Mensal)
+// ==========================================================
+
+function sjSetRankingMsg(msg, isErro) {
+  var box = document.getElementById("rankingCategoriasMsg");
+  if (!box) return;
+
+  if (!msg) {
+    box.style.display = "none";
+    box.textContent = "";
+    return;
+  }
+
+  box.style.display = "block";
+  box.textContent = msg;
+
+  if (isErro) {
+    box.classList.remove("text-muted");
+    box.classList.add("text-danger");
+  } else {
+    box.classList.remove("text-danger");
+    box.classList.add("text-muted");
+  }
+}
+
+function carregarRankingCategorias() {
+  var ul = document.getElementById("rankingCategoriasLista");
+  if (!ul) return;
+
+  sjSetRankingMsg("Carregando ranking mensal...", false);
+
+  fetch("/financeiro/metrics/ranking-categorias-mensal/")
+    .then(resp => resp.json())
+    .then(data => {
+      if (!data.ok) {
+        sjSetRankingMsg("Falha ao carregar ranking.", true);
+        return;
+      }
+
+      sjSetRankingMsg("", false);
+      ul.innerHTML = "";
+
+      var itens = data.categorias || [];
+      if (!itens.length) {
+        ul.innerHTML = `<li class="list-group-item small">Sem dados neste mês.</li>`;
+        return;
+      }
+
+      itens.forEach((item, idx) => {
+        var li = document.createElement("li");
+        li.className = "list-group-item d-flex justify-content-between align-items-center";
+
+        li.innerHTML = `
+          <span>${idx + 1}. ${item.categoria}</span>
+          <span class="fw-semibold">R$ ${item.total.toFixed(2).replace(".", ",")}</span>
+        `;
+
+        ul.appendChild(li);
+      });
+    })
+    .catch(err => {
+      console.error("Erro ranking categorias:", err);
+      sjSetRankingMsg("Erro ao carregar ranking.", true);
+    });
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  try {
+    carregarRankingCategorias();
+  } catch (e) {
+    console.error("Erro init ranking:", e);
+  }
+});
+
+// ==========================================================
+// 🧼 Spaço da Jhuséna — Ranking de Serviços / Produtos (Mensal)
+// ==========================================================
+
+function sjSetRankingServicosMsg(msg, isErro) {
+  var box = document.getElementById("rankingServicosMsg");
+  if (!box) return;
+
+  if (!msg) {
+    box.style.display = "none";
+    box.textContent = "";
+    return;
+  }
+
+  box.style.display = "block";
+  box.textContent = msg;
+
+  if (isErro) {
+    box.classList.remove("text-muted");
+    box.classList.add("text-danger");
+  } else {
+    box.classList.remove("text-danger");
+    box.classList.add("text-muted");
+  }
+}
+
+function carregarRankingServicos() {
+  var ul = document.getElementById("rankingServicosLista");
+  if (!ul) return;
+
+  sjSetRankingServicosMsg("Carregando ranking de serviços...", false);
+
+  fetch("/financeiro/metrics/ranking-servicos-mensal/")
+    .then(function (resp) { return resp.json(); })
+    .then(function (data) {
+      if (!data || !data.ok) {
+        sjSetRankingServicosMsg("Falha ao carregar ranking de serviços.", true);
+        return;
+      }
+
+      sjSetRankingServicosMsg("", false);
+      ul.innerHTML = "";
+
+      var itens = data.servicos || [];
+      if (!itens.length) {
+        ul.innerHTML =
+          '<li class="list-group-item small">Sem serviços/produtos registrados neste mês.</li>';
+        return;
+      }
+
+      itens.forEach(function (item, idx) {
+        var li = document.createElement("li");
+        li.className = "list-group-item d-flex justify-content-between align-items-center";
+
+        li.innerHTML =
+          '<span>' + (idx + 1) + '. ' + item.nome + '</span>' +
+          '<span class="fw-semibold">R$ ' +
+          item.total.toFixed(2).replace(".", ",") +
+          "</span>";
+
+        ul.appendChild(li);
+      });
+    })
+    .catch(function (err) {
+      console.error("Erro ranking serviços:", err);
+      sjSetRankingServicosMsg("Erro ao carregar ranking de serviços.", true);
+    });
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  try {
+    carregarRankingServicos();
+  } catch (e) {
+    console.error("Erro init ranking serviços:", e);
+  }
+});
+
+// ==========================================================
+// 📈 Categoria que mais cresceu — Analytics Turbo
+// ==========================================================
+
+function carregarCategoriaQueMaisCresceu() {
+  fetch("/financeiro/metrics/crescimento-categoria/")
+    .then(r => r.json())
+    .then(data => {
+      const msg = document.getElementById("crescimentoCategoriaMsg");
+      const titulo = document.getElementById("crescimentoCategoriaTitulo");
+      const detalhe = document.getElementById("crescimentoCategoriaDetalhe");
+
+      if (!data.ok || !data.categoria) {
+        msg.style.display = "block";
+        msg.textContent = "Sem dados suficientes.";
+        return;
+      }
+
+      msg.style.display = "none";
+
+      const cat = data.categoria;
+      const varPct = data.variacao.toFixed(1).replace(".", ",");
+
+      titulo.textContent = `${cat} ↑ ${varPct}%`;
+
+      detalhe.textContent =
+        `De ${data.anterior.toFixed(2).replace(".", ",")} ` +
+        `para ${data.atual.toFixed(2).replace(".", ",")} ` +
+        `(${data.mes_anterior} → ${data.mes_atual}).`;
+    })
+    .catch(e => {
+      console.error("Erro crescimento categoria:", e);
+      const msg = document.getElementById("crescimentoCategoriaMsg");
+      msg.style.display = "block";
+      msg.textContent = "Erro ao carregar crescimento.";
+    });
+}
+
+document.addEventListener("DOMContentLoaded", carregarCategoriaQueMaisCresceu);
+
+// ==========================================================
+// 🧩 Despesas Fixas vs Variáveis — Analytics Turbo
+// ==========================================================
+
+function sjSetFixasVarMsg(msg, isErro) {
+  var box = document.getElementById("fixasVarMsg");
+  if (!box) return;
+
+  if (!msg) {
+    box.style.display = "none";
+    box.textContent = "";
+    return;
+  }
+  box.style.display = "block";
+  box.textContent = msg;
+
+  if (isErro) {
+    box.classList.remove("text-muted");
+    box.classList.add("text-danger");
+  } else {
+    box.classList.remove("text-danger");
+    box.classList.add("text-muted");
+  }
+}
+
+function carregarDespesasFixasVariaveis() {
+  var elFixasValor = document.getElementById("fixasValor");
+  var elVarValor = document.getElementById("variaveisValor");
+  var elFixasPct = document.getElementById("fixasPct");
+  var elVarPct = document.getElementById("variaveisPct");
+  var elResumo = document.getElementById("fixasVarResumo");
+
+  if (!elFixasValor || !elVarValor || !elFixasPct || !elVarPct || !elResumo) {
+    console.warn("⚠ elementos Fixas vs Variáveis não encontrados.");
+    return;
+  }
+
+  sjSetFixasVarMsg("Calculando fixas vs variáveis...", false);
+
+  fetch("/financeiro/metrics/despesas-fixas-variaveis/")
+    .then(function (resp) { return resp.json(); })
+    .then(function (data) {
+      if (!data || !data.ok) {
+        sjSetFixasVarMsg("Não foi possível carregar fixas vs variáveis.", true);
+        return;
+      }
+
+      sjSetFixasVarMsg("", false);
+
+      var fixas = data.fixas || 0;
+      var variaveis = data.variaveis || 0;
+      var pctFixas = data.pct_fixas || 0;
+      var pctVar = data.pct_variaveis || 0;
+
+      var fmt = function (v) {
+        return "R$ " + v.toFixed(2).replace(".", ",");
+      };
+
+      elFixasValor.textContent = fmt(fixas);
+      elVarValor.textContent = fmt(variaveis);
+      elFixasPct.textContent = "(" + pctFixas.toFixed(1).replace(".", ",") + "%)";
+      elVarPct.textContent = "(" + pctVar.toFixed(1).replace(".", ",") + "%)";
+
+      var resumo;
+      if (fixas === 0 && variaveis === 0) {
+        resumo = "Sem despesas registradas neste mês.";
+      } else if (pctFixas >= 60) {
+        resumo = "Boa parte das despesas são fixas. Se estiverem sob controle, isso traz previsibilidade para o caixa.";
+      } else if (pctVar >= 60) {
+        resumo = "Despesas variáveis altas. Vale revisar gastos fora do essencial e ajustar o padrão de consumo.";
+      } else {
+        resumo = "Equilíbrio saudável entre fixas e variáveis. Mantenha o controle e monitore mudanças bruscas.";
+      }
+
+      elResumo.textContent = resumo;
+    })
+    .catch(function (err) {
+      console.error("Erro fixas vs variáveis:", err);
+      sjSetFixasVarMsg("Erro ao carregar fixas vs variáveis.", true);
+    });
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+  try {
+    carregarDespesasFixasVariaveis();
+  } catch (e) {
+    console.error("Falha ao inicializar Fixas vs Variáveis:", e);
+  }
+});
