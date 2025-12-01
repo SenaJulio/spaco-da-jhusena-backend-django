@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+
 import smtplib
 import ssl
 from pathlib import Path
@@ -58,6 +59,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework",
     "django.contrib.humanize",
+    "notificacoes",
 ]
 
 LOGIN_URL = "/admin/login/"
@@ -209,3 +211,15 @@ LOGGING = {
 }
 
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver"]
+
+# ========= Integrações externas =========
+TELEGRAM_BOT_TOKEN = (
+    "8229705100:AAEtRO291nZB9IxwKpUiFVWzbLXluXkivbk"  # trocar pelo token real do BotFather
+)
+TELEGRAM_CHAT_ID_DEFAULT = "6126423440"
+
+
+# === WhatsApp Cloud API ===
+WHATSAPP_CLOUD_TOKEN = "SEU_TOKEN_AQUI"
+WHATSAPP_PHONE_ID = "SEU_PHONE_ID_AQUI"  # ex: "123456789012345"
+WHATSAPP_TO_DEFAULT = "55DDDSEUNUMERO"  # ex: "5599999999999"

@@ -253,21 +253,7 @@
 
     renderListaSafe(container, filtered);
 
-    const lastId = globalThis.__LAST_DICA_ID__ ?? null;
-    if (lastId) {
-      const el = container.querySelector(`.ia-card[data-id="${lastId}"]`);
-      if (el) {
-        el.classList.add("just-added");
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-        setTimeout(() => {
-          el.classList.remove("just-added");
-          if (globalThis.__LAST_DICA_ID__ === lastId) {
-            globalThis.__LAST_DICA_ID__ = null;
-          }
-        }, 1400);
-      }
-    }
-
+   
     requestAnimationFrame(() => {
       for (const el of container.querySelectorAll(".ia-card")) {
         el.classList.add("fade-in");

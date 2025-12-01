@@ -74,3 +74,24 @@ class RecomendacaoIA(models.Model):
 
     def __str__(self):
         return f"{self.tipo.upper()} - {self.texto[:50]}..."
+
+
+class HistoricoIA(models.Model):
+    TIPOS = [
+        ("positiva", "Positiva"),
+        ("alerta", "Alerta"),
+        ("neutra", "Neutra"),
+    ]
+
+    texto = models.TextField()
+    tipo = models.CharField(max_length=20, choices=TIPOS, default="neutra")
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    origem = models.CharField(
+        max_length=20, default="manual", help_text="Origem da recomendação"  # manual / auto
+    )
+
+    usuario = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.tipo.upper()} - {self.criado_em:%d/%m/%Y %H:%M}"

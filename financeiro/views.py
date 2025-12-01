@@ -301,6 +301,19 @@ def dashboard_financeiro(request):
         f"💡 Dica: {dica_ia}"
     )
     # Aqui você poderia chamar enviar_whatsapp(mensagem_envio) ou enviar_telegram(mensagem_envio)
+    from django.http import JsonResponse
+from notificacoes.utils_whatsapp import enviar_whatsapp
+
+
+def api_enviar_whatsapp(request):
+    tel = request.GET.get("tel")
+    msg = request.GET.get("msg")
+
+    if not tel or not msg:
+        return JsonResponse({"erro": "Parâmetros faltando"}, status=400)
+
+    resultado = enviar_whatsapp(tel, msg)
+    return JsonResponse(resultado)
 
     # Salva dica no histórico
     categoria_dominante = "Outros"  # Aqui você pode mudar para detectar com base nas despesas

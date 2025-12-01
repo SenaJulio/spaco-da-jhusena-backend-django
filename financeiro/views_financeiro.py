@@ -15,6 +15,8 @@ import builtins
 from django.apps import apps
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from django.db.models.functions import TruncMonth
+from django.utils.timezone import now
 from django.core.paginator import Paginator
 from django.db import DatabaseError, models
 from django.db.models import (
@@ -27,6 +29,8 @@ from django.db.models import (
     When,
     DecimalField,
     F,
+    ExpressionWrapper,
+    
 )
 from django.db.models.functions import TruncDate, Coalesce, Abs, Cast
 from django.http import JsonResponse
@@ -34,6 +38,16 @@ from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
+from vendas.models import ItemVenda
+from notificacoes.services import (
+    notificar_dica_financeira_teste,
+    formatar_mensagem_telegram,
+)
+
+from datetime import date
+from django.http import JsonResponse
+from django.db.models import Sum, F
+
 
 # IA (motor oficial do preview)
 from ia.services.analysis import analisar_30d_dict
@@ -274,6 +288,56 @@ def _infer_cor(obj) -> str:
     return "cinza"
 
 
+# ============================================================
+# MÉTRICAS — Despesas Fixas vs Variáveis (mensal)
+# ============================================================
+
+
+def despesas_fixas_variaveis_mensal(request):
+    """
+    Calcula o total de despesas fixas e variáveis no mês atual.
+    Regra:
+      - categoria == 'Despesas Fixas'  -> fixas
+      - demais categorias de despesa   -> variáveis
+    """
+    hoje = now().date()
+    ano = hoje.year
+    mes = hoje.month
+
+    filtro_despesa = Q(tipo="despesa") | Q(tipo="D")
+
+    agg = Transacao.objects.filter(
+        filtro_despesa,
+        data__year=ano,
+        data__month=mes,
+    ).aggregate(
+        total_fixas=Sum("valor", filter=Q(categoria="Despesas Fixas")),
+        total_variaveis=Sum("valor", filter=~Q(categoria="Despesas Fixas")),
+    )
+
+    fixas = float(agg.get("total_fixas") or 0)
+    variaveis = float(agg.get("total_variaveis") or 0)
+    total = fixas + variaveis
+
+    if total > 0:
+        pct_fixas = (fixas / total) * 100.0
+        pct_variaveis = (variaveis / total) * 100.0
+    else:
+        pct_fixas = 0.0
+        pct_variaveis = 0.0
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "mes_label": f"{mes:02d}/{ano}",
+            "fixas": fixas,
+            "variaveis": variaveis,
+            "total": total,
+            "pct_fixas": pct_fixas,
+            "pct_variaveis": pct_variaveis,
+        }
+    )
+
 # -----------------------------------------------------------------------------
 # Dashboard (template)
 # -----------------------------------------------------------------------------
@@ -312,26 +376,50 @@ def gerar_dica_30d(request):
         metrics = analisar_30d_dict(Transacao, request.user)
         dica = (metrics.get("plano_acao") or metrics.get("mensagem") or "").strip()
 
-        # classifica a dica em positiva/alerta/neutra (já existe no seu código)
+        # classifica a dica em positiva/alerta/neutra
         tipo_classificado = map_tipo_ia(dica)
 
         # 2) SALVA NO HISTÓRICO (RecomendacaoIA)
-        #    assim o feed /ia/historico/feed/v2 passa a enxergar essa dica
         rec = RecomendacaoIA.objects.create(
             usuario=request.user,
             texto=dica,
-            # aqui você pode usar tanto "economia/alerta/oportunidade/meta"
-            # quanto "positiva/alerta/neutra". Como o frontend trabalha com
-            # positiva/alerta/neutra, vamos guardar exatamente esse valor:
+            # frontend trabalha com positiva/alerta/neutra
             tipo=tipo_classificado or "economia",
         )
         saved_id = rec.id
         criado_em = rec.criado_em
 
+        # 🔔 NOVO: dispara notificação (por enquanto FAKE) para WhatsApp
+        try:
+            notificar_dica_financeira_teste(
+                mensagem=dica,
+                canal="whatsapp",  # aqui escolhe o canal
+                usuario=request.user,  # pra pegar CanalNotificacaoUsuario se tiver
+            )
+        except Exception as notif_exc:
+            # não vamos quebrar a geração da dica se der erro de notificação
+            print("[DEBUG NOTIF WHATSAPP]", notif_exc)
+
+        # 3) monta mensagem bonita pro Telegram
+        periodo_dict = metrics.get("periodo") or {}
+    # mensagem_formatada = formatar_mensagem_telegram(
+    #     dica=dica,
+    #    tipo=tipo_classificado,
+    #     periodo=periodo_dict,
+    #  )
+
+    # 4) dispara notificação (central de notificações)
+    #  notificar_dica_financeira_teste(
+    #     mensagem_formatada,
+    #     canal="telegram",
+    #    usuario=request.user,
+    # )
+
     except Exception as e:
+        # se der qualquer erro aqui em cima, volta 500 com texto de erro
         return JsonResponse({"ok": False, "error": str(e)}, status=500)
 
-    # período analisado
+    # 5) monta período em objetos date pra devolver no payload (como antes)
     ps_str = (metrics.get("periodo") or {}).get("inicio") if isinstance(metrics, dict) else None
     pe_str = (metrics.get("periodo") or {}).get("fim") if isinstance(metrics, dict) else None
     try:
@@ -351,7 +439,7 @@ def gerar_dica_30d(request):
             "tipo": tipo_classificado,
             "texto": dica,
             "text": dica,
-            # o historico_ia.js consegue entender esse formato dd/mm/aaaa HH:MM
+            # o historico_ia.js entende esse formato dd/mm/aaaa HH:MM
             "created_at": criado_em.strftime("%d/%m/%Y %H:%M"),
             "criado_em": criado_em.strftime("%d/%m/%Y %H:%M"),
             "criado_em_fmt": criado_em.strftime("%d/%m/%Y %H:%M"),
@@ -360,6 +448,49 @@ def gerar_dica_30d(request):
         },
     }
     return JsonResponse(payload)
+
+
+@require_http_methods(["GET", "POST"])
+@login_required
+def enviar_dica_30d(request):
+    """
+    Envia a ÚLTIMA dica 30d do usuário logado para o Telegram.
+    (Depois a gente pode evoluir para escolher por ID.)
+    """
+    try:
+        rec = RecomendacaoIA.objects.filter(usuario=request.user).latest("criado_em")
+    except RecomendacaoIA.DoesNotExist:
+        return JsonResponse(
+            {"ok": False, "error": "Nenhuma dica encontrada para enviar."},
+            status=400,
+        )
+
+    metrics = analisar_30d_dict(Transacao, request.user)
+    periodo_dict = metrics.get("periodo") or {}
+
+    mensagem_formatada = formatar_mensagem_telegram(
+        dica=rec.texto,
+        tipo=rec.tipo,
+        periodo=periodo_dict,
+    )
+
+    notificar_dica_financeira_teste(
+        mensagem_formatada,
+        canal="telegram",
+        usuario=request.user,
+    )
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "enviado": {
+                "id": rec.id,
+                "texto": rec.texto,
+                "tipo": rec.tipo,
+                "periodo": periodo_dict,
+            },
+        }
+    )
 
 
 # -----------------------------------------------------------------------------
@@ -618,6 +749,128 @@ def ia_resumo_mensal_series(request):
             "alertas": alerta,
             "neutras": neutra,
             "forecast_next": {"label": next_label, "total": forecast_total},
+        }
+    )
+
+
+@login_required
+def ia_alertas_periodos_criticos(request):
+    """
+    Analisa a série mensal (receitas, despesas, saldo)
+    e retorna alertas de períodos críticos / pontos de atenção.
+    """
+    hoje = now().date()
+    inicio = hoje.replace(month=1, day=1)
+    fim = hoje
+
+    qs = (
+        Transacao.objects.filter(data__gte=inicio, data__lte=fim)
+        .annotate(mes=TruncMonth("data"))
+        .values("mes")
+        .annotate(
+            total_receitas=Sum("valor", filter=Q(tipo__in=TIPO_RECEITA)),
+            total_despesas=Sum("valor", filter=Q(tipo__in=TIPO_DESPESA)),
+        )
+        .order_by("mes")
+    )
+
+    series = []
+    for row in qs:
+        mes = row["mes"]
+        receitas = float(row["total_receitas"] or 0)
+        despesas = float(row["total_despesas"] or 0)
+        saldo = receitas - despesas
+        margem = (saldo / receitas * 100.0) if receitas > 0 else 0.0
+
+        series.append(
+            {
+                "ano": mes.year,
+                "mes": mes.month,
+                "label": f"{mes.month:02d}/{mes.year}",
+                "total_receitas": receitas,
+                "total_despesas": despesas,
+                "saldo": saldo,
+                "margem": margem,
+            }
+        )
+
+    # se tiver pouco dado, não inventa alerta
+    if len(series) < 2:
+        return JsonResponse(
+            {
+                "ok": True,
+                "motivo": "poucos_dados",
+                "alertas": [],
+                "series": series,
+            }
+        )
+
+    alertas = []
+
+    # 1) Pior saldo do ano
+    pior = min(series, key=lambda s: s["saldo"])
+    if pior["saldo"] < 0:
+        alertas.append(
+            {
+                "tipo": "critico",
+                "titulo": "Mês com pior saldo do ano",
+                "mes": pior["label"],
+                "texto": (
+                    f"No mês {pior['label']} o saldo ficou NEGATIVO em "
+                    f"R$ {pior['saldo']:.2f}. Reveja despesas e cortes desse período."
+                ),
+            }
+        )
+
+    # 2) Maior queda de saldo entre meses consecutivos
+    maior_queda = None
+    for prev, cur in zip(series, series[1:]):
+        diff = cur["saldo"] - prev["saldo"]  # se negativo, caiu
+        if diff < 0:
+            if (maior_queda is None) or (diff < maior_queda["diff"]):
+                maior_queda = {
+                    "diff": diff,
+                    "mes_anterior": prev,
+                    "mes_atual": cur,
+                }
+
+    if maior_queda:
+        prev = maior_queda["mes_anterior"]
+        cur = maior_queda["mes_atual"]
+        alertas.append(
+            {
+                "tipo": "atencao",
+                "titulo": "Maior queda de saldo entre meses",
+                "mes": cur["label"],
+                "texto": (
+                    f"Entre {prev['label']} e {cur['label']} o saldo caiu "
+                    f"R$ {abs(maior_queda['diff']):.2f}. Avalie o que mudou nesse período "
+                    "em receitas e despesas."
+                ),
+            }
+        )
+
+    # 3) Margem muito apertada (menos de 10%) no último mês
+    ultimo = series[-1]
+    if ultimo["total_receitas"] > 0 and ultimo["margem"] < 10:
+        alertas.append(
+            {
+                "tipo": "alerta",
+                "titulo": "Margem apertada no mês atual",
+                "mes": ultimo["label"],
+                "texto": (
+                    f"No mês {ultimo['label']} a margem foi de apenas "
+                    f"{ultimo['margem']:.1f}%. Risco de o caixa ficar negativo "
+                    "se as despesas subirem ou as vendas caírem."
+                ),
+            }
+        )
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "alertas": alertas,
+            "series": series,
         }
     )
 
@@ -1321,3 +1574,267 @@ def ia_analise_30d_gerar(request):
     para manter compatibilidade com o front e com o feed v2.
     """
     return gerar_dica_30d(request)
+
+
+def ia_resumo_mensal_series(request):
+    """
+    Série mensal agregada para a IA (receitas, despesas, saldo por mês).
+    Exemplo de resposta:
+    {
+      "ok": true,
+      "inicio": "2025-01-01",
+      "fim": "2025-11-01",
+      "series": [
+        {
+          "ano": 2025,
+          "mes": 1,
+          "label": "01/2025",
+          "total_receitas": 1234.56,
+          "total_despesas": 789.10,
+          "saldo": 445.46
+        },
+        ...
+      ]
+    }
+    """
+    hoje = now().date()
+
+    # aqui podemos ser simples: pegar tudo desde janeiro do ano atual
+    inicio = hoje.replace(month=1, day=1)
+    fim = hoje
+
+    qs = (
+        Transacao.objects.filter(data__gte=inicio, data__lte=fim)  # <<< sem __date
+        .annotate(mes=TruncMonth("data"))
+        .values("mes")
+        .annotate(
+            total_receitas=Sum("valor", filter=Q(tipo="R")),
+            total_despesas=Sum("valor", filter=Q(tipo="D")),
+        )
+        .order_by("mes")
+    )
+
+    series = []
+    for row in qs:
+        mes = row["mes"]
+        receitas = row["total_receitas"] or 0
+        despesas = row["total_despesas"] or 0
+        saldo = receitas - despesas
+
+        series.append(
+            {
+                "ano": mes.year,
+                "mes": mes.month,
+                "label": f"{mes.month:02d}/{mes.year}",
+                "total_receitas": float(receitas),
+                "total_despesas": float(despesas),
+                "saldo": float(saldo),
+            }
+        )
+
+    data = {
+        "ok": True,
+        "inicio": inicio.isoformat(),
+        "fim": fim.isoformat(),
+        "series": series,
+    }
+    return JsonResponse(data)
+
+
+# ============================================================
+# IA — Análise Mensal (preview)
+# Usa o motor financeiro/ia_engine.py
+# ============================================================
+
+from .ia_engine import analisar_serie_mensal  # importa o motor
+
+
+def ia_analise_mensal_preview(request):
+    """
+    Gera uma análise inteligente do mês atual,
+    usando os dados da série mensal consolidada.
+    """
+    # Reaproveitamos a mesma lógica da ia_resumo_mensal_series
+    hoje = now().date()
+    inicio = hoje.replace(month=1, day=1)
+    fim = hoje
+
+    qs = (
+        Transacao.objects.filter(data__gte=inicio, data__lte=fim)
+        .annotate(mes=TruncMonth("data"))
+        .values("mes")
+        .annotate(
+            total_receitas=Sum("valor", filter=Q(tipo="R")),
+            total_despesas=Sum("valor", filter=Q(tipo="D")),
+        )
+        .order_by("mes")
+    )
+
+    # Normalizamos igual ao endpoint de séries
+    series = []
+    for row in qs:
+        mes = row["mes"]
+        receitas = float(row["total_receitas"] or 0)
+        despesas = float(row["total_despesas"] or 0)
+        saldo = receitas - despesas
+
+        series.append(
+            {
+                "ano": mes.year,
+                "mes": mes.month,
+                "label": f"{mes.month:02d}/{mes.year}",
+                "total_receitas": receitas,
+                "total_despesas": despesas,
+                "saldo": saldo,
+            }
+        )
+
+    # Chama o motor da IA
+    resultado = analisar_serie_mensal(series)
+
+    return JsonResponse(resultado)
+
+# ============================================================
+# MÉTRICAS — Ranking mensal de categorias
+# ============================================================
+
+
+def ranking_categorias_mensal(request):
+    """
+    Retorna o ranking de categorias do mês atual,
+    somando todas as transações do mês por categoria (campo texto).
+    """
+    hoje = now().date()
+    mes = hoje.month
+    ano = hoje.year
+
+    qs = (
+        Transacao.objects.filter(data__year=ano, data__month=mes)
+        .values("categoria")  # << agora é direto no campo
+        .annotate(total=Sum("valor"))
+        .order_by("-total")
+    )
+
+    categorias = []
+    for row in qs:
+        nome = row["categoria"] or "Sem categoria"
+        categorias.append({"categoria": nome, "total": float(row["total"] or 0)})
+
+    return JsonResponse({"ok": True, "mes_label": f"{mes:02d}/{ano}", "categorias": categorias})
+
+# ============================================================
+# MÉTRICAS — Ranking mensal de serviços/produtos (por ItemVenda)
+# ============================================================
+
+
+@login_required
+def ranking_servicos_mensal(request):
+    """
+    Ranking dos serviços/produtos mais vendidos no mês atual,
+    somando quantidade * preco_unitario por produto,
+    usando a DATA da VENDA (sem depender da transação).
+    """
+    hoje = now().date()
+    mes = hoje.month
+    ano = hoje.year
+
+    valor_total_expr = ExpressionWrapper(
+        F("quantidade") * F("preco_unitario"),
+        output_field=DecimalField(max_digits=12, decimal_places=2),
+    )
+
+    qs = (
+        ItemVenda.objects.filter(
+            venda__data__year=ano,
+            venda__data__month=mes,
+        )
+        .values("produto__nome")
+        .annotate(total=Sum(valor_total_expr))
+        .order_by("-total")
+    )
+
+    itens = []
+    for row in qs:
+        nome = row["produto__nome"] or "Sem nome"
+        itens.append(
+            {
+                "nome": nome,
+                "total": float(row["total"] or 0),
+            }
+        )
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "mes_label": f"{mes:02d}/{ano}",
+            "servicos": itens,
+        }
+    )
+
+# ============================================================
+# MÉTRICAS — Categoria que mais cresceu (variação mensal)
+# ============================================================
+
+
+def categoria_que_mais_cresceu(request):
+    """
+    Compara cada categoria entre mês atual e mês anterior
+    e retorna a que mais cresceu em %.
+    """
+    hoje = now().date()
+    ano = hoje.year
+    mes = hoje.month
+
+    # Mês atual
+    qs_atual = (
+        Transacao.objects.filter(data__year=ano, data__month=mes)
+        .values("categoria")
+        .annotate(total=Sum("valor"))
+    )
+    atual = {row["categoria"]: float(row["total"] or 0) for row in qs_atual}
+
+    # Mês anterior
+    mes_ant = mes - 1 if mes > 1 else 12
+    ano_ant = ano if mes > 1 else ano - 1
+
+    qs_ant = (
+        Transacao.objects.filter(data__year=ano_ant, data__month=mes_ant)
+        .values("categoria")
+        .annotate(total=Sum("valor"))
+    )
+    anterior = {row["categoria"]: float(row["total"] or 0) for row in qs_ant}
+
+    variacoes = []
+    for cat, valor_atual in atual.items():
+        valor_ant = anterior.get(cat, 0)
+        if valor_ant == 0:
+            variacao = 100.0 if valor_atual > 0 else 0
+        else:
+            variacao = ((valor_atual - valor_ant) / valor_ant) * 100
+
+        variacoes.append(
+            {
+                "categoria": cat,
+                "variacao": variacao,
+                "atual": valor_atual,
+                "anterior": valor_ant,
+            }
+        )
+
+    if not variacoes:
+        return JsonResponse({"ok": True, "mensagem": "Sem dados suficientes."})
+
+    # pega a maior variação
+    maior = max(variacoes, key=lambda x: x["variacao"])
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "categoria": maior["categoria"],
+            "variacao": maior["variacao"],
+            "atual": maior["atual"],
+            "anterior": maior["anterior"],
+            "mes_atual": f"{mes:02d}/{ano}",
+            "mes_anterior": f"{mes_ant:02d}/{ano_ant}",
+        }
+    )
