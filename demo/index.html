@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <title>Spaço da Jhuséna — Demo</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    <nav>
+        <h2>Spaço da Jhuséna — Demo</h2>
+        <a href="/" class="btn-voltar">Voltar</a>
+    </nav>
+
+    <div class="container">
+
+        <!-- Card 1: resumo + botão de dica fake -->
+        <div class="card">
+            <h3>Resumo Financeiro (demo)</h3>
+            <p>Este painel demonstra como a IA analisa receitas, despesas e gera insights automáticos.</p>
+
+            <button id="btnGerarFake" class="btn-primary">
+                Gerar dica rápida da IA
+            </button>
+        </div>
+
+        <!-- Card 2: gráfico -->
+        <div class="card">
+            <h3>Gráfico de Demonstração</h3>
+            <div class="chart-wrapper">
+                <canvas id="chartDemo" height="140"></canvas>
+            </div>
+        </div>
+
+        <!-- Card 3: lista de dicas da IA -->
+        <div class="card">
+            <h3>Dicas da IA (demo)</h3>
+            <ul id="listaDicas" class="ia-list">
+                <!-- preenchido pelo script.js -->
+            </ul>
+
+            <button id="btnNovaDica" class="btn-secondary">
+                Gerar nova dica
+            </button>
+        </div>
+
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
