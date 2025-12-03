@@ -59,7 +59,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "rest_framework",
     "django.contrib.humanize",
-    "notificacoes",
+    "notificacoes.apps.NotificacoesConfig",
 ]
 
 LOGIN_URL = "/admin/login/"

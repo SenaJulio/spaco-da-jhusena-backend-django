@@ -2887,3 +2887,64 @@ document.addEventListener("DOMContentLoaded", function () {
     console.error("Falha ao inicializar Fixas vs Variáveis:", e);
   }
 });
+
+// ----------------------------------------------
+// IA (Nova dica 30d)
+// ----------------------------------------------
+(function () {
+  const btn = document.getElementById("btnGerarDicaFiltro");
+  if (!btn) return;
+
+  // helper pra pegar o CSRF
+  function getCookie(name) {
+    const value = `; ${document.cookie}`;
+    const parts = value.split(`; ${name}=`);
+    if (parts.length === 2) return parts.pop().split(";").shift();
+  }
+
+  btn.addEventListener("click", async () => {
+    const originalText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "Gerando dica...";
+
+    try {
+      const resp = await fetch("/financeiro/ia/gerar_dica_30d/", {
+        method: "POST",
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+          "X-CSRFToken": getCookie("csrftoken"),
+        },
+      });
+
+      const data = await resp.json();
+
+      if (!resp.ok || data.ok === false) {
+        throw new Error(data.error || "Falha ao gerar dica.");
+      }
+
+      const dica =
+        (data.salvo && (data.salvo.texto || data.salvo.text)) ||
+        data.dica ||
+        "Dica gerada com sucesso!";
+
+      // 👉 Nada de alert aqui
+      console.log("[IA Nova dica]", dica);
+
+      // feedback visual rápido no botão
+      btn.textContent = "Dica gerada!";
+      setTimeout(() => {
+        btn.textContent = originalText;
+      }, 1500);
+    } catch (e) {
+      console.error(e);
+      btn.textContent = "Erro ao gerar";
+      setTimeout(() => {
+        btn.textContent = originalText;
+      }, 2000);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+})();
+
+

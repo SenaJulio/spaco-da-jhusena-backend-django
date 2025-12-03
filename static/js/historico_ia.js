@@ -110,7 +110,7 @@
 
   function buildCard(it) {
     const tipo = String(it.tipo || it.kind || "neutra").toLowerCase();
-    const raw = it.criado_em || it.created_at || "";
+    const raw = it.criado_em || it.created_at || it.created_at_br || "";
     let quando = raw;
 
     if (typeof formatarDataBR === "function") {
@@ -253,7 +253,6 @@
 
     renderListaSafe(container, filtered);
 
-   
     requestAnimationFrame(() => {
       for (const el of container.querySelectorAll(".ia-card")) {
         el.classList.add("fade-in");
@@ -556,6 +555,11 @@
     set filtro(t) {
       filtroCategoria = normalizeTipo(t) || "";
     },
+  };
+
+  // Alias global para o mini_ia.js usar
+  globalThis.recarregarHistoricoComFiltroAtual = function () {
+    return globalThis.__HistoricoIA?.recarregar?.();
   };
 
   // ---------- Handlers isolados ----------
