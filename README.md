@@ -30,6 +30,11 @@
   <img src="docs/preview-dashboard.png" alt="Painel Financeiro Inteligente — Demo" width="800">
 </p>
 
+
+<p align="center">
+  <img src="docs/preview-grafico.png" width="600">
+</p>
+
 ---
 
 # 📚 Índice
