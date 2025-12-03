@@ -99,6 +99,7 @@ O **Spaço da Jhuséna** é um ERP real, criado a partir das necessidades práti
 
 ### 2️⃣ Clonar o projeto
 ```bash
+<<<<<<< HEAD
 git clone https://github.com/SenaJulio/spaco-da-jhusena-backend-django.git
 cd spaco-da-jhusena-backend-django
 
@@ -190,3 +191,13 @@ Desenvolvedor do Spaço da Jhuséna
 Sena Júlio
 Desenvolvedor do Spaço da Jhuséna
 🔗 LinkedIn: https://www.linkedin.com/in/julio-sena-4668a7178/
+=======
+# Clone o repositório
+git clone https://github.com/senajulio/jhusena-demo.git
+
+# Acesse a pasta
+cd jhusena-demo
+
+# Abra o index.html no navegador
+
+>>>>>>> 2fa7464 (Revise README with project overview and features)
