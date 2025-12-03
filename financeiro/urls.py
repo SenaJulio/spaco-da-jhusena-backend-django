@@ -138,5 +138,5 @@ urlpatterns = [
         views.ia_resumo_mensal_series,
         name="ia_resumo_mensal_series",
     ),
-    path("whatsapp/enviar/", api_enviar_whatsapp),
+    path("whatsapp/enviar/", api_enviar_whatsapp, name="api_enviar_whatsapp"),
 ]

@@ -143,7 +143,7 @@
           if (dica) {
             dica.textContent = texto;
             dica.classList.remove("sj-ia-fade");
-            dica.getBoundingClientRect(); // reinicia animação sem warning
+            dica.getBoundingClientRect(); // reinicia animação
             dica.classList.add("sj-ia-fade");
           }
 
@@ -169,48 +169,49 @@
               );
             }
           }
+
           // id da nova dica salva no backend
           const novoId = salvo.id || j.id || null;
 
-          // Atualiza o histórico com o filtro atual
-          if (novoId != null) {
-            if (
-              typeof window.recarregarHistoricoComFiltroAtual === "function"
-            ) {
-              console.log("🔄 Recarregando histórico com filtro atual…");
-              await window.recarregarHistoricoComFiltroAtual();
-            } else if (typeof window.carregarHistorico === "function") {
-              console.log("🔄 Recarregando histórico padrão…");
-              await window.carregarHistorico(
-                20,
-                window.__HistoricoIA?.filtro || "",
-                false
-              );
-            }
+          // Guarda o ID recém-criado para destacar no histórico
+          window.__LAST_DICA_ID__ = novoId;
 
-            // Depois que recarregar, destaca o card certo
-            setTimeout(() => {
-              const cont = document.getElementById("listaHistorico");
-              if (!cont) return;
-
-              const item = cont.querySelector(`.ia-card[data-id="${novoId}"]`);
-              if (!item) return;
-
-              item.classList.add("just-added");
-              item.scrollIntoView({ behavior: "smooth", block: "center" });
-
-              // remove o destaque depois de 2s
-              setTimeout(() => {
-                item.classList.remove("just-added");
-              }, 8000);
-            }, 500);
+          // Compat: se NÃO existir o helper novo, tenta usar o loader antigo
+          if (
+            novoId != null &&
+            typeof window.recarregarHistoricoComFiltroAtual !== "function" &&
+            typeof window.carregarHistorico === "function"
+          ) {
+            console.log("🔄 Recarregando histórico (modo legado)...");
+            await window.carregarHistorico(
+              20,
+              window.__HistoricoIA?.filtro || "",
+              false
+            );
           }
 
-          // guarda o ID recém-criado para destacar no histórico
-          // guarda o ID recém-criado para destacar no histórico
-          window.__LAST_DICA_ID__ = salvo.id || j.id || null;
+          // Barra de sucesso
+          if (bar) {
+            show(bar, false);
+            bar.classList.remove("sj-ia-success-bar");
+            bar.getBoundingClientRect(); // força reflow na barra
+            show(bar, true);
+            bar.classList.add("sj-ia-success-bar");
+          }
 
-          // Atualiza o histórico usando o helper global do dashboard
+          st.textContent = "✅ Dica gerada, exibida e adicionada ao histórico!";
+        } catch (err) {
+          console.error("Mini-IA:", err);
+          st.textContent = "❌ Erro ao gerar dica dos últimos 30 dias.";
+        } finally {
+          btnGerar.disabled = false;
+          if (iaIcon) {
+            iaIcon.classList.remove("sj-ia-spin");
+          }
+        }
+
+        try {
+          // Atualiza o histórico usando o helper global do dashboard (fluxo novo)
           if (typeof window.recarregarHistoricoComFiltroAtual === "function") {
             console.log(
               "🔄 Atualizando histórico após gerar dica (filtro atual)..."
@@ -246,25 +247,8 @@
               item.classList.remove("sj-new-item-highlight");
             }, 2000);
           }, 400);
-
-          // Barra de sucesso
-          if (bar) {
-            show(bar, false);
-            bar.classList.remove("sj-ia-success-bar");
-            dica.getBoundingClientRect();
-            show(bar, true);
-            bar.classList.add("sj-ia-success-bar");
-          }
-
-          st.textContent = "✅ Dica gerada, exibida e adicionada ao histórico!";
-        } catch (err) {
-          console.error("Mini-IA:", err);
-          st.textContent = "❌ Erro ao gerar dica dos últimos 30 dias.";
-        } finally {
-          btnGerar.disabled = false;
-          if (iaIcon) {
-            iaIcon.classList.remove("sj-ia-spin");
-          }
+        } catch (e) {
+          console.error("Erro ao destacar nova dica no histórico:", e);
         }
       });
     }

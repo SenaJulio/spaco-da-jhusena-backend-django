@@ -3,9 +3,9 @@
 
 {% block title %}📊 Painel Financeiro — TESTE{% endblock %}
 
+{# Aqui o block stylesheet deve retornar APENAS a URL, pois o base_site.html já tem o <link> #}
 {% block stylesheet %}
   <link rel="stylesheet" href="{% static 'financeiro/admin_override.css' %}">
-  <link rel="stylesheet" href="{% static 'financeiro/style.css' %}">
 {% endblock %}
 
 
@@ -212,8 +212,8 @@
   <div class="col-sm-3 d-flex gap-2">
     <button id="btnAplicarFiltros" class="btn btn-success w-50" type="button">Aplicar</button>
     <button id="btnGerarDicaFiltro" class="btn btn-outline-primary w-50" type="button">
-    IA (Nova dica)
-    </button>    
+      IA (Nova dica)
+    </button>
   </div>
 </div>
 
@@ -277,7 +277,7 @@
     >
       Neutras (<span id="countNeutra">0</span>)
     </button>
-  </div>  
+  </div>
 </div>
 
 <!-- Lista principal do histórico (V1) -->
@@ -327,44 +327,44 @@
   <div class="card-body">
     <div class="row">
       <!-- COLUNA ESQUERDA: gráficos -->
-     <div class="col-md-7">
-  <h6 class="mb-2">Evolução mensal (receitas, despesas e saldo)</h6>
-  <div style="width: 100%; height: 220px;">
-    <canvas id="graficoSerieMensalIa"></canvas>
-  </div>
+      <div class="col-md-7">
+        <h6 class="mb-2">Evolução mensal (receitas, despesas e saldo)</h6>
+        <div style="width: 100%; height: 220px;">
+          <canvas id="graficoSerieMensalIa"></canvas>
+        </div>
 
-  <!-- 🔮 Mini-card da previsão da IA -->
-  <div class="card sj-card sj-previsao-card mt-2" id="cardPrevisaoMensal">
-  <div class="card-body p-3">
-    <div class="d-flex justify-content-between align-items-center mb-1">
-      <div class="fw-semibold">
-  🔮 Previsão Financeira (IA) — horizonte 3 meses
-  </div>
-<span class="badge bg-success-subtle text-success border border-success-subtle">
-  Alta confiança
-</span>
-    </div>
-    <div id="sjPrevResumoLinha" class="small mb-1">
-      <!-- preenchido via JS -->
-    </div>
-    <div id="sjPrevInterpLinha" class="small mb-1 text-muted">
-      <!-- preenchido via JS -->
-    </div>
-    <div id="sjPrevFaixaLinha" class="small sj-previsao-sub">
-      <!-- preenchido via JS (faixa de incerteza / risco) -->
-    </div>
-  </div>
-</div>
+        <!-- 🔮 Mini-card da previsão da IA -->
+        <div class="card sj-card sj-previsao-card mt-2" id="cardPrevisaoMensal">
+          <div class="card-body p-3">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+              <div class="fw-semibold">
+                🔮 Previsão Financeira (IA) — horizonte 3 meses
+              </div>
+              <span class="badge bg-success-subtle text-success border border-success-subtle">
+                Alta confiança
+              </span>
+            </div>
+            <div id="sjPrevResumoLinha" class="small mb-1">
+              <!-- preenchido via JS -->
+            </div>
+            <div id="sjPrevInterpLinha" class="small mb-1 text-muted">
+              <!-- preenchido via JS -->
+            </div>
+            <div id="sjPrevFaixaLinha" class="small sj-previsao-sub">
+              <!-- preenchido via JS (faixa de incerteza / risco) -->
+            </div>
+          </div>
+        </div>
 
-  <!-- fim mini-card -->
+        <!-- fim mini-card -->
 
-  <h6 class="mt-4 mb-2">Ranking de serviços do mês</h6>
-  <div style="width: 100%; height: 260px;">
-    <canvas id="graficoRankingServicosIa"></canvas>
-  </div>
-</div>
+        <h6 class="mt-4 mb-2">Ranking de serviços do mês</h6>
+        <div style="width: 100%; height: 260px;">
+          <canvas id="graficoRankingServicosIa"></canvas>
+        </div>
+      </div>
 
-<!-- COLUNA DIREITA: textos da IA -->
+      <!-- COLUNA DIREITA: textos da IA -->
       <div class="col-md-5">
         <h6 class="mb-2">Insights rápidos</h6>
         <ul class="list-group small" id="listaInsightsIaMensal">
@@ -412,127 +412,131 @@
       <div id="categoriasEmpty" class="sem-dados" hidden>Sem dados para o período escolhido.</div>
     </div>
   </div>
+
   <!-- 📈 Gráfico Mensal (Receitas x Despesas x Saldo) -->
-<div class="col-12 col-lg-6">
-  <div class="card sj-card mb-3">
-    <div class="card-header d-flex justify-content-between align-items-center">
-      <span>📈 Resumo Mensal (Receitas x Despesas x Saldo)</span>
-      <small class="text-muted">Analytics Turbo</small>
-    </div>
-    <div class="card-body">
-      <div id="msgGraficoMensalIA"
-           class="small mb-2 text-muted"
-           style="display:none"></div>
+  <div class="col-12 col-lg-6">
+    <div class="card sj-card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>📈 Resumo Mensal (Receitas x Despesas x Saldo)</span>
+        <small class="text-muted">Analytics Turbo</small>
+      </div>
+      <div class="card-body">
+        <div id="msgGraficoMensalIA"
+             class="small mb-2 text-muted"
+             style="display:none"></div>
 
-      <canvas id="graficoMensalIA" height="140"></canvas>
+        <canvas id="graficoMensalIA" height="140"></canvas>
+      </div>
     </div>
   </div>
-  </div>
+
   <!-- 🏆 Ranking de Categorias (Mensal) -->
-<div class="col-12 col-lg-6">
-  <div class="card sj-card mb-3">
-    <div class="card-header d-flex justify-content-between align-items-center">
-      <span>🏆 Ranking de Categorias</span>
-      <small class="text-muted">Mensal</small>
-    </div>
-    <div class="card-body">
+  <div class="col-12 col-lg-6">
+    <div class="card sj-card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>🏆 Ranking de Categorias</span>
+        <small class="text-muted">Mensal</small>
+      </div>
+      <div class="card-body">
 
-      <div id="rankingCategoriasMsg"
-           class="small text-muted mb-2"
-           style="display:none"></div>
+        <div id="rankingCategoriasMsg"
+             class="small text-muted mb-2"
+             style="display:none"></div>
 
-      <ul id="rankingCategoriasLista"
-          class="list-group small">
-      </ul>
+        <ul id="rankingCategoriasLista"
+            class="list-group small">
+        </ul>
 
-    </div>
-  </div>
-</div>
-<!-- 🏅 Ranking de Serviços (Mensal) -->
-<div class="col-12 col-lg-6">
-  <div class="card sj-card mb-3">
-    <div class="card-header d-flex justify-content-between align-items-center">
-      <span>🧼 Ranking de Serviços / Produtos</span>
-      <small class="text-muted">Mensal</small>
-    </div>
-    <div class="card-body">
-
-      <div id="rankingServicosMsg"
-           class="small text-muted mb-2"
-           style="display:none"></div>
-
-      <ul id="rankingServicosLista"
-          class="list-group small">
-      </ul>
-
+      </div>
     </div>
   </div>
-</div>
-<!-- 📈 Categoria que mais cresceu -->
-<div class="col-12 col-lg-6">
-  <div class="card sj-card mb-3">
-    <div class="card-header d-flex justify-content-between align-items-center">
-      <span>📈 Categoria que mais cresceu</span>
-      <small class="text-muted">Mensal</small>
-    </div>
-    <div class="card-body">
 
-      <div id="crescimentoCategoriaMsg"
-           class="small text-muted mb-2"
-           style="display:none"></div>
+  <!-- 🏅 Ranking de Serviços (Mensal) -->
+  <div class="col-12 col-lg-6">
+    <div class="card sj-card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>🧼 Ranking de Serviços / Produtos</span>
+        <small class="text-muted">Mensal</small>
+      </div>
+      <div class="card-body">
 
-      <p class="fw-semibold" id="crescimentoCategoriaTitulo">—</p>
-      <p id="crescimentoCategoriaDetalhe" class="small">—</p>
+        <div id="rankingServicosMsg"
+             class="small text-muted mb-2"
+             style="display:none"></div>
 
-    </div>
-  </div>
-</div>
+        <ul id="rankingServicosLista"
+            class="list-group small">
+        </ul>
 
-<!-- 🧩 Despesas Fixas vs Variáveis -->
-<div class="col-12 col-lg-6">
-  <div class="card sj-card mb-3">
-    <div class="card-header d-flex justify-content-between align-items-center">
-      <span>🧩 Despesas Fixas vs Variáveis</span>
-      <small class="text-muted">Mensal</small>
-    </div>
-    <div class="card-body">
-
-      <div id="fixasVarMsg"
-           class="small text-muted mb-2"
-           style="display:none"></div>
-
-      <p class="mb-1">
-        <span class="fw-semibold">Fixas:</span>
-        <span id="fixasValor">R$ 0,00</span>
-        <span class="small text-muted" id="fixasPct">(0%)</span>
-      </p>
-
-      <p class="mb-1">
-        <span class="fw-semibold">Variáveis:</span>
-        <span id="variaveisValor">R$ 0,00</span>
-        <span class="small text-muted" id="variaveisPct">(0%)</span>
-      </p>
-
-      <p class="mb-0 small" id="fixasVarResumo">—</p>
-
+      </div>
     </div>
   </div>
-</div>
 
+  <!-- 📈 Categoria que mais cresceu -->
+  <div class="col-12 col-lg-6">
+    <div class="card sj-card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>📈 Categoria que mais cresceu</span>
+        <small class="text-muted">Mensal</small>
+      </div>
+      <div class="card-body">
 
-<!-- 💡 Análise Mensal IA -->
-<div class="col-12">
-  <div class="card sj-card mb-3">
-    <div class="card-header d-flex justify-content-between align-items-center">
-      <span>💡 Análise Mensal (IA)</span>
-      <small class="text-muted">Modo Analytics Turbo</small>
+        <div id="crescimentoCategoriaMsg"
+             class="small text-muted mb-2"
+             style="display:none"></div>
+
+        <p class="fw-semibold" id="crescimentoCategoriaTitulo">—</p>
+        <p id="crescimentoCategoriaDetalhe" class="small">—</p>
+
+      </div>
     </div>
-    <div class="card-body">
-      <div id="iaAnaliseMensalMsg" class="small text-muted mb-2" style="display:none"></div>
+  </div>
 
-      <p class="mb-1 fw-semibold" id="iaAnaliseMensalResumo">—</p>
-      <p class="mb-1 small" id="iaAnaliseMensalDetalhe">—</p>
-      <p class="mb-0 small text-success" id="iaAnaliseMensalRecomendacao">—</p>
+  <!-- 🧩 Despesas Fixas vs Variáveis -->
+  <div class="col-12 col-lg-6">
+    <div class="card sj-card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>🧩 Despesas Fixas vs Variáveis</span>
+        <small class="text-muted">Mensal</small>
+      </div>
+      <div class="card-body">
+
+        <div id="fixasVarMsg"
+             class="small text-muted mb-2"
+             style="display:none"></div>
+
+        <p class="mb-1">
+          <span class="fw-semibold">Fixas:</span>
+          <span id="fixasValor">R$ 0,00</span>
+          <span class="small text-muted" id="fixasPct">(0%)</span>
+        </p>
+
+        <p class="mb-1">
+          <span class="fw-semibold">Variáveis:</span>
+          <span id="variaveisValor">R$ 0,00</span>
+          <span class="small text-muted" id="variaveisPct">(0%)</span>
+        </p>
+
+        <p class="mb-0 small" id="fixasVarResumo">—</p>
+
+      </div>
+    </div>
+  </div>
+
+
+  <!-- 💡 Análise Mensal IA -->
+  <div class="col-12">
+    <div class="card sj-card mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>💡 Análise Mensal (IA)</span>
+        <small class="text-muted">Modo Analytics Turbo</small>
+      </div>
+      <div class="card-body">
+        <div id="iaAnaliseMensalMsg" class="small text-muted mb-2" style="display:none"></div>
+
+        <p class="mb-1 fw-semibold" id="iaAnaliseMensalResumo">—</p>
+        <p class="mb-1 small" id="iaAnaliseMensalDetalhe">—</p>
+        <p class="mb-0 small text-success" id="iaAnaliseMensalRecomendacao">—</p>
       </div>
     </div>
   </div>
@@ -709,6 +713,5 @@
     <p class="mb-0"><small>2025 © Projeto Spaço da Jhuséna — Todos os direitos reservados.</small></p>
   </div>
 </div>
-<div></div>
 
 {% endblock content %}
