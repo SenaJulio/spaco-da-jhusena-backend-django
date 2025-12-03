@@ -359,7 +359,7 @@ cd jhusena-demo
 Desenvolvedor: Sena Júlio
 WhatsApp: 5531994898165
 E-mail: gm.sena@hotmail.com
-LinkedIn:
+LinkedIn:https://www.linkedin.com/in/julio-sena-4668a7178/
 
 
 🎤 Pitch de Venda
