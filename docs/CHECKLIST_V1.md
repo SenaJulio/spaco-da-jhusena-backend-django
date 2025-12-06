@@ -1,18 +1,20 @@
 # ✅ Checklist de Estabilidade — Spaço da Jhuséna ERP (v1.0)
 
 ## 1. Financeiro
-- [ ] Cadastro de transações (R/D) funcionando
+- [x] Cadastro de transações (R/D) funcionando
 - [x] Dashboard abre sem erro
 - [x] Filtros de período atualizam os gráficos
-- [ ] Gráfico de evolução diária exibe dados reais
-- [ ] Gráfico de categorias (pizza) exibe categorias corretas
-- [ ] Mensagens de “sem dados” aparecem quando não há transações
+- [x] Gráfico de evolução diária exibe dados reais
+- [x] Gráfico de categorias (pizza) exibe categorias corretas
+- [x] Mensagens de “sem dados” aparecem quando não há transações
 
 ## 2. IA Financeira
-- [ ] Botão “Gerar nova dica” funciona sem erro
-- [ ] Histórico da IA carrega com paginação
-- [ ] Filtros (todas / positivas / alerta / neutra) funcionam
-- [ ] Endpoint de resumo mensal responde OK
+- [x] Botão “Gerar nova dica” funciona sem erro
+- [x] Histórico da IA carrega com paginação
+- [x] Filtros (todas / positivas / alerta / neutra) funcionam
+- [x] Endpoint de resumo mensal responde OK
+- [x] Normalização automática de tipo corrigida
+- [x] Front interpretando corretamente os tipos
 
 ## 3. Vendas & Estoque
 - [ ] Registrar venda gera itens de venda corretamente
