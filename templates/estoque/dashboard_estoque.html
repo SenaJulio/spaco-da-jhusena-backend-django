@@ -1,0 +1,56 @@
+{% extends "base_site.html" %}
+{% load static %}
+
+{% block title %}Dashboard de Estoque{% endblock %}
+
+{% block content %}
+  <h1 class="mb-4">Dashboard de Estoque</h1>
+
+  <div class="row">
+    <!-- Ranking por produto -->
+    <div class="col-md-6 mb-4">
+      <div class="card">
+        <div class="card-header">
+          Top produtos (por vendas)
+        </div>
+        <div class="card-body">
+          <canvas id="chartRankingEstoque"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Entradas x Saídas mensais -->
+    <div class="col-md-6 mb-4">
+      <div class="card">
+        <div class="card-header">
+          Entradas x Saídas (mensal)
+        </div>
+        <div class="card-body">
+          <canvas id="chartSerieEstoque"></canvas>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-12 mb-4">
+  <div class="card">
+    <div class="card-header">
+      Alertas de lotes vencidos / a vencer
+    </div>
+    <div class="card-body">
+      <p id="msgSemAlertasLotes" class="text-muted mb-2 d-none">
+        Nenhum lote vencido ou próximo do vencimento nos próximos 30 dias. 🐾
+      </p>
+      <ul id="listaAlertasLotes" class="mb-0 small"></ul>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extrabody %}
+  <!-- 1) Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- 2) JS do dashboard de estoque (vai buscar JSON) -->
+  <script src="{% static 'estoque/dashboard_estoque.js' %}"></script>
+{% endblock %}

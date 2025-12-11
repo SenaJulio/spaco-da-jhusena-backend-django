@@ -1,8 +1,11 @@
 from decimal import Decimal
 from django.db import models
 from django.utils import timezone
+from django.core.exceptions import ValidationError
+
 from financeiro.models import Transacao
 from estoque.models import Produto, MovimentoEstoque
+from estoque.services_fifo import consumir_estoque_fifo, EstoqueInsuficienteError
 
 
 class Venda(models.Model):
@@ -99,7 +102,7 @@ class ItemVenda(models.Model):
     def __str__(self):
         return f"{self.quantidade} x {self.produto.nome}"
 
-    # ---------- Estoque automático ----------
+    # ---------- Estoque automático + FIFO ----------
 
     def _registrar_movimento_estoque(self, diff):
         """
@@ -124,13 +127,26 @@ class ItemVenda(models.Model):
         criando = self.pk is None
         qtd_nova = Decimal(self.quantidade or 0)
 
+        # 🔹 Na criação, antes de registrar MovimentoEstoque, usamos FIFO por lote
         if criando:
+            if qtd_nova <= 0:
+                raise ValidationError("Quantidade deve ser maior que zero.")
+
+            if self.produto.controla_estoque:
+                try:
+                    # Baixa dos lotes em ordem FIFO
+                    consumir_estoque_fifo(self.produto, qtd_nova)
+                except EstoqueInsuficienteError as exc:
+                    # Impede salvar o item se não tiver estoque suficiente
+                    raise ValidationError(str(exc))
+
             # salva primeiro para garantir PK e relação certinha
             super().save(*args, **kwargs)
-            # registra saída total da quantidade
+            # registra saída total da quantidade (estoque agregado)
             self._registrar_movimento_estoque(qtd_nova)
+
         else:
-            # pega quantidade antiga no banco para calcular diferença
+            # Atualização de item: mantém lógica antiga (ajuste por diferença)
             qtd_antiga = (
                 ItemVenda.objects.filter(pk=self.pk).values_list("quantidade", flat=True).first()
             )

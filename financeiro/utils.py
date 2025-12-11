@@ -3,6 +3,8 @@ from datetime import date
 from decimal import Decimal
 
 from .models import RecomendacaoIA as HistoricoIA  # alias compatível
+from financeiro.ia_estoque_bridge import anexar_alertas_estoque_no_texto
+
 
 # Helper para pegar atributo com nomes diferentes (categoria|tipo, valor|amount...)
 def _attr(obj, *names):
@@ -40,6 +42,7 @@ def gerar_dica_ia(receitas, despesas):
     """
     Mantém a sua regra antiga (cores e mensagens), mas já retorna também
     categoria 'lógica' e score para salvar no modelo novo.
+    Agora, anexa alertas de estoque (lotes vencidos / a vencer) no texto.
     """
     total_receitas = sum(float(_attr(r, "valor") or 0) for r in (receitas or []))
     total_despesas = sum(float(_attr(d, "valor") or 0) for d in (despesas or []))
@@ -55,22 +58,26 @@ def gerar_dica_ia(receitas, despesas):
 
     # Casos
     if total_receitas == 0 and total_despesas == 0:
-        return {
+        base = {
             "texto": "Comece a registrar receitas e despesas para ver insights aqui 😉",
             "cor": "gray",
             "categoria": "Dados",
             "score": 40,
             "metrics": metrics,
         }
+        base["texto"] = anexar_alertas_estoque_no_texto(base["texto"])
+        return base
 
     if saldo > 300:
-        return {
+        base = {
             "texto": "🎉 Ótimo trabalho! Seu negócio está com boa margem de lucro neste mês.",
             "cor": "green",
             "categoria": "Desempenho",
             "score": 75,
             "metrics": metrics,
         }
+        base["texto"] = anexar_alertas_estoque_no_texto(base["texto"])
+        return base
 
     if saldo > 0:
         msg = (
@@ -78,22 +85,26 @@ def gerar_dica_ia(receitas, despesas):
             if total_cat > 0
             else "👍 Você está no azul, mas fique de olho nas despesas que estão subindo."
         )
-        return {
+        base = {
             "texto": msg,
             "cor": "blue",
             "categoria": "Atenção",
             "score": 65,
             "metrics": metrics,
         }
+        base["texto"] = anexar_alertas_estoque_no_texto(base["texto"])
+        return base
 
     if saldo == 0:
-        return {
+        base = {
             "texto": "🟡 Você empatou neste mês. Que tal revisar os custos fixos e tentar uma promoção?",
             "cor": "gold",
             "categoria": "Neutro",
             "score": 55,
             "metrics": metrics,
         }
+        base["texto"] = anexar_alertas_estoque_no_texto(base["texto"])
+        return base
 
     # saldo < 0
     msg = (
@@ -101,13 +112,15 @@ def gerar_dica_ia(receitas, despesas):
         if total_cat > 0
         else "🚨 Cuidado! Você está gastando mais do que ganha. Reveja suas despesas com atenção!"
     )
-    return {
+    base = {
         "texto": msg,
         "cor": "red",
         "categoria": "Corte de Custos",
         "score": 70,
         "metrics": metrics,
     }
+    base["texto"] = anexar_alertas_estoque_no_texto(base["texto"])
+    return base
 
 
 def _inferir_periodo(receitas, despesas):

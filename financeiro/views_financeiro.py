@@ -30,7 +30,6 @@ from django.db.models import (
     DecimalField,
     F,
     ExpressionWrapper,
-    
 )
 from django.db.models.functions import TruncDate, Coalesce, Abs, Cast
 from django.http import JsonResponse
@@ -47,6 +46,9 @@ from notificacoes.services import (
 from datetime import date
 from django.http import JsonResponse
 from django.db.models import Sum, F
+from financeiro.services.ia import salvar_recomendacao_ia
+from estoque.services_ia import gerar_alertas_estoque_baixo
+from financeiro.ia_estoque_bridge import registrar_alertas_lote_no_historico
 
 
 # IA (motor oficial do preview)
@@ -61,7 +63,7 @@ from .services.ia import generate_tip_last_30d, _map_tipo as map_tipo_ia
 
 # --- Modelos opcionais/legados ---
 try:
-    from .models import RecomendacaoIA
+    from .models import RecomendacaoIA, HistoricoIA
 except Exception:
     RecomendacaoIA = apps.get_model("financeiro", "RecomendacaoIA")
 
@@ -115,90 +117,161 @@ def _map_tipo_painel(categoria: str, cor: str, metrics: dict) -> str:
         return "oportunidade"
     return "economia"
 
+# ============================================================
+#  financeiro/views_ia.py  (exemplo de nome de arquivo)
+#  Histórico da IA – classificadores + endpoint
+# ============================================================
 
-def _map_tipo_texto(texto: str) -> str:
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from django.utils import timezone
+
+from .models import RecomendacaoIA
+
+
+# ============================================================
+# 1) Classificadores de texto da recomendação
+# ============================================================
+
+def map_tipo_oficial(texto: str) -> str:
     """
-    Classificação textual simplificada para dicas salvas no histórico:
+    Classificador principal baseado em palavras-chave.
+    Retorna: 'positiva', 'alerta' ou 'neutra'.
     """
-    t = (texto or "").lower()
-    positivas = (
-        "ótimo",
-        "excelente",
-        "superávit",
-        "superavit",
-        "positivo",
-        "acima da meta",
-        "lucro",
-        "margem positiva",
-        "continue assim",
-        "reforce a reserva",
-        "aporte",
-    )
-    alertas = (
-        "alerta",
+    tx = (texto or "").lower()
+
+    ALERTAS = (
         "atenção",
-        "atencao",
-        "risco",
-        "queda",
+        "cuidado",
         "negativo",
         "déficit",
         "deficit",
-        "evite",
-        "abaixo da meta",
-        "corte",
-        "reduza",
-        "atraso",
-        "inadimpl",
+        "queda",
+        "alerta",
+        "urgente",
+        "gasto excessivo",
+        "acima do previsto",
+        "no vermelho",
     )
-    if any(k in t for k in alertas):
+    POSITIVAS = (
+        "ótimo",
+        "otimo",
+        "positivo",
+        "sobra",
+        "superávit",
+        "superavit",
+        "parabéns",
+        "parabens",
+        "bom",
+        "bom resultado",
+        "melhorou",
+        "cresceu",
+        "acima da meta",
+        "saldo positivo",
+        "excelente",
+    )
+
+    if any(k in tx for k in ALERTAS):
         return "alerta"
-    if any(k in t for k in positivas):
+    if any(k in tx for k in POSITIVAS):
         return "positiva"
-    if re.search(r"(-\s*\d+([.,]\d+)?%?)", t):
-        return "alerta"
     return "neutra"
 
 
-def _fallback_classify(txt: str) -> str:
-    t = (txt or "").lower()
-    if any(
-        k in t
-        for k in [
-            "alerta",
-            "atenção",
-            "risco",
-            "evite",
-            "corte",
-            "reduza",
-            "atraso",
-            "déficit",
-            "negativo",
-            "queda",
-            "abaixo",
-            "gasto excessivo",
-            "gastos excessivos",
-            "estouro de caixa",
-            "inadimpl",
-        ]
-    ):
+def _map_tipo_texto(texto: str) -> str:
+    """
+    Classificador auxiliar baseado em regras simples.
+    Só retorna 'positiva', 'alerta' ou 'neutra'.
+    Retorna '' se não tiver confiança (para deixar o fallback decidir).
+    """
+    if not texto:
+        return ""
+
+    tx = texto.lower()
+
+    # --- ALERTA ---
+    palavras_alerta = [
+        "atenção",
+        "cuidado",
+        "risco",
+        "perigo",
+        "preocupante",
+        "gastos altos",
+        "gasto alto",
+        "despesa alta",
+        "despesas altas",
+        "estourou",
+        "acima do ideal",
+        "saldo negativo",
+        "no vermelho",
+        "quase no vermelho",
+        "reduza",
+        "reduzir",
+    ]
+    if any(p in tx for p in palavras_alerta):
         return "alerta"
-    if any(
-        k in t
-        for k in [
-            "saldo positivo",
-            "positivo",
-            "ótimo",
-            "excelente",
-            "parabéns",
-            "superávit",
-            "acima da meta",
-            "margem",
-            "reforce a reserva",
-            "aporte extra",
-            "continue assim",
-        ]
-    ):
+
+    # --- POSITIVA ---
+    palavras_positiva = [
+        "ótimo",
+        "otimo",
+        "excelente",
+        "muito bom",
+        "parabéns",
+        "parabens",
+        "bom trabalho",
+        "boa gestão",
+        "boa gestao",
+        "resultado positivo",
+        "saldo positivo",
+        "superávit",
+        "superavit",
+        "sobrou dinheiro",
+        "margem de segurança",
+        "margem confortável",
+        "margem confortavel",
+        "dentro do ideal",
+    ]
+    if any(p in tx for p in palavras_positiva):
         return "positiva"
+
+    # --- NEUTRA (quando fala de ajustes, reserva, etc.) ---
+    palavras_neutras = [
+        "reforce a reserva",
+        "avalie aporte extra",
+        "avalie um aporte extra",
+        "ajuste leve",
+        "acompanhe de perto",
+        "monitore",
+        "planeje",
+        "planejamento",
+    ]
+    if any(p in tx for p in palavras_neutras):
+        return "neutra"
+
+    # sem confiança -> deixa fallback decidir
+    return ""
+
+
+def _fallback_classify(texto: str) -> str:
+    """
+    Último fallback. Se não bater em nada, assume 'neutra'.
+    """
+    tx = (texto or "").lower()
+
+    if not tx:
+        return "neutra"
+
+    if "saldo negativo" in tx or "no vermelho" in tx:
+        return "alerta"
+
+    if "saldo positivo" in tx or "resultado positivo" in tx:
+        return "positiva"
+
+    if "margem" in tx and "%" in tx:
+        # margem com porcentagem -> geralmente cenário bom
+        return "positiva"
+
     return "neutra"
 
 
@@ -209,31 +282,201 @@ def map_tipo_textual(texto: str) -> str:
       - 'alerta'
       - 'neutra'
 
-    Usa, na ordem:
-      1) map_tipo_oficial (se existir)
-      2) _map_tipo_texto (helper local)
-      3) _fallback_classify (hardcorezão)
+    Ordem:
+      1) map_tipo_oficial (palavras principais)
+      2) _map_tipo_texto (regras extras)
+      3) _fallback_classify (heurística final)
     """
     tx = (texto or "").strip()
     if not tx:
         return "neutra"
 
-    # 1) tenta o classificador oficial (importado lá em cima com fallback)
-    try:
-        k = map_tipo_oficial(tx)
-    except NameError:
-        k = ""
-
+    # 1) classificador oficial
+    k = map_tipo_oficial(tx)
     if k in ("positiva", "alerta", "neutra"):
         return k
 
-    # 2) tenta o helper local
+    # 2) helper local
     k2 = _map_tipo_texto(tx)
     if k2 in ("positiva", "alerta", "neutra"):
         return k2
 
-    # 3) fallback hardcore
+    # 3) fallback
     return _fallback_classify(tx)
+
+
+def _map_db_tipo_to_hist_tipo(db_tipo: str, texto: str) -> str:
+    """
+    Converte o 'tipo' salvo no banco (Economia / Alerta / Oportunidade / Meta)
+    para o tipo lógico do histórico: 'positiva' / 'alerta' / 'neutra'.
+
+    Regra:
+      - 'Alerta'                    -> 'alerta'
+      - 'Economia'/'Oportunidade'/'Meta' -> 'positiva'
+      - vazio/outra coisa           -> usa map_tipo_textual(texto)
+    """
+    t = (db_tipo or "").strip().lower()
+
+    if t == "alerta":
+        return "alerta"
+
+    if t in ("economia", "oportunidade", "meta"):
+        return "positiva"
+
+    k = map_tipo_textual(texto)
+    return k if k in ("positiva", "alerta", "neutra") else "neutra"
+
+
+# ============================================================
+# 2) Endpoint do Histórico da IA com filtros + paginação
+# ============================================================
+
+
+@login_required
+def ia_historico_feed_v2(request):
+    """
+    Endpoint do Histórico da IA.
+
+    Junta:
+      - RecomendacaoIA (IA TURBO)
+      - HistoricoIA (alertas extras, como lote vencido), se existir.
+
+    Aceita:
+      - ?filtro= (todas/positiva/alerta/neutra)
+      - ?limit=
+      - ?offset=
+      - ?debug=1 para info extra
+    """
+    user = request.user
+
+    # 1) Compatibilidade: aceitar ?filtro= ou ?tipo=
+    filtro_raw = (request.GET.get("filtro") or request.GET.get("tipo") or "").strip().lower()
+    tipo_param = filtro_raw if filtro_raw in ("positiva", "alerta", "neutra") else ""
+
+    # 2) Sanitiza paginação
+    try:
+        limit = int(request.GET.get("limit", 20))
+    except ValueError:
+        limit = 20
+    limit = max(1, min(limit, 100))
+
+    try:
+        offset = max(0, int(request.GET.get("offset", 0)))
+    except ValueError:
+        offset = 0
+
+    tz = timezone.get_current_timezone()
+    normalizados = []
+    counts = {"positiva": 0, "alerta": 0, "neutra": 0}
+    total = 0
+
+    # 3A) Base IA TURBO (RecomendacaoIA)
+    base_turbo = RecomendacaoIA.objects.filter(usuario=user).order_by("-criado_em")
+
+    for rec in base_turbo:
+        tnorm = _map_db_tipo_to_hist_tipo(getattr(rec, "tipo", "") or "", rec.texto or "")
+        if tnorm not in ("positiva", "alerta", "neutra"):
+            tnorm = "neutra"
+
+        counts[tnorm] += 1
+        total += 1
+
+        dt_local = timezone.localtime(rec.criado_em, tz) if rec.criado_em else None
+
+        normalizados.append(
+            {
+                "id": rec.id,
+                "tipo": tnorm,
+                "texto": rec.texto or "",
+                "criado_em": rec.criado_em.isoformat() if rec.criado_em else "",
+                "criado_em_fmt": dt_local.strftime("%d/%m/%Y %H:%M") if dt_local else "",
+                "_stamp": rec.criado_em.timestamp() if rec.criado_em else 0,
+                "origem": "turbo",
+            }
+        )
+
+    # 3B) Base HistoricoIA (alertas de lote etc.), se existir
+    if HistoricoIA is not None:
+        base_hist = HistoricoIA.objects.filter(usuario=user).order_by("-criado_em")
+
+        for rec in base_hist:
+            tnorm = _map_db_tipo_to_hist_tipo(getattr(rec, "tipo", "") or "", rec.texto or "")
+            if tnorm not in ("positiva", "alerta", "neutra"):
+                tnorm = "neutra"
+
+            counts[tnorm] += 1
+            total += 1
+
+            dt_local = timezone.localtime(rec.criado_em, tz) if rec.criado_em else None
+
+            normalizados.append(
+                {
+                    "id": rec.id,
+                    "tipo": tnorm,
+                    "texto": rec.texto or "",
+                    "criado_em": rec.criado_em.isoformat() if rec.criado_em else "",
+                    "criado_em_fmt": dt_local.strftime("%d/%m/%Y %H:%M") if dt_local else "",
+                    "_stamp": rec.criado_em.timestamp() if rec.criado_em else 0,
+                    "origem": getattr(rec, "origem", "legacy") or "legacy",
+                }
+            )
+
+    # 3C) Ordena todo mundo por data desc
+    normalizados.sort(key=lambda it: it.get("_stamp", 0), reverse=True)
+
+    # 4) Aplica filtro em cima do tipo normalizado
+    if tipo_param in ("positiva", "alerta", "neutra"):
+        filtrados = [it for it in normalizados if it["tipo"] == tipo_param]
+        filtro_label = tipo_param
+    else:
+        filtrados = normalizados
+        filtro_label = "todas"
+
+    total_filtrado = len(filtrados)
+
+    # 5) Paginação
+    page_items = filtrados[offset : offset + limit]
+    has_more = total_filtrado > (offset + len(page_items))
+
+    resp = {
+        "ok": True,
+        "filtro": filtro_label,
+        "count": {**counts, "total": total},
+        "items": [
+            {
+                "id": it["id"],
+                "tipo": it["tipo"],
+                "texto": it["texto"],
+                "criado_em": it["criado_em"],
+                "criado_em_fmt": it["criado_em_fmt"],
+                "origem": it.get("origem", "turbo"),
+            }
+            for it in page_items
+        ],
+        "limit": limit,
+        "offset": offset,
+        "returned": len(page_items),
+        "total_filtered": total_filtrado,
+        "has_more": has_more,
+        "hasMore": has_more,
+    }
+
+    if request.GET.get("debug") == "1":
+        resp["__debug"] = {
+            "user": {
+                "id": request.user.id,
+                "username": getattr(request.user, "username", None),
+                "email": getattr(request.user, "email", None),
+            },
+            "params": {
+                "filtro": filtro_raw,
+                "tipo_param": tipo_param,
+                "limit": limit,
+                "offset": offset,
+            },
+        }
+
+    return JsonResponse(resp)
 
 
 # -----------------------------------------------------------------------------
@@ -338,11 +581,17 @@ def despesas_fixas_variaveis_mensal(request):
         }
     )
 
+
 # -----------------------------------------------------------------------------
 # Dashboard (template)
 # -----------------------------------------------------------------------------
 @login_required(login_url="/admin/login/")
 def dashboard_financeiro(request):
+    try:
+        gerar_alertas_estoque_baixo(usuario=request.user, limite_padrao=3)
+    except Exception as exc:
+        print("[IA ESTOQUE BAIXO - dashboard]", exc)
+        
     if not getattr(request.user, "is_authenticated", False):
         login_url = getattr(settings, "LOGIN_URL", "/admin/login/")
         return redirect(f"{login_url}?next={request.path}")
@@ -376,50 +625,59 @@ def gerar_dica_30d(request):
         metrics = analisar_30d_dict(Transacao, request.user)
         dica = (metrics.get("plano_acao") or metrics.get("mensagem") or "").strip()
 
-        # classifica a dica em positiva/alerta/neutra
-        tipo_classificado = map_tipo_ia(dica)
+        # classifica a dica em positiva/alerta/neutra (IA)
+        tipo_classificado = (map_tipo_ia(dica) or "").strip().lower()
+
+        # 1.1) mapeia para o TIPO usado no admin
+        if tipo_classificado == "alerta":
+            tipo_admin = "Alerta"
+        else:
+            tipo_admin = "Economia"
 
         # 2) SALVA NO HISTÓRICO (RecomendacaoIA)
-        rec = RecomendacaoIA.objects.create(
+        rec = salvar_recomendacao_ia(
             usuario=request.user,
             texto=dica,
-            # frontend trabalha com positiva/alerta/neutra
-            tipo=tipo_classificado or "economia",
+            # tipo_ia=tipo_classificado  # se quiser guardar o humor lógico
         )
         saved_id = rec.id
         criado_em = rec.criado_em
 
-        # 🔔 NOVO: dispara notificação (por enquanto FAKE) para WhatsApp
+        # 🔔 NOTIFICAÇÃO (WhatsApp fake / real)
         try:
             notificar_dica_financeira_teste(
                 mensagem=dica,
-                canal="whatsapp",  # aqui escolhe o canal
-                usuario=request.user,  # pra pegar CanalNotificacaoUsuario se tiver
+                canal="whatsapp",
+                usuario=request.user,
             )
         except Exception as notif_exc:
-            # não vamos quebrar a geração da dica se der erro de notificação
             print("[DEBUG NOTIF WHATSAPP]", notif_exc)
 
-        # 3) monta mensagem bonita pro Telegram
-        periodo_dict = metrics.get("periodo") or {}
-    # mensagem_formatada = formatar_mensagem_telegram(
-    #     dica=dica,
-    #    tipo=tipo_classificado,
-    #     periodo=periodo_dict,
-    #  )
+        # 📉 IA ESTOQUE BAIXO (saldo crítico)
+        try:
+            gerar_alertas_estoque_baixo(usuario=request.user, limite_padrao=3)
+        except Exception as exc:
+            logging.getLogger(__name__).warning("[IA ESTOQUE BAIXO] Falha ao gerar alerta: %s", exc)
 
-    # 4) dispara notificação (central de notificações)
-    #  notificar_dica_financeira_teste(
-    #     mensagem_formatada,
-    #     canal="telegram",
-    #    usuario=request.user,
-    # )
+        # 📦 IA LOTES VENCIDOS / A VENCER → HistoricoIA
+        try:
+            registrar_alertas_lote_no_historico(
+                usuario=request.user,
+                dias_aviso=30,  # janela de aviso
+                max_itens=5,  # no máx. 5 cards de lote
+            )
+        except Exception as exc:
+            logging.getLogger(__name__).warning(
+                "[IA ESTOQUE LOTE] Falha ao registrar alertas no histórico: %s", exc
+            )
+
+        # 3) monta período para payload
+        periodo_dict = metrics.get("periodo") or {}
 
     except Exception as e:
-        # se der qualquer erro aqui em cima, volta 500 com texto de erro
         return JsonResponse({"ok": False, "error": str(e)}, status=500)
 
-    # 5) monta período em objetos date pra devolver no payload (como antes)
+    # 4) monta período como date para devolver no payload
     ps_str = (metrics.get("periodo") or {}).get("inicio") if isinstance(metrics, dict) else None
     pe_str = (metrics.get("periodo") or {}).get("fim") if isinstance(metrics, dict) else None
     try:
@@ -428,7 +686,6 @@ def gerar_dica_30d(request):
     except Exception:
         ps = pe = timezone.localdate()
 
-    # se por algum motivo der erro lá em cima, garante um datetime
     if "criado_em" not in locals():
         criado_em = timezone.localtime()
 
@@ -439,7 +696,6 @@ def gerar_dica_30d(request):
             "tipo": tipo_classificado,
             "texto": dica,
             "text": dica,
-            # o historico_ia.js entende esse formato dd/mm/aaaa HH:MM
             "created_at": criado_em.strftime("%d/%m/%Y %H:%M"),
             "criado_em": criado_em.strftime("%d/%m/%Y %H:%M"),
             "criado_em_fmt": criado_em.strftime("%d/%m/%Y %H:%M"),
@@ -911,7 +1167,8 @@ def dados_financeiros_filtrados(request):
         fim = request.GET.get("fim")
         if not inicio or not fim:
             return JsonResponse(
-                {"error": "Parâmetros 'inicio' e 'fim' são obrigatórios."}, status=400
+                {"error": "Parâmetros 'inicio' e 'fim' são obrigatórios."},
+                status=400,
             )
 
         dt_inicio = _parse_ymd(inicio)
@@ -919,10 +1176,16 @@ def dados_financeiros_filtrados(request):
         if not dt_inicio or not dt_fim or dt_inicio > dt_fim:
             return JsonResponse({"error": "Período inválido."}, status=400)
 
+        # ============================
+        #  🔎 Base do período
+        # ============================
         base = Transacao.objects.filter(
             **_date_range_kwargs(Transacao, "data", dt_inicio, dt_fim, inclusive_end=True)
         )
 
+        # ============================
+        #  1) Evolução diária (linha)
+        # ============================
         rec_qs = (
             base.filter(tipo__in=TIPO_RECEITA)
             .annotate(dia=TruncDate("data"))
@@ -952,8 +1215,24 @@ def dados_financeiros_filtrados(request):
             saldo.append(r - d)
             cur += timedelta(days=1)
 
+        # ============================
+        #  2) Por categoria (donut)
+        # ============================
+        cat_qs = base.values("categoria").annotate(total=Sum("valor")).order_by("-total")
+
+        categorias = [(row["categoria"] or "Sem categoria") for row in cat_qs]
+        valores = [float(row["total"] or 0) for row in cat_qs]
+
         return JsonResponse(
-            {"dias": dias, "receitas": receitas, "despesas": despesas, "saldo": saldo}, status=200
+            {
+                "dias": dias,
+                "receitas": receitas,
+                "despesas": despesas,
+                "saldo": saldo,
+                "categorias": categorias,
+                "valores": valores,
+            },
+            status=200,
         )
 
     except (ValueError, DatabaseError) as e:
@@ -1037,140 +1316,87 @@ def _to_float(x) -> float:
 @require_GET
 def dados_grafico_filtrados(request):
     """
-    GET /financeiro/dados_grafico_filtrados/?inicio=YYYY-MM-DD&fim=YYYY-MM-DD&categoria=...&debug=1
+    GET /financeiro/dados_grafico_filtrados/?inicio=YYYY-MM-DD&fim=YYYY-MM-DD&categoria=...
+    Retorna:
+      - séries diárias: dias[], receitas[], despesas[], saldo[]
+      - e também o resumo por categoria: categorias[], valores[]
     """
-    hoje = timezone.localdate()
+    try:
+        hoje = timezone.localdate()
 
-    # 1) Pega datas da querystring (ou define padrão)
-    ini = parse_date(request.GET.get("inicio") or "") or hoje.replace(day=1)
-    fim = parse_date(request.GET.get("fim") or "") or hoje
-    if fim < ini:
-        ini, fim = fim, ini
+        inicio_str = request.GET.get("inicio") or request.GET.get("data_inicio")
+        fim_str = request.GET.get("fim") or request.GET.get("data_fim")
+        categoria_filtro = (request.GET.get("categoria") or "").strip()
 
-    # 2) Base de transações
-    qs = Transacao.objects.all()
+        # datas padrão (mesmo esquema do restante do painel)
+        inicio_default, fim_default = _month_bounds(hoje)
+        inicio = _parse_date_safely(inicio_str, inicio_default)
+        fim = _parse_date_safely(fim_str, _month_bounds(inicio)[1])
 
-    # DateField vs DateTimeField
-    data_field = Transacao._meta.get_field("data")
-    if isinstance(data_field, models.DateTimeField):
-        filtro = {"data__date__range": (ini, fim)}
-        trunc_expr = TruncDate("data")
-    else:
-        filtro = {"data__range": (ini, fim)}
-        trunc_expr = F("data")
+        # queryset base
+        qs = Transacao.objects.filter(data__range=(inicio, fim))
 
-    base = qs.filter(**filtro)
-
-    # 3) Configuração de Decimals para agregações
-    DEC = DecimalField(max_digits=18, decimal_places=2)
-    ZERO_DEC = Value(Decimal("0.00"), output_field=DEC)
-
-    # 4) Agrega por dia: receitas, despesas (sempre positivas) e nº de lançamentos
-    diarios = (
-        base.annotate(dia=trunc_expr)
-        .values("dia")
-        .annotate(
-            rec=Coalesce(
-                Sum(
-                    Case(
-                        When(valor__gte=0, then=Cast(F("valor"), DEC)),
-                        default=ZERO_DEC,
-                        output_field=DEC,
-                    )
-                ),
-                ZERO_DEC,
-                output_field=DEC,
-            ),
-            des=Coalesce(
-                Sum(
-                    Case(
-                        When(valor__lt=0, then=Cast(Abs(F("valor")), DEC)),
-                        default=ZERO_DEC,
-                        output_field=DEC,
-                    )
-                ),
-                ZERO_DEC,
-                output_field=DEC,
-            ),
-            n=Count("id"),
-        )
-        .order_by("dia")
-    )
-
-    mapa = {row["dia"]: row for row in diarios}
-
-    # 5) Monta séries diárias para o gráfico de linhas
-    dias_labels, receitas, despesas, saldo = [], [], [], []
-    for d in _daterange(ini, fim):
-        dias_labels.append(d.strftime("%d/%m"))
-        row = mapa.get(d)
-        r = _to_float(row["rec"]) if row else 0.0
-        de = _to_float(row["des"]) if row else 0.0
-        receitas.append(r)
-        despesas.append(de)
-        saldo.append(r - de)
-
-    # 6) Pizza: categorias reais (se o campo existir), focando em DESPESAS
-    model_fields = {f.name for f in Transacao._meta.get_fields() if hasattr(f, "attname")}
-
-    # Pizza por categoria (DESPESAS) com "Top N + Outras"
-    if "categoria" in model_fields:
-        cat_qs = (
-            base.values("categoria")
-            .annotate(
-                total=Coalesce(
-                    Sum(Cast(Abs(F("valor")), DEC), output_field=DEC),
-                    ZERO_DEC,
-                    output_field=DEC,
-                )
+        # se vier filtro de categoria no GET, aplica em cima do CharField "categoria"
+        if categoria_filtro:
+            qs = qs.filter(
+                Q(categoria__iexact=categoria_filtro) | Q(categoria__icontains=categoria_filtro)
             )
-            .order_by("-total")
+
+        # -----------------------------
+        # 1) Evolução diária (linha)
+        # -----------------------------
+        cur = inicio
+        dias = []
+        while cur <= fim:
+            dias.append(cur.strftime("%d"))
+            cur += timedelta(days=1)
+
+        agreg = qs.values("data", "tipo").annotate(total=Sum("valor")).order_by("data")
+
+        rec_by_day, desp_by_day = {}, {}
+        for row in agreg:
+            dkey = int(row["data"].strftime("%d"))
+            total = float(row["total"] or 0)
+            if row["tipo"] in ("R", "receita", "Receita"):
+                rec_by_day[dkey] = rec_by_day.get(dkey, 0.0) + total
+            else:
+                desp_by_day[dkey] = desp_by_day.get(dkey, 0.0) + total
+
+        receitas = [rec_by_day.get(int(d), 0.0) for d in dias]
+        despesas = [desp_by_day.get(int(d), 0.0) for d in dias]
+
+        saldo = []
+        acc = 0.0
+        for r, de in zip(receitas, despesas):
+            acc += r - de
+            saldo.append(acc)
+
+        # -----------------------------
+        # 2) Por categoria (donut)
+        # -----------------------------
+        # aqui usamos o mesmo qs filtrado por período (e categoria, se tiver)
+        cat_agreg = qs.values("categoria").annotate(total=Sum("valor")).order_by("-total")
+
+        categorias = [(row["categoria"] or "Sem categoria") for row in cat_agreg]
+        valores = [float(row["total"] or 0) for row in cat_agreg]
+
+        return JsonResponse(
+            {
+                "dias": dias,
+                "receitas": receitas,
+                "despesas": despesas,
+                "saldo": saldo,
+                "inicio": inicio.strftime("%Y-%m-%d"),
+                "fim": fim.strftime("%Y-%m-%d"),
+                "categoria": categoria_filtro,
+                # donut:
+                "categorias": categorias,
+                "valores": valores,
+            }
         )
-
-        # monta lista crua [(nome, valor_float), ...]
-        raw_cats = []
-        for row in cat_qs:
-            nome = row["categoria"] or "Outras"
-            valor = _to_float(row["total"])
-            raw_cats.append((nome, valor))
-
-        # ordena por valor (já vem ordenado, mas garantimos)
-        raw_cats.sort(key=lambda x: x[1], reverse=True)
-
-        TOP_N = 5  # mostra no máximo 5 categorias + "Outras"
-        top = raw_cats[:TOP_N]
-        resto = raw_cats[TOP_N:]
-
-        outras_total = sum(v for _, v in resto) if resto else 0.0
-
-        categorias = [nome for (nome, _) in top]
-        valores = [valor for (_, valor) in top]
-
-        if outras_total > 0:
-            categorias.append("Outras")
-            valores.append(outras_total)
-    else:
-        categorias = []
-        valores = []
-
-    # 7) Monta resposta JSON
-    resp = {
-        "ok": True,
-        "inicio": ini.isoformat(),
-        "fim": fim.isoformat(),
-        "dias": dias_labels,
-        "receitas": receitas,
-        "despesas": despesas,
-        "saldo": saldo,
-        "categorias": categorias,
-        "valores": valores,
-    }
-
-    if request.GET.get("debug") == "1":
-        tipos_unicos = list(base.values_list("tipo", flat=True).distinct())
-        resp["debug"] = {"tipos_unicos": tipos_unicos}
-
-    return JsonResponse(resp)
+    except Exception as e:
+        logging.exception("Erro em dados_grafico_filtrados")
+        return JsonResponse({"ok": False, "error": str(e)}, status=500)
 
 
 # -----------------------------------------------------------------------------
@@ -1184,10 +1410,10 @@ def gerar_dica_sob_demanda(request):
     tipo = (tipo or "economia").strip().lower()
 
     try:
-        rec = RecomendacaoIA.objects.create(
+        rec = salvar_recomendacao_ia(
             usuario=request.user,
-            texto=texto_da_dica,
-            tipo=tipo,
+            texto=texto_da_dica,  # ou texto_da_dica
+                        # tipo_ia=tipo   → opcional, só se você já tiver calculado o "humor"
         )
         return JsonResponse({"ok": True, "id": rec.id, "dica": texto_da_dica, "tipo": tipo})
     except Exception:
@@ -1334,151 +1560,8 @@ def categorias_transacao(request):
 # Feed histórico v2 (com filtro textual e contadores)
 # -----------------------------------------------------------------------------
 # (opcional) use o classificador oficial se existir
-try:
-    from .services.ia_utils import _map_tipo as map_tipo_oficial  # positiva | alerta | neutra
-except Exception:
-    # fallback simples se services/ia_utils.py não existir ainda
-    def map_tipo_oficial(texto: str) -> str:
-        tx = (texto or "").lower()
-        ALERTAS = (
-            "atenção",
-            "cuidado",
-            "negativo",
-            "déficit",
-            "deficit",
-            "queda",
-            "alerta",
-            "urgente",
-            "gasto excessivo",
-            "acima do previsto",
-        )
-        POSITIVAS = (
-            "ótimo",
-            "otimo",
-            "positivo",
-            "sobra",
-            "superávit",
-            "superavit",
-            "parabéns",
-            "bom",
-            "melhorou",
-            "cresceu",
-            "acima da meta",
-        )
-        if any(k in tx for k in ALERTAS):
-            return "alerta"
-        if any(k in tx for k in POSITIVAS):
-            return "positiva"
-        return "neutra"
 
-
-@login_required
-def ia_historico_feed_v2(request):
-    user = request.user
-
-    # 1) Compatibilidade: aceitar ?filtro= ou ?tipo=
-    filtro_raw = (request.GET.get("filtro") or request.GET.get("tipo") or "").strip().lower()
-    tipo_param = filtro_raw if filtro_raw in ("positiva", "alerta", "neutra") else ""
-
-    # 2) Sanitiza paginação
-    try:
-        limit = int(request.GET.get("limit", 20))
-    except ValueError:
-        limit = 20
-    limit = max(1, min(limit, 100))
-
-    try:
-        offset = max(0, int(request.GET.get("offset", 0)))
-    except ValueError:
-        offset = 0
-
-    # 3) Base do usuário (ordenado por data)
-    base = RecomendacaoIA.objects.filter(usuario=user).order_by("-criado_em")
-
-    # 4) Normaliza tipo de TODO mundo (positiva/alerta/neutra) e conta
-    tz = timezone.get_current_timezone()
-    normalizados = []  # lista com dicts já normalizados
-    counts = {"positiva": 0, "alerta": 0, "neutra": 0}
-    total = 0
-
-    for rec in base:
-        tnorm = (rec.tipo or "").strip().lower()
-        if tnorm not in ("positiva", "alerta", "neutra"):
-            # classificador textual auxiliar
-            tnorm = map_tipo_textual(rec.texto or "") or "neutra" # type: ignore
-
-        if tnorm not in ("positiva", "alerta", "neutra"):
-            tnorm = "neutra"
-
-        counts[tnorm] += 1
-        total += 1
-
-        dt_local = timezone.localtime(rec.criado_em, tz) if rec.criado_em else None
-
-        normalizados.append(
-            {
-                "id": rec.id,
-                "tipo": tnorm,
-                "texto": rec.texto or "",
-                "criado_em": rec.criado_em.isoformat() if rec.criado_em else "",
-                "criado_em_fmt": dt_local.strftime("%d/%m/%Y %H:%M") if dt_local else "",
-                "_stamp": rec.criado_em.timestamp() if rec.criado_em else 0,
-            }
-        )
-
-    # 5) Aplica filtro de tipo em cima do tipo NORMALIZADO
-    if tipo_param in ("positiva", "alerta", "neutra"):
-        filtrados = [it for it in normalizados if it["tipo"] == tipo_param]
-        filtro_label = tipo_param
-    else:
-        filtrados = normalizados
-        filtro_label = "todas"
-
-    total_filtrado = len(filtrados)
-
-    # 6) Paginação simples via slice
-    page_items = filtrados[offset : offset + limit]
-    has_more = total_filtrado > (offset + len(page_items))
-
-    # 7) Monta resposta
-    resp = {
-        "ok": True,
-        "filtro": filtro_label,
-        "count": {**counts, "total": total},
-        "items": [
-            {
-                "id": it["id"],
-                "tipo": it["tipo"],
-                "texto": it["texto"],
-                "criado_em": it["criado_em"],
-                "criado_em_fmt": it["criado_em_fmt"],
-            }
-            for it in page_items
-        ],
-        "limit": limit,
-        "offset": offset,
-        "returned": len(page_items),
-        "total_filtered": total_filtrado,
-        "has_more": has_more,
-        "hasMore": has_more,  # compat com front antigo
-    }
-
-    if request.GET.get("debug") == "1":
-        resp["__debug"] = {
-            "user": {
-                "id": request.user.id,
-                "username": getattr(request.user, "username", None),
-                "email": getattr(request.user, "email", None),
-            },
-            "params": {
-                "filtro": filtro_raw,
-                "tipo_param": tipo_param,
-                "limit": limit,
-                "offset": offset,
-            },
-        }
-
-    return JsonResponse(resp)
+# fallback simples se services/ia_utils.py não existir ainda
 
 
 # -----------------------------------------------------------------------------
@@ -1694,6 +1777,7 @@ def ia_analise_mensal_preview(request):
 
     return JsonResponse(resultado)
 
+
 # ============================================================
 # MÉTRICAS — Ranking mensal de categorias
 # ============================================================
@@ -1721,6 +1805,7 @@ def ranking_categorias_mensal(request):
         categorias.append({"categoria": nome, "total": float(row["total"] or 0)})
 
     return JsonResponse({"ok": True, "mes_label": f"{mes:02d}/{ano}", "categorias": categorias})
+
 
 # ============================================================
 # MÉTRICAS — Ranking mensal de serviços/produtos (por ItemVenda)
@@ -1770,6 +1855,7 @@ def ranking_servicos_mensal(request):
             "servicos": itens,
         }
     )
+
 
 # ============================================================
 # MÉTRICAS — Categoria que mais cresceu (variação mensal)
@@ -1836,5 +1922,28 @@ def categoria_que_mais_cresceu(request):
             "anterior": maior["anterior"],
             "mes_atual": f"{mes:02d}/{ano}",
             "mes_anterior": f"{mes_ant:02d}/{ano_ant}",
+        }
+    )
+
+
+@login_required
+def ia_alertas_estoque_baixo(request):
+    """
+    Gera recomendações de ALERTA de estoque baixo e retorna um resumo em JSON.
+    Integra direto com o histórico da IA (RecomendacaoIA).
+    """
+    if request.method != "POST":
+        return JsonResponse({"ok": False, "error": "Método não permitido"}, status=405)
+
+    try:
+        criados = gerar_alertas_estoque_baixo(usuario=request.user, limite_padrao=3)
+    except Exception as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=500)
+
+    return JsonResponse(
+        {
+            "ok": True,
+            "total_alertas_criados": len(criados),
+            "itens": criados,
         }
     )

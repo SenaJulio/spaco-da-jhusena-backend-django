@@ -1,161 +1,229 @@
-<div align="center">
-
-# 🐾 **Spaço da Jhuséna**  
-### 💚 Painel Financeiro Inteligente + Mini ERP Pet Shop
-
-<img src="https://i.imgur.com/Sg2EhRc.png" alt="Banner Spaço da Jhuséna" width="700"/>
-
-> Sistema de gestão financeira e inteligência artificial desenvolvido em **Django + Bootstrap + Chart.js + IA Analítica**.  
-> O projeto nasceu para transformar os dados do pet shop em decisões automáticas, precisas e inteligentes.
-
----
-
-</div>
+<h1 align="center">🐾 Spaço da Jhuséna — Painel Financeiro Inteligente (DEMO)</h1>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Django-5.0+-success?style=for-the-badge&logo=django">
-  <img src="https://img.shields.io/badge/Python-3.11-blue?style=for-the-badge&logo=python">
-  <img src="https://img.shields.io/badge/Chart.js-Visual%20Analytics-orange?style=for-the-badge&logo=chartdotjs">
-  <img src="https://img.shields.io/badge/IA-Financeira-purple?style=for-the-badge&logo=openai">
+  <strong>Demo pública do módulo de Inteligência Financeira do ERP Spaço da Jhuséna</strong><br>
+  <em>Sistema real usado em pet shops, agora em apresentação para futuros clientes e investidores.</em>
+</p>
+
+<p align="center">
+  <a href="https://senajulio.github.io/jhusena-demo/">
+    🔗 <strong>Acessar a DEMO Online</strong>
+  </a>
+</p>
+
+<p align="center">
+  <!-- Badges -->
+  <img src="https://img.shields.io/badge/status-em%20desenvolvimento-green?style=flat-square">
+  <img src="https://img.shields.io/badge/version-0.9-blue?style=flat-square">
+  <img src="https://img.shields.io/badge/Plataforma-GitHub%20Pages-black?style=flat-square">
+  <img src="https://img.shields.io/badge/IA-Ativada-success?style=flat-square">
 </p>
 
 ---
 
-## 💡 Visão Geral
+## 📸 Preview da Interface
 
-O **Spaço da Jhuséna** é um **mini-ERP com IA** voltado para pet shops e microempresas.  
-Ele combina **gestão financeira, análise automática e inteligência artificial**, permitindo:
+<p align="center">
+  <img src="docs/preview-dashboard.png" alt="Painel Financeiro Inteligente — Demo" width="800">
+</p>
 
-- Controle de receitas, despesas e categorias;
-- Geração de **dicas financeiras inteligentes** baseadas nos últimos 30 dias;
-- Histórico detalhado com classificação **(positiva / alerta / neutra)**;
-- Painel com **gráficos interativos (Chart.js)**;
-- Botão **“Gerar Dica com IA”** (modo Turbo);
-- Estrutura modular pronta para expansão (agendamentos, estoque e PDV).
+<p align="center">
+  <img src="docs/preview-grafico.png" width="600">
+</p>
 
 ---
 
-## ⚙️ Instalação e Configuração
+# 📚 Índice
+
+- [Sobre o Projeto](#-sobre-o-projeto)
+- [Funcionalidades da Demo](#-funcionalidades-da-demo)
+- [Módulos do ERP Completo](#-módulos-do-erp-completo)
+- [Tecnologias Utilizadas](#-tecnologias-utilizadas)
+- [Roadmap Oficial](#-roadmap-oficial)
+- [Como Rodar Localmente](#-como-rodar-localmente)
+- [Contato](#-contato)
+- [Pitch de Venda](#-pitch-de-venda)
+- [Licença](#-licença)
+
+---
+
+# 🧠 Sobre o Projeto
+
+O **Spaço da Jhuséna ERP** é um sistema completo desenvolvido para Pet Shops, Clínicas Veterinárias e estabelecimentos do setor pet que desejam:
+
+- organizar as operações  
+- automatizar processos  
+- reduzir erros humanos  
+- entender as finanças com clareza  
+- usar Inteligência Artificial para tomar decisões melhores  
+
+Este repositório apresenta uma **DEMO estática e pública** do **Painel Financeiro Inteligente**, que faz parte do módulo principal do ERP completo.
+
+---
+
+# 🟩 Funcionalidades da Demo
+
+A Demo inclui:
+
+- KPIs gerados dinamicamente (valores fictícios)  
+- Gráficos interativos (Chart.js)  
+- Recomendações de IA (dados fictícios)  
+- Botão “Gerar Nova Dica”  
+- Tema Dark Premium  
+- Visualização responsiva ideal para apresentação a clientes  
+
+---
+
+# 🧩 Módulos do ERP Completo
+
+Embora esta seja apenas uma demo financeira, o **ERP real** inclui:
+
+### 🐾 Agendamentos
+- Banho, tosa, consultas e serviços internos  
+- Painel diário e semanal  
+- Confirmação via WhatsApp  
+
+### 🛒 PDV e Vendas
+- Itens de venda  
+- Baixa automática de estoque  
+- Emissão de recibo  
+
+### 📦 Estoque
+- Controle de entradas e saídas  
+- Gestão de insumos e produtos  
+- Alertas automáticos  
+
+### 💰 Financeiro
+- Dashboard completo  
+- Filtros de data e categorias  
+- Gráficos de evolução  
+- Categorias de receita e despesa  
+
+### 🤖 Inteligência Artificial
+- Análise automática dos últimos 30 dias  
+- Insights mensais  
+- Ranking de serviços  
+- Histórico de recomendações  
+- Geração de dicas sob demanda  
+- Envio via Telegram e WhatsApp  
+
+### 🔔 Notificações Externas
+- Integração com Telegram Bot  
+- WhatsApp Cloud API  
+- Notificações automáticas por evento  
+
+---
+
+# 🛠️ Tecnologias Utilizadas
+
+**Front-end (esta Demo):**
+- HTML5  
+- CSS3  
+- JavaScript (ES6+)  
+- Chart.js  
+- Fake JSON Data  
+
+**Sistema real (ERP completo):**
+- Python  
+- Django  
+- SQLite / PostgreSQL  
+- Bootstrap  
+- Chart.js  
+- Serviços internos de IA  
+
+---
+
+# 🌊 Roadmap Oficial
+
+### ✔️ Onda 1 — Estabilização
+- Dashboard financeiro estabilizado  
+- Histórico IA otimizado  
+- Filtros, paginação e preview  
+- Correções gerais  
+- Commit “Estabiliza Painel”  
+
+### ✔️ Onda 2 — Analytics Turbo
+- Insights mensais tipo Mini-BI  
+- Ranking por serviços  
+- IA mais inteligente  
+- Otimização de gráficos  
+
+### 🚧 Onda 3 — Produto Vendável (ATUAL)
+- README profissional (em construção)  
+- Página de apresentação elegante  
+- Onboarding via Telegram/WhatsApp  
+- Geração de chaves de API  
+- Documentação oficial  
+- Versão comercial 1.0  
+
+---
+
+# 🧪 Como Rodar Localmente
+
+A demo é 100% estática.  
+Não há dependências nem servidor backend.
 
 ```bash
-# 1. Clonar o repositório
-git clone git@github.com:SenaJulio/spaco-da-jhusena-backend-django.git
-cd spaco-da-jhusena-backend-django
+# Clone o repositório
+git clone https://github.com/senajulio/jhusena-demo.git
 
-# 2. Criar e ativar o ambiente virtual
-python -m venv venv
-source venv/Scripts/activate  # Windows
-# ou
-source venv/bin/activate      # Linux / Mac
+# Entre na pasta
+cd jhusena-demo
 
-# 3. Instalar dependências
-pip install -r requirements.txt
-
-# 4. Criar o banco de dados
-python manage.py migrate
-
-# 5. Criar superusuário
-python manage.py createsuperuser
-
-# 6. Executar o servidor local
-python manage.py runserver
+# Abra o arquivo
+index.html
 
 
-👉 Acesse no navegador:
-http://127.0.0.1:8000/financeiro/dashboard/
+📞 Contato
 
+Desenvolvedor: Sena Júlio
+WhatsApp: +55 31 99489-8165
+E-mail: gm.sena@hotmail.com
 
-📁 Estrutura de Pastas
-financeiro/
- ├── models.py                # Modelos: Transacao, RecomendacaoIA, Insight
- ├── views_financeiro.py      # Lógica principal e endpoints da IA
- ├── services/
- │    └── ia.py               # Módulo de inteligência artificial (map_tipo + generate_tip_last_30d)
- ├── templates/financeiro/
- │    └── dashboard.html      # Painel financeiro com IA
- └── static/js/
-      └── historico_ia.js     # Controle do histórico e filtros de dicas
-core/
- ├── templates/base.html      # Template base
-config/
- ├── settings.py              # Configuração principal do Django
+LinkedIn: https://www.linkedin.com/in/julio-sena-4668a7178/
 
+🎤 Pitch de Venda
 
-✅ Fase 1 — Fundamentos do Painel Financeiro
+O Spaço da Jhuséna ERP é mais que um sistema —
+é a união entre gestão profissional e inteligência artificial,
+construído dentro de um pet shop real, entendendo dores reais.
 
-| Módulo                                             | Descrição                                               | Status |
-| -------------------------------------------------- | ------------------------------------------------------- | ------ |
-| 🧱 Estrutura Django + apps (`financeiro`, `core`)  | Projeto funcional e modularizado                        | ✅      |
-| 💾 Models `Transacao`, `RecomendacaoIA`, `Insight` | Estrutura de dados completa                             | ✅      |
-| 💡 Função `generate_tip_last_30d()`                | IA gera dica com base nos últimos 30 dias               | ✅      |
-| 🧠 Classificador `_map_tipo()`                     | Analisa e classifica dicas (positiva / alerta / neutra) | ✅      |
-| 🔗 Endpoint `/financeiro/ia/dica30d/`              | Retorna nova dica e salva no histórico                  | ✅      |
-| 📊 Gráficos Chart.js (receitas/despesas/saldo)     | Integrados ao dashboard                                 | ✅      |
-| 🧾 Histórico da IA (`/v2/`)                        | Feed JSON com contadores e filtros dinâmicos            | ✅      |
-| 🧩 `historico_ia.js` (frontend unificado)          | Controla filtros, recarrega e atualiza badges           | ✅      |
-| 🧑‍💼 Template `dashboard.html`                    | Layout limpo, responsivo e integrado à IA               | ✅      |
-| 🔐 Sistema de login e usuário vinculado            | IA e dados isolados por conta                           | ✅      |
+Ele oferece:
 
+velocidade
 
-🚀 Fase 2 — Inteligência e Histórico Expandido (em andamento)
+segurança
 
-| Módulo                                                 | Descrição                              | Status          |
-| ------------------------------------------------------ | -------------------------------------- | --------------- |
-| 🕐 Histórico completo com “Ver mais” e paginação       | Carregar +10 por vez no feed v2        | ⚙️ Em andamento |
-| 🗂️ Filtros (Positivas / Alertas / Neutras)            | Backend + frontend sincronizados       | ✅               |
-| 🧩 Histórico `RecomendacaoIA`                          | Banco e lógica 100% operantes          | ✅               |
-| 🧠 IA aprende com últimos 30 dias                      | Análise consolidada e testada          | ✅               |
-| 💬 Registro de ações do usuário (“seguido / ignorado”) | Futuro aprimoramento de aprendizado    | ⏳ Pendente      |
-| 🔔 Notificações automáticas (WhatsApp / Telegram)      | Dicas semanais e alertas financeiros   | ⏳ Pendente      |
-| 📈 Gráfico comparativo de tipos de dica                | Chart.js (positivas, alertas, neutras) | ⏳ Pendente      |
-| 🧩 Integração com agendamentos e estoque               | Expansão ERP completa                  | ⏳ Planejado     |
+automação
 
+análises inteligentes
 
-🌐 Fase 3 — Deploy e Acesso Externo
+experiência moderna
 
+integração com WhatsApp e Telegram
 
-| Módulo                          | Descrição                       | Status      |
-| ------------------------------- | ------------------------------- | ----------- |
-| ☁️ Publicação do backend Django | Render / Railway / Deta         | ⏳ A fazer   |
-| 🔑 Variáveis de ambiente `.env` | Config segura de chaves e banco | ⏳ A fazer   |
-| 🧭 Domínio personalizado        | Ex: `spacodajhusena.site`       | ⏳ A fazer   |
-| 💻 Painel público para clientes | Agendamento de serviços online  | ⏳ Planejado |
+dashboards que contam a história financeira do negócio
 
+Objetivo:
+💚 transformar qualquer pet shop em uma empresa organizada, lucrativa e com visão profissional.
 
-🧠 Fase 4 — IA Estratégica e Automação
+📄 Licença
 
-| Módulo                                 | Descrição                                   | Status      |
-| -------------------------------------- | ------------------------------------------- | ----------- |
-| 📊 Comparativo 30d vs 30d anterior     | IA detecta tendências automáticas           | ⏳ Planejado |
-| 🪄 Planos de ação automáticos          | Sugestões personalizadas da IA              | ⏳ Planejado |
-| 🧾 Histórico IA exportável (PDF/Excel) | Relatórios inteligentes                     | ⏳ Planejado |
-| 💬 Chat interativo com IA              | "Pergunte à IA Financeira" dentro do painel | ⏳ Planejado |
-
-🧩 Status Técnico
-
-✅ Branch ativa: dev
-
-🔑 Autenticação SSH GitHub configurada
-
-🧠 IA financeira validada e funcional
-
-⚙️ Backend testado com dados reais (julioSena)
-
-🧩 Estrutura modular pronta para expansão
-
-💚 Cor predominante: Verde — identidade visual Spaço da Jhuséna
-
-
-💬 Créditos
-Desenvolvido com ❤️ por Júlio Sena
-Agente de Trânsito, desenvolvedor e criador do Projeto Spaço da Jhuséna.
-Mentoria técnica: ChatGPT (OpenAI) — Modo Dev IA Django
-2025 © Todos os direitos reservados.
-
-
-"Transformando gestão pet shop em inteligência de negócio."
-— Spaço da Jhuséna 🐾💚
+Esta demo é apenas para visualização.
+O código completo do ERP é privado e protegido.
+Uso comercial somente mediante autorização.
 
 
 ---
+
+## 🎯 Agora sim: README COMPLETO, PROFISSIONAL e INTEGRAL.
+
+Se quiser, posso:
+
+🔸 Criar uma **versão ainda mais premium** com seções estilizadas  
+🔸 Criar **badges personalizadas**  
+🔸 Criar um **mockup futurista da landing**  
+🔸 Criar um **PDF comercial** pra enviar pra clientes
+
+Só falar!
 

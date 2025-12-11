@@ -830,3 +830,69 @@ body.sj-dark .chart-box {
     ),
     rgba(7, 26, 17, 0.96);
 }
+
+
+/* ==== IA — Visual premium do histórico ==== */
+
+.ia-card {
+  position: relative;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
+  transition:
+    box-shadow 0.2s ease,
+    transform 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.ia-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
+}
+
+.ia-card.is-new {
+  border-color: rgba(0, 200, 83, 0.7);
+  box-shadow: 0 0 18px rgba(0, 200, 83, 0.25);
+}
+
+.badge-ia-new {
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  background: #00c853;
+  color: #020712;
+}
+
+.badge-ia-turbo {
+  font-size: 0.7rem;
+  letter-spacing: 0.05em;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+  background: #2962ff;
+  color: #ffffff;
+}
+
+/* reforço leve nas cores dos textos */
+.ia-text-positiva {
+  color: #00e676;
+}
+
+.ia-text-alerta {
+  color: #ffca28;
+}
+
+.ia-text-neutra {
+  color: #e0e0e0;
+}
+
+.badge.bg-secondary {
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.badge.bg-secondary:hover {
+  background: #b0bec5 !important;
+  transform: scale(1.05);
+}

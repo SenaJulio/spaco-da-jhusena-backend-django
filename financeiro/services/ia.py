@@ -10,6 +10,10 @@ from django.db.models import Sum
 from django.utils import timezone
 from django.apps import apps
 
+from django.contrib.auth.models import User
+from financeiro.models import RecomendacaoIA
+from financeiro.services.ia_utils import _map_tipo
+
 
 # ---------- util interno: resolve o modelo só quando precisar ----------
 def _get_recomendacao_model():
@@ -243,3 +247,34 @@ def generate_tip_last_30d(Transacao, usuario=None, auto_save=True):
         # se o modelo não existir, apenas não salva (sem erro)
 
     return dica, metrics, saved_id
+
+
+def salvar_recomendacao_ia(usuario: User, texto: str, tipo_ia: str | None = None):
+    """
+    Centraliza a criação da RecomendacaoIA.
+
+    - tipo_ia: 'positiva' / 'alerta' / 'neutra' (humor)
+    - Se não vier, usamos _map_tipo(texto) para descobrir.
+    - Depois convertemos para categoria do admin: 'economia', 'alerta', 'meta', etc.
+    """
+
+    # Se NÃO informaram tipo_ia, descobre pelo texto
+    if not tipo_ia:
+        tipo_ia = _map_tipo(texto)  # 👈 SEM saldo aqui
+
+    tipo_ia = (tipo_ia or "").strip().lower()
+
+    # Mapeia humor -> categoria
+    if tipo_ia == "alerta":
+        tipo_admin = "alerta"
+    elif tipo_ia in ("meta", "objetivo"):
+        tipo_admin = "meta"
+    else:
+        # positiva / neutra / qualquer coisa vira 'economia'
+        tipo_admin = "economia"
+
+    return RecomendacaoIA.objects.create(
+        usuario=usuario,
+        texto=texto,
+        tipo=tipo_admin,
+    )

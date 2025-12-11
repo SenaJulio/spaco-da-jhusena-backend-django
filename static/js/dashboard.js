@@ -2764,39 +2764,66 @@ document.addEventListener("DOMContentLoaded", function () {
 
 function carregarCategoriaQueMaisCresceu() {
   fetch("/financeiro/metrics/crescimento-categoria/")
-    .then(r => r.json())
-    .then(data => {
+    .then((r) => r.json())
+    .then((data) => {
       const msg = document.getElementById("crescimentoCategoriaMsg");
       const titulo = document.getElementById("crescimentoCategoriaTitulo");
       const detalhe = document.getElementById("crescimentoCategoriaDetalhe");
 
-      if (!data.ok || !data.categoria) {
-        msg.style.display = "block";
-        msg.textContent = "Sem dados suficientes.";
+      if (!msg || !titulo || !detalhe) {
+        console.warn(
+          "Elementos do card 'Categoria que mais cresceu' não encontrados."
+        );
         return;
       }
 
-      msg.style.display = "none";
+      // Se a API disse que NÃO está ok, aí sim mostramos "sem dados"
+      if (!data || !data.ok) {
+        msg.style.display = "block";
+        msg.textContent = "Sem dados suficientes.";
+        titulo.textContent = "—";
+        detalhe.textContent = "—";
+        return;
+      }
 
-      const cat = data.categoria;
-      const varPct = data.variacao.toFixed(1).replace(".", ",");
+      // Se vier null, tratamos como "Sem categoria"
+      const cat = data.categoria || "Outros";
+      const varPct = Number(data.variacao || 0)
+        .toFixed(1)
+        .replace(".", ",");
+
+      msg.style.display = "block";
+      msg.textContent =
+        "No comparativo entre meses, esta foi a categoria com maior crescimento:";
+
 
       titulo.textContent = `${cat} ↑ ${varPct}%`;
 
       detalhe.textContent =
-        `De ${data.anterior.toFixed(2).replace(".", ",")} ` +
-        `para ${data.atual.toFixed(2).replace(".", ",")} ` +
+        `De ${Number(data.anterior || 0)
+          .toFixed(2)
+          .replace(".", ",")} ` +
+        `para ${Number(data.atual || 0)
+          .toFixed(2)
+          .replace(".", ",")} ` +
         `(${data.mes_anterior} → ${data.mes_atual}).`;
     })
-    .catch(e => {
+    .catch((e) => {
       console.error("Erro crescimento categoria:", e);
       const msg = document.getElementById("crescimentoCategoriaMsg");
-      msg.style.display = "block";
-      msg.textContent = "Erro ao carregar crescimento.";
+      const titulo = document.getElementById("crescimentoCategoriaTitulo");
+      const detalhe = document.getElementById("crescimentoCategoriaDetalhe");
+      if (msg) {
+        msg.style.display = "block";
+        msg.textContent = "Erro ao carregar crescimento.";
+      }
+      if (titulo) titulo.textContent = "—";
+      if (detalhe) detalhe.textContent = "—";
     });
 }
 
 document.addEventListener("DOMContentLoaded", carregarCategoriaQueMaisCresceu);
+
 
 // ==========================================================
 // 🧩 Despesas Fixas vs Variáveis — Analytics Turbo
@@ -2943,8 +2970,66 @@ document.addEventListener("DOMContentLoaded", function () {
       }, 2000);
     } finally {
       btn.disabled = false;
-    }
+    }    
   });
 })();
+
+  (function () {
+    "use strict";
+
+    function getCsrfToken() {
+      const meta = document.querySelector('meta[name="csrf-token"]');
+      if (meta && meta.content) return meta.content;
+      const m = /(^|;\s*)csrftoken=([^;]+)/.exec(document.cookie);
+      return m ? decodeURIComponent(m[2]) : "";
+    }
+
+    const btn = document.getElementById("btnCheckEstoqueIA");
+    if (!btn) return;
+
+    btn.addEventListener("click", async (ev) => {
+      if (!ev.isTrusted) return;
+
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = "Analisando estoque…";
+
+      try {
+        const resp = await fetch("/financeiro/ia/estoque/alertas/", {
+          method: "POST",
+          headers: {
+            "X-CSRFToken": getCsrfToken(),
+            Accept: "application/json",
+          },
+          credentials: "same-origin",
+        });
+
+        if (!resp.ok) throw new Error("HTTP " + resp.status);
+        const json = await resp.json();
+        console.log("IA estoque baixo:", json);
+
+        alert(
+          json.total_alertas_criados > 0
+            ? `Foram gerados ${json.total_alertas_criados} alerta(s) de estoque baixo. Confira no histórico da IA.`
+            : "Nenhum produto com estoque baixo no momento. Tudo sob controle! 🎉"
+        );
+
+        // se o Histórico IA estiver na tela, força recarregar
+        try {
+          globalThis.__HistoricoIA?.recarregar?.();
+        } catch (e) {
+          console.warn("Não consegui recarregar histórico IA:", e);
+        }
+      } catch (e) {
+        console.error("Falha ao chamar IA de estoque:", e);
+        alert("Não consegui analisar o estoque agora. Tente novamente em instantes.");
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+  })();
+
+
 
 

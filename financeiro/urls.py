@@ -139,4 +139,9 @@ urlpatterns = [
         name="ia_resumo_mensal_series",
     ),
     path("whatsapp/enviar/", api_enviar_whatsapp, name="api_enviar_whatsapp"),
+    path(
+        "ia/estoque/alertas/",
+        views_financeiro.ia_alertas_estoque_baixo,
+        name="ia_alertas_estoque_baixo",
+    ),
 ]

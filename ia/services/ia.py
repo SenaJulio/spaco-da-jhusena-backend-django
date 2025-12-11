@@ -6,6 +6,7 @@ from django.db import transaction
 from django.apps import apps
 
 from ia.services.analytics import classificar_margem
+from financeiro.services.ia_utils import _map_tipo
 
 
 def _montar_texto(margem_pct: float, tipo: str) -> str:
@@ -42,10 +43,46 @@ def gerar_e_salvar_dica(usuario, margem_pct: float):
     texto, tipo = gerar_dica(margem_pct)
 
     # Lazy resolve do model evita AppRegistryNotReady e ciclos de import
-    RecomendacaoIA = apps.get_model("ia", "RecomendacaoIA")
+    RecomendacaoIA = apps.get_model("financeiro", "RecomendacaoIA")
     rec = RecomendacaoIA.objects.create(
         usuario=usuario,
-        texto=texto,
+        texto=texto,        
         tipo=tipo,
     )
     return rec
+
+
+# ia/services/ia.py
+
+from django.apps import apps
+
+RecomendacaoIA = apps.get_model("financeiro", "RecomendacaoIA")
+
+def salvar_recomendacao_ia(usuario, texto, tipo_ia=None, saldo=None):
+    """
+    Centraliza a criação da RecomendacaoIA.
+
+    - tipo_ia: 'positiva' / 'alerta' / 'neutra' (saída do _map_tipo)
+    - se tipo_ia não vier, usamos _map_tipo(texto, saldo)
+    - converte para o tipo usado no admin: 'Alerta', 'Economia', etc.
+    """
+
+    # se não passaram o tipo, a gente calcula
+    if not tipo_ia:
+        tipo_ia = _map_tipo(texto, saldo=saldo)
+
+    tipo_ia = (tipo_ia or "").strip().lower()
+
+    if tipo_ia == "alerta":
+        tipo_admin = "Alerta"
+    else:
+        # tratamos positiva/neutra como dica boa de economia
+        tipo_admin = "Economia"
+
+    rec = RecomendacaoIA.objects.create(
+        usuario=usuario,
+        texto=texto,
+        tipo=tipo_admin,  # 👈 nunca mais fica vazio
+    )
+    return rec
+

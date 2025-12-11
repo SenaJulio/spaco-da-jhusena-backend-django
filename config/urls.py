@@ -26,4 +26,5 @@ urlpatterns = [
     path("agendamentos/", include(("agendamentos.urls", "agendamentos"), namespace="agendamentos")),
     path("estoque/", include(("estoque.urls", "estoque"), namespace="estoque")),
     path("financeiro/", include(("financeiro.urls", "financeiro"), namespace="financeiro")),
+    path("estoque/", include("estoque.urls")),
 ]
