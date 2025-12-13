@@ -2947,4 +2947,68 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 })();
 
+<<<<<<< HEAD
+=======
+  (function () {
+    "use strict";
+
+    function getCsrfToken() {
+      const meta = document.querySelector('meta[name="csrf-token"]');
+      if (meta && meta.content) return meta.content;
+      const m = /(^|;\s*)csrftoken=([^;]+)/.exec(document.cookie);
+      return m ? decodeURIComponent(m[2]) : "";
+    }
+
+    const btn = document.getElementById("btnCheckEstoqueIA");
+    if (!btn) return;
+
+    btn.addEventListener("click", async (ev) => {
+      if (!ev.isTrusted) return;
+
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = "Analisando estoque…";
+
+      try {
+        const resp = await fetch("/financeiro/ia/estoque-baixo/", {
+          method: "POST",
+          headers: {
+            "X-CSRFToken": getCsrfToken(),
+            Accept: "application/json",
+          },
+          credentials: "same-origin",
+        });
+
+        if (!resp.ok) throw new Error("HTTP " + resp.status);
+        const json = await resp.json();
+        console.log("IA estoque baixo:", json);
+
+        alert(
+          json.total_alertas_criados > 0
+            ? `Foram gerados ${json.total_alertas_criados} alerta(s) de estoque baixo. Confira no histórico da IA.`
+            : "Nenhum produto com estoque baixo no momento. Tudo sob controle! 🎉"
+        );
+
+        // se o Histórico IA estiver na tela, força recarregar
+        try {
+          globalThis.__HistoricoIA?.recarregar?.();
+        } catch (e) {
+          console.warn("Não consegui recarregar histórico IA:", e);
+        }
+      } catch (e) {
+        console.error("Falha ao chamar IA de estoque:", e);
+        alert(
+          "Não consegui analisar o estoque agora. Tente novamente em instantes."
+        );
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+    });
+  })();
+
+
+
+>>>>>>> 660ae25 (atualizando modulos)
+
 

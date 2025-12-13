@@ -22,7 +22,9 @@ from .views_financeiro import (
     gerar_dica_sob_demanda,
     dados_grafico_filtrados,  # usado pelo dashboard.js
     diag_transacao,  # diagnóstico opcional
-    ia_historico_feed_v2,   
+    ia_historico_feed_v2,
+    ia_alertas_estoque_baixo,
+    ia_alertas_lotes,
 )
 
 from .views_insights_api import api_criar_insight_simples
@@ -139,4 +141,19 @@ urlpatterns = [
         name="ia_resumo_mensal_series",
     ),
     path("whatsapp/enviar/", api_enviar_whatsapp, name="api_enviar_whatsapp"),
+<<<<<<< HEAD
+=======
+    # 🔥 Estoque baixo (usa gerar_alertas_estoque_baixo)
+    path(
+        "ia/estoque-baixo/",
+        views.ia_alertas_estoque_baixo,
+        name="ia_alertas_estoque_baixo",
+    ),
+    # 📦 Alertas de lotes (usa ia_alertas_lotes)
+    path(
+        "ia/alertas-lotes/",
+        views.ia_alertas_lotes,
+        name="ia_alertas_lotes",
+    ),
+>>>>>>> 660ae25 (atualizando modulos)
 ]

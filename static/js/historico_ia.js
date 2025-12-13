@@ -1,3 +1,38 @@
+<<<<<<< HEAD
+=======
+function getCsrfToken() {
+  const cookies = document.cookie.split(";").map((c) => c.trim());
+  for (const c of cookies) {
+    if (c.startsWith("csrftoken=")) {
+      return c.split("=")[1];
+    }
+  }
+  return "";
+}
+
+function normalizeTipoIA(rawTipo) {
+  const t = String(rawTipo || "")
+    .toLowerCase()
+    .trim();
+
+  // se já vier no formato lógico, só devolve
+  if (["positiva", "alerta", "neutra"].includes(t)) {
+    return t;
+  }
+
+  // mapeia tipos do admin para o lógico
+  if (["economia", "oportunidade", "meta"].includes(t)) {
+    return "positiva";
+  }
+  if (t === "alerta") {
+    return "alerta";
+  }
+
+  // fallback
+  return "neutra";
+}
+
+>>>>>>> 660ae25 (atualizando modulos)
 // ======================================================
 // historico_ia.js — Histórico IA v1 (com chips coloridas)
 // ======================================================
@@ -123,6 +158,7 @@
     const texto = String(
       it.text || it.texto || it.dica || "Sem conteúdo disponível."
     ).trim();
+<<<<<<< HEAD
 
     const card = document.createElement("div");
     card.className = `card ia-card${it.isNew ? " is-new" : ""}`;
@@ -154,6 +190,147 @@
     }
 
     p.appendChild(textNode(texto));
+=======
+    
+    // 🔎 Detecta alerta de LOTE
+    const lowerText = texto.toLowerCase();
+    const isLoteAlert =
+      (it.origem && String(it.origem).toLowerCase() === "lote") ||
+      lowerText.startsWith("atenção: o lote") ||
+      lowerText.startsWith("atencao: o lote") ||
+      lowerText.includes("lote id") ||
+      lowerText.includes("lote ") ||
+      lowerText.includes("validade");
+
+    // 📦 saldo do lote (se vier do backend)
+    const saldoLote =
+      it.saldo_lote != null
+        ? it.saldo_lote
+        : it.saldoLote != null
+          ? it.saldoLote
+          : null;
+
+    const categoriaLabel = (it.categoria || "ECONOMIA").toString();
+    const categoriaSlug = (it.categoria_slug || "economia").toString();
+
+    const card = document.createElement("div");
+    card.className = `card ia-card${it.isNew ? " is-new" : ""}`;
+    if (it.id != null) card.dataset.id = String(it.id);
+    card.dataset.kind = tipo;
+    card.dataset.categoria = categoriaSlug;
+
+    const body = document.createElement("div");
+    body.className = "card-body";
+
+    const header = document.createElement("div");
+    header.className = "d-flex align-items-center justify-content-between";
+
+    // título à esquerda
+    const titleEl = document.createElement("div");
+    titleEl.className = "fw-semibold";
+    titleEl.appendChild(textNode(titulo));
+    header.appendChild(titleEl);
+
+    // meta (categoria + chips) à direita
+    const metaBox = document.createElement("div");
+    metaBox.className = "d-flex align-items-center gap-2";
+
+    // badge NOVA
+    if (it.isNew) {
+      const newSpan = document.createElement("span");
+      newSpan.className = "badge-ia-new";
+      newSpan.textContent = "NOVA";
+      metaBox.appendChild(newSpan);
+    }
+
+    // badge IA TURBO / PREVISÃO (origem)
+    if (it.isTurbo) {
+      const turboSpan = document.createElement("span");
+      turboSpan.className = "badge-ia-turbo";
+      turboSpan.textContent = "IA TURBO";
+      metaBox.appendChild(turboSpan);
+    }
+
+    // badge de categoria (clicável para filtro)
+    const catSpan = document.createElement("span");
+    catSpan.className = "badge bg-secondary";
+    catSpan.appendChild(textNode(categoriaLabel));
+
+    // 🔥 clique na categoria → filtra
+    catSpan.style.cursor = "pointer";
+    catSpan.title = "Clique para filtrar por esta categoria";
+
+    catSpan.addEventListener("click", (ev) => {
+      if (!ev.isTrusted) return;
+
+      // mapeia categoria_slug para filtro lógico
+      let filtroTipo = "";
+      if (categoriaSlug === "alerta") {
+        filtroTipo = "alerta";
+      } else if (categoriaSlug === "meta") {
+        filtroTipo = "neutra"; // ou "positiva", se preferir
+      } else {
+        // economia / oportunidade / outros = positivas
+        filtroTipo = "positiva";
+      }
+
+      // ativa barra de filtros usando a API já existente
+      _allowFilteredUntil = (performance?.now?.() ?? 0) + FILTER_GRACE_MS;
+      globalThis.__HistoricoIA?.filtrar?.(filtroTipo);
+
+      // visual: marca o botão correspondente se existir
+      const mapBtnId = {
+        positiva: "btnPositivas",
+        alerta: "btnAlertas",
+        neutra: "btnNeutras",
+      };
+      const btnId = mapBtnId[filtroTipo];
+      if (btnId) {
+        for (const b of document.querySelectorAll(
+          "[data-ia-filtro],[data-filter]"
+        )) {
+          b.classList.remove("active");
+        }
+        const tgt = document.getElementById(btnId);
+        if (tgt) tgt.classList.add("active");
+      }
+    });
+
+    metaBox.appendChild(catSpan);
+
+    // chip de humor (Positiva / Alerta / Neutra)
+    metaBox.appendChild(createChip(tipo));   
+
+    if (isLoteAlert) {
+      const loteSpan = document.createElement("span");
+      loteSpan.className = "badge bg-warning text-dark";
+      loteSpan.textContent = "LOTE";
+      metaBox.appendChild(loteSpan);
+    }
+
+    header.appendChild(metaBox);
+
+    const p = document.createElement("p");
+    p.className = "mt-2 mb-2";
+    p.style.whiteSpace = "pre-wrap";
+
+    if (tipo === "positiva") {
+      p.classList.add("ia-text-positiva");
+    } else if (tipo === "alerta") {
+      p.classList.add("ia-text-alerta");
+    } else {
+      p.classList.add("ia-text-neutra");
+    }
+
+    p.appendChild(textNode(texto));
+    
+    if (isLoteAlert && saldoLote != null) {
+      const saldoEl = document.createElement("div");
+      saldoEl.className = "text-warning small mt-1";
+      saldoEl.textContent = `Saldo do lote: ${saldoLote} unidade(s)`;
+      body.appendChild(saldoEl);
+    }
+>>>>>>> 660ae25 (atualizando modulos)
 
     const foot = document.createElement("div");
     foot.className = "text-muted small";
@@ -300,6 +477,7 @@
 
   function normalizeItems(jsonArr) {
     const arr = Array.isArray(jsonArr) ? jsonArr : [];
+<<<<<<< HEAD
     const out = arr.map((x) => {
       const criadoRaw =
         x.criado_em || x.created_at || x.created_at_br || x.data || "";
@@ -320,6 +498,44 @@
         .toString()
         .trim();
 
+=======
+
+    const CAT_SLUGS = ["economia", "alerta", "oportunidade", "meta"];
+    const CAT_LABEL = {
+      economia: "ECONOMIA",
+      alerta: "ALERTA",
+      oportunidade: "OPORTUNIDADE",
+      meta: "META",
+    };
+
+    const lastSeenISO = lastSeenAt || null;
+    const lastSeenTS = lastSeenISO ? new Date(lastSeenISO).getTime() : 0;
+
+    const out = arr.map((x) => {
+      const criadoRaw =
+        x.criado_em || x.created_at || x.created_at_br || x.data || "";
+      const stamp = parseStamp(criadoRaw)?.getTime() || 0;
+
+      // tipo bruto vindo do backend (pode ser 'economia', 'alerta', etc.)
+      const rawTipo = (x.tipo || "").toString().toLowerCase().trim();
+
+      // categorias auxiliares (categoria_dominante, kind, etc.)
+      const kCategoria = (x.categoria || x.categoria_dominante || x.kind || "")
+        .toString()
+        .toLowerCase()
+        .trim();
+
+      // origem da dica (manual / auto / turbo / previsao etc.)
+      const origem = (x.origem || x.source || "")
+        .toString()
+        .toLowerCase()
+        .trim();
+
+      const txt = (x.texto || x.text || x.dica || x.conteudo || "")
+        .toString()
+        .trim();
+
+>>>>>>> 660ae25 (atualizando modulos)
       let title = x.title || x.titulo || "";
       if (!title) {
         if (txt) {
@@ -330,15 +546,57 @@
           title = "Dica da IA";
         }
       }
+<<<<<<< HEAD
 
       const tipo =
         k === "alerta" || k === "positiva" || k === "neutra" ? k : "neutra";
+=======
+
+      // 1) HUMOR lógico: positiva | alerta | neutra
+      let tipo = normalizeTipoIA(rawTipo);
+      if (!tipo) tipo = normalizeTipoIA(kCategoria);
+      if (!tipo) tipo = "neutra";
+
+      // 2) CATEGORIA REAL (slug) vinda do backend, se existir
+      let catSlug = "";
+      if (CAT_SLUGS.includes(rawTipo)) {
+        catSlug = rawTipo;
+      } else if (CAT_SLUGS.includes(kCategoria)) {
+        catSlug = kCategoria;
+      } else if (tipo === "alerta") {
+        catSlug = "alerta";
+      } else {
+        catSlug = "economia";
+      }
+
+      const categoriaLabel =
+        CAT_LABEL[catSlug] || (catSlug ? catSlug.toUpperCase() : "ECONOMIA");
+
+      // 3) se é "nova" (criada depois do lastSeenAt)
+      const isNew = lastSeenTS > 0 ? stamp > lastSeenTS : false;
+
+      // 4) flag de IA turbo/previsão (origem)
+      const isTurbo =
+        origem === "turbo" ||
+        origem === "ia_turbo" ||
+        origem === "previsao" ||
+        origem === "forecast";
+>>>>>>> 660ae25 (atualizando modulos)
 
       return {
         id: x.id,
         criado_em: criadoRaw,
         _stamp: stamp,
+<<<<<<< HEAD
         tipo,
+=======
+        tipo, // positiva | alerta | neutra
+        categoria: categoriaLabel,
+        categoria_slug: catSlug,
+        origem,
+        isNew,
+        isTurbo,
+>>>>>>> 660ae25 (atualizando modulos)
         title,
         text: txt || "Sem conteúdo disponível.",
         criado_em_fmt: x.criado_em_fmt || "",
@@ -855,5 +1113,57 @@
         globalThis.carregarHistorico(INITIAL_LIMIT, "");
       });
     })();
+  });
+})();
+(function () {
+  const btnLotes = document.getElementById("btnAtualizarLotes");
+  if (!btnLotes) return;
+
+  btnLotes.addEventListener("click", async () => {
+    btnLotes.disabled = true;
+    const original = btnLotes.innerHTML;
+    btnLotes.innerHTML = "⏳ Atualizando...";
+
+    try {
+      const resp = await fetch("/financeiro/ia/alertas-lotes/", {
+        method: "POST",
+        headers: {
+          "X-CSRFToken": getCsrfToken(),
+          Accept: "application/json",
+        },
+        credentials: "same-origin",
+      });
+
+      // 👇 se não for JSON (tipo 403 de CSRF ou 500), cai aqui
+      const contentType = resp.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        const txt = await resp.text();
+        console.error("Resposta não JSON:", resp.status, txt);
+        alert("Erro ao gerar alertas de lote (status " + resp.status + ").");
+        return;
+      }
+
+      const data = await resp.json();
+
+      if (!data.ok) {
+        alert(
+          "Erro ao gerar alertas de lote: " + (data.error || "desconhecido")
+        );
+      } else {
+        if (globalThis.__HistoricoIA?.recarregar) {
+          globalThis.__HistoricoIA.recarregar();
+        } else if (globalThis.__HistoricoIA?.reload) {
+          globalThis.__HistoricoIA.reload();
+        } else {
+          location.reload();
+        }
+      }
+    } catch (err) {
+      console.error("Erro:", err);
+      alert("Falha na comunicação com o servidor.");
+    } finally {
+      btnLotes.disabled = false;
+      btnLotes.innerHTML = original;
+    }
   });
 })();
