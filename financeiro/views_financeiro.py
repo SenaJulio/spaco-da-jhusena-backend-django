@@ -48,8 +48,8 @@ from django.http import JsonResponse
 from django.db.models import Sum, F
 from financeiro.services.ia import salvar_recomendacao_ia
 from estoque.services_ia import gerar_alertas_estoque_baixo
-from financeiro.ia_estoque_bridge import registrar_alertas_lote_no_historico
-
+from .ia_estoque_bridge import registrar_alertas_lote_no_historico
+from estoque.services_lotes import gerar_textos_alerta_lotes
 
 # IA (motor oficial do preview)
 from ia.services.analysis import analisar_30d_dict
@@ -400,9 +400,19 @@ def ia_historico_feed_v2(request):
         base_hist = HistoricoIA.objects.filter(usuario=user).order_by("-criado_em")
 
         for rec in base_hist:
-            tnorm = _map_db_tipo_to_hist_tipo(getattr(rec, "tipo", "") or "", rec.texto or "")
+            texto = rec.texto or ""
+            tnorm = _map_db_tipo_to_hist_tipo(getattr(rec, "tipo", "") or "", texto)
             if tnorm not in ("positiva", "alerta", "neutra"):
                 tnorm = "neutra"
+
+            # 💡 tenta extrair saldo do texto (p/ badge "30 un")
+            saldo_lote = None
+            try:
+                m = re.search(r"saldo de\s+(\d+)\s+unidade", texto)
+                if m:
+                    saldo_lote = int(m.group(1))
+            except Exception:
+                saldo_lote = None
 
             counts[tnorm] += 1
             total += 1
@@ -413,11 +423,12 @@ def ia_historico_feed_v2(request):
                 {
                     "id": rec.id,
                     "tipo": tnorm,
-                    "texto": rec.texto or "",
+                    "texto": texto,
                     "criado_em": rec.criado_em.isoformat() if rec.criado_em else "",
                     "criado_em_fmt": dt_local.strftime("%d/%m/%Y %H:%M") if dt_local else "",
                     "_stamp": rec.criado_em.timestamp() if rec.criado_em else 0,
                     "origem": getattr(rec, "origem", "legacy") or "legacy",
+                    "saldo_lote": saldo_lote,
                 }
             )
 
@@ -591,7 +602,7 @@ def dashboard_financeiro(request):
         gerar_alertas_estoque_baixo(usuario=request.user, limite_padrao=3)
     except Exception as exc:
         print("[IA ESTOQUE BAIXO - dashboard]", exc)
-        
+
     if not getattr(request.user, "is_authenticated", False):
         login_url = getattr(settings, "LOGIN_URL", "/admin/login/")
         return redirect(f"{login_url}?next={request.path}")
@@ -1924,6 +1935,36 @@ def categoria_que_mais_cresceu(request):
             "mes_anterior": f"{mes_ant:02d}/{ano_ant}",
         }
     )
+
+
+from django.views.decorators.http import require_POST
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+from .ia_estoque_bridge import registrar_alertas_lote_no_historico
+
+
+@require_POST
+@login_required
+def ia_alertas_lotes(request):
+    """
+    Gera registros de alerta de LOTE (vencido / perto de vencer)
+    dentro de HistoricoIA, com origem='lote', evitando duplicados.
+    """
+    try:
+        total, ids = registrar_alertas_lote_no_historico(
+            usuario=request.user,
+            dias_aviso=30,
+            max_itens=10,
+        )
+        return JsonResponse(
+            {
+                "ok": True,
+                "total_criados": total,
+                "ids": ids,
+            }
+        )
+    except Exception as exc:
+        return JsonResponse({"ok": False, "error": str(exc)}, status=500)
 
 
 @login_required

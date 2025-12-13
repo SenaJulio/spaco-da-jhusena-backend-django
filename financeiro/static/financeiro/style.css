@@ -896,3 +896,47 @@ body.sj-dark .chart-box {
   background: #b0bec5 !important;
   transform: scale(1.05);
 }
+
+/* === Chips Premium dos botões === */
+
+.chip-btn {
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  border-radius: 6px;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: 0.15s ease-in-out;
+  white-space: nowrap;
+}
+
+/* Verde — Aplicar */
+.chip-success {
+  background: #d4f6df;
+  color: #0a6c2f;
+}
+.chip-success:hover {
+  background: #c2efcf;
+}
+
+/* Azul — Nova Dica */
+.chip-primary {
+  background: #dce9ff;
+  color: #0a3c8c;
+}
+.chip-primary:hover {
+  background: #c6dbff;
+}
+
+/* Amarelo — Lotes */
+.chip-warning {
+  background: #fff3cd;
+  color: #8a6d00;
+}
+.chip-warning:hover {
+  background: #ffe9a6;
+}
+

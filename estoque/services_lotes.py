@@ -1,16 +1,10 @@
 # estoque/services_lotes.py
 from datetime import timedelta
-
 from django.utils import timezone
-
-from .models import LoteProduto  # seu model de lote
+from .models import LoteProduto
 
 
 def buscar_lotes_prestes_vencer(dias_aviso=30):
-    """
-    Retorna uma lista de lotes que estão vencidos ou prestes a vencer,
-    considerando apenas lotes com saldo_atual > 0 (se disponível).
-    """
     hoje = timezone.localdate()
     limite = hoje + timedelta(days=dias_aviso)
 
@@ -23,6 +17,7 @@ def buscar_lotes_prestes_vencer(dias_aviso=30):
     for lote in qs:
         saldo = getattr(lote, "saldo_atual", None)
         if saldo is not None and saldo <= 0:
+            # lote sem saldo não entra em alerta
             continue
 
         validade = lote.validade
@@ -39,17 +34,22 @@ def buscar_lotes_prestes_vencer(dias_aviso=30):
                 "produto": lote.produto,
                 "dias_restantes": dias_restantes,
                 "status": status,
+                "saldo_atual": saldo,
             }
         )
+
+    # 🔥 ordena: 1º vencidos, depois prestes a vencer, e dentro disso pela validade
+    resultados.sort(
+        key=lambda item: (
+            0 if item["status"] == "vencido" else 1,
+            item["dias_restantes"],
+        )
+    )
 
     return resultados
 
 
 def gerar_textos_alerta_lotes(dias_aviso=30):
-    """
-    Usa buscar_lotes_prestes_vencer e transforma em textos de alerta
-    (para IA, notificações, etc.).
-    """
     lotes = buscar_lotes_prestes_vencer(dias_aviso=dias_aviso)
 
     mensagens = []
@@ -59,13 +59,14 @@ def gerar_textos_alerta_lotes(dias_aviso=30):
         produto = item["produto"]
         dias = item["dias_restantes"]
         status = item["status"]
+        saldo = item.get("saldo_atual")
 
         codigo = getattr(lote, "codigo", "") or f"ID {lote.id}"
 
         if status == "vencido":
-            msg = (
+            msg_base = (
                 f"Atenção: o lote {codigo} do produto '{produto.nome}' "
-                f"está VENCIDO desde {lote.validade.strftime('%d/%m/%Y')}."
+                f"está VENCIDO desde {lote.validade.strftime('%d/%m/%Y')}"
             )
         else:
             if dias == 0:
@@ -75,10 +76,16 @@ def gerar_textos_alerta_lotes(dias_aviso=30):
             else:
                 quando = f"vence em {dias} dias"
 
-            msg = (
+            msg_base = (
                 f"Alerta: o lote {codigo} do produto '{produto.nome}' "
-                f"{quando} ({lote.validade.strftime('%d/%m/%Y')})."
+                f"{quando} ({lote.validade.strftime('%d/%m/%Y')})"
             )
+
+        # complemento opcional com saldo
+        if saldo is not None:
+            msg = f"{msg_base} com saldo de {saldo} unidade(s)."
+        else:
+            msg = msg_base + "."
 
         mensagens.append(
             {
@@ -90,6 +97,7 @@ def gerar_textos_alerta_lotes(dias_aviso=30):
                 "lote_codigo": codigo,
                 "validade": lote.validade.isoformat(),
                 "dias_restantes": dias,
+                "saldo_atual": float(saldo) if saldo is not None else None,
             }
         )
 

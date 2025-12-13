@@ -5,7 +5,7 @@ from django.http import JsonResponse
 from ia.services.ia import gerar_e_salvar_dica
 from financeiro.services.ia import generate_tip_last_30d, _map_tipo
 from financeiro.models import Transacao
-
+from financeiro.ia_estoque_bridge import registrar_alertas_lote_no_historico
 
 @require_POST
 def gerar_dica_30d(request):
@@ -45,3 +45,5 @@ def ia_gerar_dica_30d(request):
             "metrics": metrics,
         }
     )
+
+

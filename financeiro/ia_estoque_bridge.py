@@ -27,26 +27,43 @@ def anexar_alertas_estoque_no_texto(
     return (texto_base or "") + bloco
 
 
-def registrar_alertas_lote_no_historico(usuario=None, dias_aviso: int = 30, max_itens: int = 5):
+def registrar_alertas_lote_no_historico(
+    usuario=None,
+    dias_aviso: int = 30,
+    max_itens: int = 5,
+):
     """
     Cria registros na tabela HistoricoIA para cada alerta de lote vencido / prestes a vencer.
+
+    - NÃO duplica alertas com mesmo texto + origem='lote' + usuário.
+    - Retorna (total_criados, lista_de_ids).
     """
     msgs = gerar_textos_alerta_lotes(dias_aviso=dias_aviso)
 
     if not msgs:
-        return 0
+        return 0, []
 
-    criados = 0
     agora = timezone.now()
+    ids_criados = []
 
     for m in msgs[:max_itens]:
-        HistoricoIA.objects.create(
-            texto=m["texto"],
-            tipo="alerta",  # tarja ALERTA
-            origem="lote",  # usado pra diferenciar no front
+        texto = m["texto"]
+
+        # verifica se já existe esse alerta para esse usuário
+        filtro = {"origem": "lote", "texto": texto}
+        if usuario is not None:
+            filtro["usuario"] = usuario
+
+        if HistoricoIA.objects.filter(**filtro).exists():
+            continue  # já existe, pula
+
+        h = HistoricoIA.objects.create(
+            texto=texto,
+            tipo="alerta",
+            origem="lote",
             usuario=usuario,
             criado_em=agora,
         )
-        criados += 1
+        ids_criados.append(h.id)
 
-    return criados
+    return len(ids_criados), ids_criados

@@ -2995,7 +2995,7 @@ document.addEventListener("DOMContentLoaded", function () {
       btn.textContent = "Analisando estoque…";
 
       try {
-        const resp = await fetch("/financeiro/ia/estoque/alertas/", {
+        const resp = await fetch("/financeiro/ia/estoque-baixo/", {
           method: "POST",
           headers: {
             "X-CSRFToken": getCsrfToken(),
@@ -3022,13 +3022,16 @@ document.addEventListener("DOMContentLoaded", function () {
         }
       } catch (e) {
         console.error("Falha ao chamar IA de estoque:", e);
-        alert("Não consegui analisar o estoque agora. Tente novamente em instantes.");
+        alert(
+          "Não consegui analisar o estoque agora. Tente novamente em instantes."
+        );
       } finally {
         btn.disabled = false;
         btn.textContent = original;
       }
     });
   })();
+
 
 
 
