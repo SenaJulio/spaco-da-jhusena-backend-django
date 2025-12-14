@@ -940,3 +940,33 @@ body.sj-dark .chart-box {
   background: #ffe9a6;
 }
 
+.ia-card-lote-critico{
+  border: 2px solid #dc3545 !important;
+  box-shadow: 0 0 0 .15rem rgba(220,53,69,.15);
+}
+
+.ia-card-lote-critico .card-body{
+  background: rgba(220,53,69,.04);
+}
+
+.lote-critico-red {
+  border: 1px solid rgba(220, 53, 69, 0.5);
+  background: rgba(220, 53, 69, 0.08);
+}
+.lotes-criticos-item:hover {
+  filter: brightness(1.05);
+}
+.lote-critico-red {
+  border: 1px solid #dc3545;
+  background: linear-gradient(
+    90deg,
+    rgba(220, 53, 69, 0.12),
+    rgba(0, 0, 0, 0)
+  );
+}
+
+.lote-critico-red {
+  border: 1px solid rgba(255, 80, 80, 0.65) !important;
+  box-shadow: 0 0 0 1px rgba(255, 80, 80, 0.15) inset;
+  background: rgba(255, 80, 80, 0.06);
+}

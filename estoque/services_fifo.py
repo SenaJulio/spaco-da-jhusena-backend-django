@@ -1,6 +1,8 @@
 from decimal import Decimal
 from django.db import transaction
 from django.core.exceptions import ValidationError
+from django.utils.timezone import now
+
 
 from .models import LoteProduto  # 👈 seu model, conforme o traceback
 
@@ -9,6 +11,23 @@ class EstoqueInsuficienteError(Exception):
     """Erro lançado quando não há estoque suficiente para atender a saída."""
 
     pass
+
+
+def validar_lote_para_venda(lote):
+    """
+    Bloqueia venda se o lote estiver vencido e ainda tiver saldo.
+    """
+    validade = getattr(lote, "validade", None)
+    if not validade:
+        return  # sem validade, não bloqueia
+
+    saldo = getattr(lote, "saldo_atual", None)
+    if saldo is None:
+        return  # se não tem saldo_atual aqui, a função principal já trata
+
+    hoje = now().date()
+    if validade < hoje and saldo > 0:
+        raise ValidationError(f"Lote vencido ({validade}). Venda bloqueada.")
 
 
 @transaction.atomic
@@ -65,7 +84,8 @@ def consumir_estoque_fifo(produto, quantidade):
 
         if saldo <= 0:
             continue
-
+        validar_lote_para_venda(lote)
+        
         consumir = min(saldo, restante)
 
         # Se saldo_atual for field real, isso salva no banco;

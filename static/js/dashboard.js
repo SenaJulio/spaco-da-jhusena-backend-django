@@ -3032,6 +3032,135 @@ document.addEventListener("DOMContentLoaded", function () {
     });
   })();
 
+(function () {
+  "use strict";
+
+  async function carregarLotesCriticos() {
+    const box = document.getElementById("lotesCriticosBox");
+    const footer = document.getElementById("lotesCriticosFooter");
+    if (!box) return;
+
+    box.textContent = "Carregando…";
+    if (footer) footer.innerHTML = "";
+
+    try {
+      const resp = await fetch("/estoque/lotes/criticos/?dias=30&limit=5", {
+        headers: { Accept: "application/json" },
+        credentials: "same-origin",
+      });
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+
+      const data = await resp.json();
+      if (!data.ok) throw new Error("Resposta inválida");
+
+      const items = data.items || [];
+      if (!items.length) {
+        box.innerHTML =
+          "<span class='text-success'>Nenhum lote crítico 🎉</span>";
+        return;
+      }
+
+      const temAcaoImediata = items.some(
+        (x) =>
+          String(x.status || "").toLowerCase() === "vencido" &&
+          Number(x.saldo_lote || 0) > 0
+      );
+
+      box.innerHTML = items
+        .map((it, idx) => {
+          const vencido = String(it.status || "").toLowerCase() === "vencido";
+          const saldo = Number(it.saldo_lote || 0);
+          const acaoImediata = vencido && saldo > 0;
+
+          const badge = acaoImediata
+            ? "<span class='badge bg-danger'>AÇÃO IMEDIATA</span>"
+            : vencido
+              ? "<span class='badge bg-danger'>VENCIDO</span>"
+              : "<span class='badge bg-warning text-dark'>A VENCER</span>";
+
+          const diasTxt = vencido
+            ? `há ${Math.abs(Number(it.dias_restantes || 0))} dia(s)`
+            : `em ${Number(it.dias_restantes || 0)} dia(s)`;
+
+          return `
+          <a href="${it.admin_url}" class="d-flex justify-content-between align-items-center text-decoration-none mb-2 p-2 rounded lotes-criticos-item ${acaoImediata ? "lote-critico-red" : ""}">
+            <div class="me-2">
+              <div class="fw-semibold">${idx + 1}. ${it.produto_nome}</div>
+              <div class="text-muted">Lote ${it.lote_codigo} • ${diasTxt} • Val: ${it.validade || "-"}</div>
+            </div>
+            <div class="text-end">
+              ${badge}
+              <div class="fw-semibold text-primary">Saldo em estoque: ${saldo}</div>
+            </div>
+          </a>
+        `;
+        })
+        .join("");
+
+      if (footer && temAcaoImediata) {
+        footer.innerHTML =
+          "<span class='text-warning'>⚠️ Lote vencido com saldo em estoque. Ação imediata recomendada.</span>";
+      }
+    } catch (e) {
+      console.error("[lotesCriticos]", e);
+      box.innerHTML =
+        "<span class='text-danger'>Falha ao carregar lotes críticos.</span>";
+    }
+  }
+
+  document.addEventListener("DOMContentLoaded", carregarLotesCriticos);
+
+  const btn = document.getElementById("btnAtualizarLotesCriticos");
+  if (btn) btn.addEventListener("click", carregarLotesCriticos);
+  function getCsrfToken() {
+    const m = /(^|;\s*)csrftoken=([^;]+)/.exec(document.cookie);
+    return m ? decodeURIComponent(m[2]) : "";
+  }
+
+  async function atualizarLotesERecarregar() {
+    const btn = document.getElementById("btnAtualizarLotesCriticos");
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "Atualizando…";
+    }
+
+    try {
+      // 1) Gera alertas (não duplica: seu backend já “pula” os repetidos)
+      const resp = await fetch("/financeiro/ia/alertas-lotes/", {
+        method: "POST",
+        headers: {
+          "X-CSRFToken": getCsrfToken(),
+          Accept: "application/json",
+        },
+        credentials: "same-origin",
+      });
+
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+      const json = await resp.json();
+      console.log("[alertas-lotes]", json);
+
+      // 2) Recarrega ranking
+      await carregarLotesCriticos();
+    } catch (e) {
+      console.error("[atualizarLotesERecarregar]", e);
+      alert("Não consegui atualizar agora. Tenta de novo em instantes.");
+    } finally {
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Atualizar";
+      }
+    }
+  }
+
+  // troca o clique do botão
+  const btnAtualizarRank = document.getElementById("btnAtualizarLotesCriticos");
+  if (btnAtualizarRank)
+    btnAtualizarRank.addEventListener("click", atualizarLotesERecarregar);
+
+})();
+
+
+
 
 
 
