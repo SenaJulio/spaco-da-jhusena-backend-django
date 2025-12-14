@@ -2051,26 +2051,56 @@ from django.http import JsonResponse
 from .ia_estoque_bridge import registrar_alertas_lote_no_historico
 
 
-@require_POST
 @login_required
+@require_POST
 def ia_alertas_lotes(request):
-    """
-    Gera registros de alerta de LOTE (vencido / perto de vencer)
-    dentro de HistoricoIA, com origem='lote', evitando duplicados.
-    """
+         
     try:
-        total, ids = registrar_alertas_lote_no_historico(
-            usuario=request.user,
-            dias_aviso=30,
-            max_itens=10,
-        )
-        return JsonResponse(
-            {
-                "ok": True,
-                "total_criados": total,
-                "ids": ids,
-            }
-        )
+        msgs = gerar_textos_alerta_lotes(dias_aviso=30)
+        if not msgs:
+            return JsonResponse({"ok": True, "total_criados": 0, "ids": []})
+
+        agora = timezone.now()
+        janela = agora - timedelta(hours=24)
+
+        ids = []
+        pulados = 0
+   
+        for m in msgs:
+            lote_id = m.get("lote_id")
+            status = m.get("tipo")  # "vencido" / "prestes_vencer"
+            validade = m.get("validade")  # "YYYY-MM-DD"
+
+            # 🔑 Assinatura única lógica do alerta
+            dedup_key = f"lote:{lote_id}|status:{status}|val:{validade}"
+
+            # ✅ Se já existe algo igual nas últimas 24h, não cria de novo
+            ja_existe = HistoricoIA.objects.filter(
+                usuario=request.user,
+                origem="lote",
+                criado_em__gte=janela,
+                texto__contains=dedup_key,
+            ).exists()
+
+            if ja_existe:
+                pulados += 1
+                continue
+
+            # salva texto COM a chave escondida no final (não atrapalha visual)
+            texto = (m.get("texto") or "").strip()
+            texto_salvo = f"{texto}\n\n[{dedup_key}]"
+
+            obj = HistoricoIA.objects.create(
+                usuario=request.user,
+                texto=texto_salvo,
+                tipo="alerta",
+                origem="lote",
+                criado_em=agora,
+            )
+            ids.append(obj.id)
+
+        return JsonResponse({"ok": True, "total_criados": len(ids), "ids": ids, "pulados": pulados})
+
     except Exception as exc:
         return JsonResponse({"ok": False, "error": str(exc)}, status=500)
 

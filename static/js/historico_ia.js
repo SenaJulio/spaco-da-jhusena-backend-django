@@ -154,6 +154,7 @@ function normalizeTipoIA(rawTipo) {
       quando = fmtDate(raw);
     }
 
+<<<<<<< HEAD
     const titulo = String(it.title || "Dica da IA").trim();
     const texto = String(
       it.text || it.texto || it.dica || "Sem conteúdo disponível."
@@ -201,14 +202,50 @@ function normalizeTipoIA(rawTipo) {
       lowerText.includes("lote id") ||
       lowerText.includes("lote ") ||
       lowerText.includes("validade");
+=======
+  let titulo = String(it.title || "Dica da IA").trim();
 
-    // 📦 saldo do lote (se vier do backend)
-    const saldoLote =
-      it.saldo_lote != null
-        ? it.saldo_lote
-        : it.saldoLote != null
-          ? it.saldoLote
-          : null;
+  const texto = String(
+    it.text || it.texto || it.dica || "Sem conteúdo disponível."
+  ).trim();
+
+  // 🔎 Detecta alerta de LOTE
+  const lowerText = texto.toLowerCase();
+
+  const isLoteAlert =
+    (it.origem && String(it.origem).toLowerCase() === "lote") ||
+    lowerText.includes("validade") ||
+    lowerText.includes("lote ") ||
+    lowerText.includes(" vence ");
+
+  const isVencido =
+    (it.status && String(it.status).toLowerCase() === "vencido") ||
+    (typeof it.dias_restantes === "number" && it.dias_restantes < 0) ||
+    lowerText.includes(" está vencido") ||
+    lowerText.includes(" está vencida") ||
+    lowerText.includes(" vencido desde ");
+
+  const saldoLote =
+    it.saldo_lote != null
+      ? Number(it.saldo_lote)
+      : it.saldoLote != null
+        ? Number(it.saldoLote)
+        : null;
+
+  // 🔴 condição exata que você pediu
+  const devePintarCritico =
+    isLoteAlert && isVencido && saldoLote != null && saldoLote > 0;
+
+  // ✅ agora sim pode usar
+  if (devePintarCritico) {
+    const acaoSpan = document.createElement("span");
+    acaoSpan.className = "badge bg-danger";
+    acaoSpan.textContent = "AÇÃO IMEDIATA";
+    metaBox.appendChild(acaoSpan);
+  }
+
+>>>>>>> 519c13b (docs: atualiza README do ERP Spaço da Jhuséna (v1.0))
+
 
     const categoriaLabel = (it.categoria || "ECONOMIA").toString();
     const categoriaSlug = (it.categoria_slug || "economia").toString();
@@ -218,6 +255,9 @@ function normalizeTipoIA(rawTipo) {
     if (it.id != null) card.dataset.id = String(it.id);
     card.dataset.kind = tipo;
     card.dataset.categoria = categoriaSlug;
+    if (devePintarCritico) {
+      card.classList.add("ia-card-lote-critico");
+    }
 
     const body = document.createElement("div");
     body.className = "card-body";

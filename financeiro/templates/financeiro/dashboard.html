@@ -496,6 +496,8 @@
   </div>
 
   <!-- 🧩 Despesas Fixas vs Variáveis -->
+<div class="row g-3">
+  <!-- ESQUERDA: já existe -->
   <div class="col-12 col-lg-6">
     <div class="card sj-card mb-3">
       <div class="card-header d-flex justify-content-between align-items-center">
@@ -525,6 +527,22 @@
       </div>
     </div>
   </div>
+ <!-- DIREITA: card de lotes críticos -->
+<div class="col-lg-6">
+  <div class="card" id="cardLotesCriticos">
+    <div class="card-header d-flex align-items-center justify-content-between">
+      <div class="fw-semibold">📦 Lotes críticos</div>
+      <button id="btnAtualizarLotesCriticos" class="btn btn-sm btn-outline-secondary" type="button">
+        Atualizar
+      </button>
+    </div>
+
+    <div class="card-body">
+      <div id="lotesCriticosBox" class="small text-muted">Carregando…</div>
+      <div id="lotesCriticosFooter" class="small mt-2"></div>
+    </div>
+  </div>
+</div>
 
 
   <!-- 💡 Análise Mensal IA -->
