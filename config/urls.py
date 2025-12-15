@@ -21,6 +21,7 @@ from django.contrib import admin
 from django.urls import include, path
 
 urlpatterns = [
+    path("", include("core.urls")),  # HOME
     path("admin/", admin.site.urls),
     path("", include(("core.urls", "core"), namespace="core")),  # raiz controlada pelo app core
     path("agendamentos/", include(("agendamentos.urls", "agendamentos"), namespace="agendamentos")),

@@ -27,7 +27,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 import os
 
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-key-only")
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "unsafe-dev-key")
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -183,12 +183,14 @@ class CustomEmailBackend(EmailBackend):
             return False
 
 
-EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 EMAIL_USE_TLS = True
 EMAIL_HOST = "smtp.gmail.com"  # Ou o servidor que estiver usando
 EMAIL_PORT = 587
 EMAIL_HOST_USER = "julioviana07@gmail.com"
 EMAIL_HOST_PASSWORD = "vktj pcpx tcwf qvnw"
+
+DEFAULT_FROM_EMAIL = "Spaço da Jhuséna <no-reply@spaco.local>"
 
 ADMIN_MEDIA_PREFIX = "/static/admin/"
 

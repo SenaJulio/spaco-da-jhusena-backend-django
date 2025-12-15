@@ -15,6 +15,7 @@ class Agendamento(models.Model):
 
     STATUS_CHOICES = [
         ("agendado", "Agendado"),
+        ("pendente", "Pendente"),
         ("concluido", "Concluído"),
         ("cancelado", "Cancelado"),
     ]

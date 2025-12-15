@@ -1,6 +1,8 @@
-# 🐾 Spaço da Jhuséna — ERP Inteligente para Pet Shops
+# 🐾 Spaço da Jhuséna — ERP Inteligente para Pet Shops (Backend)
 
-Sistema completo de gestão desenvolvido para **pet shops, clínicas veterinárias e negócios de serviços**, com foco em **controle financeiro inteligente**, **estoque por lote com validade**, **alertas automáticos** e **Inteligência Artificial aplicada à tomada de decisão**.
+Sistema completo de gestão desenvolvido para **pet shops, clínicas veterinárias e negócios de serviços**, com foco em **controle financeiro inteligente**, **estoque por lote com validade**, **agendamentos** e **Inteligência Artificial aplicada à tomada de decisão**.
+
+Este repositório contém o **backend oficial do Spaço da Jhuséna**, desenvolvido em Django.
 
 ---
 
@@ -10,11 +12,12 @@ O **Spaço da Jhuséna** é um ERP real, criado a partir das necessidades práti
 
 - organizar processos internos
 - reduzir erros humanos
+- evitar perdas com estoque vencido
 - oferecer visão clara das finanças
 - automatizar alertas críticos
 - apoiar decisões com Inteligência Artificial
 
-Este repositório contém o **backend completo do sistema**, desenvolvido em Django.
+👉 **Status:** v1.0 funcional, estável e pronto para demonstração e implantação assistida.
 
 ---
 
@@ -25,39 +28,49 @@ Este repositório contém o **backend completo do sistema**, desenvolvido em Dja
 - Filtros por período e categorias
 - Gráficos interativos (linha, pizza e rankings)
 - Diagnósticos automáticos
-- Resumo mensal com margem
+- Resumo mensal com margem e crescimento
 
 ### 🤖 Inteligência Artificial
 - Análise automática dos últimos 30 dias
 - Geração de insights financeiros
 - Classificação de dicas (positiva / alerta / neutra)
 - Histórico de recomendações
-- Geração de dicas sob demanda
+- Geração de dicas sob demanda pelo painel
 
-### 📦 Estoque Inteligente
+### 📦 Estoque Inteligente (por Lotes)
 - Controle de entradas e saídas
 - Gestão por **lotes com validade**
 - FIFO automático
 - Bloqueio de venda de lote vencido
 - Aviso de lote próximo do vencimento
-- Alertas inteligentes integrados à IA
+- Ranking de lotes críticos
+- Alertas integrados à IA
+
+### 📅 Agendamentos
+- Página pública de agendamento
+- Dashboard interno com:
+  - contadores
+  - gráfico de status
+  - agendamentos do dia
+  - ações rápidas (concluir / cancelar)
+- Integração com financeiro (serviço concluído gera receita)
 
 ### 🛒 Vendas
 - Registro de vendas
 - Integração automática com estoque
 - Geração de lançamentos financeiros
-- Proteção contra inconsistências de estoque
+- Proteção contra estoque negativo
 
 ### 🔔 Notificações Externas
-- Integração com Telegram
-- Integração com WhatsApp (Cloud API)
+- Integração com Telegram (funcional)
+- Estrutura pronta para WhatsApp Cloud API
 - Envio de alertas e insights automáticos
 
 ---
 
 ## 🛠️ Stack Tecnológica
 
-- **Backend:** Python 3.13, Django 4.x
+- **Backend:** Python 3.10+ / Django 4.x
 - **Banco de Dados:** SQLite (desenvolvimento) / PostgreSQL (produção)
 - **Frontend:** HTML, Bootstrap, JavaScript
 - **Gráficos:** Chart.js
@@ -69,56 +82,108 @@ Este repositório contém o **backend completo do sistema**, desenvolvido em Dja
 ## 🔒 Regras de Negócio Importantes
 
 - Venda de **lote vencido é bloqueada**
-- Lote próximo do vencimento gera **aviso (warning)**
+- Lote próximo do vencimento gera **aviso explícito**
 - Estoque não fica negativo
-- Todas as operações críticas são transacionais
+- Operações críticas são transacionais
 - Alertas não duplicam indevidamente
 
 ---
 
 ## 🚀 Como Rodar Localmente
 
-```bash
-# Criar ambiente virtual
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+### 1️⃣ Pré-requisitos
+- Python 3.10 ou 3.11
+- Git
 
-# Instalar dependências
+---
+
+### 2️⃣ Clonar o projeto
+```bash
+git clone https://github.com/SenaJulio/spaco-da-jhusena-backend-django.git
+cd spaco-da-jhusena-backend-django
+
+
+3️⃣ Criar ambiente virtual
+
+Windows
+
+python -m venv venv
+venv\Scripts\activate
+
+
+Linux / Mac
+
+python3 -m venv venv
+source venv/bin/activate
+
+4️⃣ Instalar dependências
 pip install -r requirements.txt
 
-# Aplicar migrações
+
+5️⃣ Configurar variáveis de ambiente
+
+Crie o arquivo .env a partir do modelo:
+
+cp .env.example .env
+
+Edite o .env conforme necessário:
+
+DJANGO_SECRET_KEY=coloque_sua_chave
+DEBUG=True
+ALLOWED_HOSTS=127.0.0.1,localhost
+TIME_ZONE=America/Sao_Paulo
+LANGUAGE_CODE=pt-br
+
+
+6️⃣ Banco de dados
 python manage.py migrate
 
-# Criar usuário administrador
+7️⃣ Criar usuário administrador
 python manage.py createsuperuser
 
-# Iniciar servidor
+
+8️⃣ Iniciar servidor
 python manage.py runserver
 
+
 Acesse:
-http://127.0.0.1:8000/admin/
+
+Admin: http://127.0.0.1:8000/admin/
+
+Home: http://127.0.0.1:8000/
+
+
+🔗 Rotas Principais
+
+/ — Tela inicial
+
+/admin/ — Administração
+
+/financeiro/dashboard/
+
+/estoque/dashboard/
+
+/agendamentos/dashboard/
+
+/agendamentos/agendar/ (público)
+
+
 
 📌 Status do Projeto
 
 ✅ Versão v1.0 — Funcional, estável e pronta para demonstração
+🔜 Evoluções futuras incluem melhorias de UX, mobile e automações adicionais.
 
-Este sistema faz parte de um projeto maior que inclui:
-
-versão demo pública
-
-roadmap de evolução
-
-versão comercial
 
 📄 Licença
 
 Este repositório contém código de um sistema proprietário.
 Uso comercial, redistribuição ou cópia somente mediante autorização do autor.
 
+
+
 👤 Autor
 
 Sena Júlio
 Desenvolvedor do Spaço da Jhuséna
-LinkedIn: https://www.linkedin.com/in/julio-sena-4668a7178/
-
-
+🔗 LinkedIn: https://www.linkedin.com/in/julio-sena-4668a7178/

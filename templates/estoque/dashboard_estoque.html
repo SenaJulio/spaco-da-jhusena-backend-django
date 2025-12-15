@@ -2,9 +2,12 @@
 {% load static %}
 
 {% block title %}Dashboard de Estoque{% endblock %}
-
+ 
 {% block content %}
   <h1 class="mb-4">Dashboard de Estoque</h1>
+<a href="{% url 'core:home' %}" class="btn btn-outline-secondary btn-sm mb-3">
+  ⬅ Voltar ao início
+</a>
 
   <div class="row">
     <!-- Ranking por produto -->

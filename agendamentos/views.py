@@ -1,13 +1,18 @@
 import json
-from datetime import datetime
+from datetime import datetime, date
 
 from django.contrib import messages
+from django.contrib.auth.decorators import login_required
 from django.core.mail import send_mail
 from django.db.models import Count
 from django.db.models.functions import TruncMonth
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.csrf import csrf_protect
+from django.views.decorators.http import require_POST
 from rest_framework import generics
+from django.conf import settings
+from django.shortcuts import render
 
 from .forms import AgendamentoForm
 from .models import Agendamento, Servico
@@ -33,10 +38,16 @@ def agendar(request):
                 f"Hora: {agendamento.hora.strftime('%H:%M')}\n\n"
                 "Obrigado por confiar no Spaço da Jhuséna 💚🐶\n"
             )
+
+            # ⚠️ Em produção, use DEFAULT_FROM_EMAIL e configure certinho.
             remetente = "seuemail@gmail.com"
             destinatario = [agendamento.email]
 
-            send_mail(assunto, mensagem, remetente, destinatario)
+            # Se der pau no SMTP, não queremos quebrar o agendamento:
+            try:
+                send_mail(assunto, mensagem, remetente, destinatario)
+            except Exception:
+                pass
 
             return redirect("agendamentos:agendamento_sucesso")
     else:
@@ -92,9 +103,6 @@ def cancelar_agendamento(request, id):
     return redirect("agendamentos:listar_agendamentos")
 
 
-# Removido: definição duplicada e incompleta de dashboard_agendamentos
-
-
 def dashboard_agendamentos(request):
     data_inicio = request.GET.get("data_inicio")
     data_fim = request.GET.get("data_fim")
@@ -106,16 +114,17 @@ def dashboard_agendamentos(request):
             data_inicio_obj = datetime.strptime(data_inicio, "%Y-%m-%d")
             agendamentos_qs = agendamentos_qs.filter(data__gte=data_inicio_obj)
         except ValueError:
-            pass  # Data inválida, ignora
+            pass
 
     if data_fim:
         try:
             data_fim_obj = datetime.strptime(data_fim, "%Y-%m-%d")
             agendamentos_qs = agendamentos_qs.filter(data__lte=data_fim_obj)
         except ValueError:
-            pass  # Data inválida, ignora
+            pass
 
     contagem_status = agendamentos_qs.values("status").annotate(total=Count("id"))
+
     evolucao_mensal = (
         agendamentos_qs.annotate(mes=TruncMonth("data"))
         .values("mes")
@@ -128,11 +137,14 @@ def dashboard_agendamentos(request):
         "evolucao_mensal": list(evolucao_mensal),
         "data_inicio": data_inicio or "",
         "data_fim": data_fim or "",
+        # 🔥 ESSA LINHA É O PULO DO GATO
+        "debug": settings.DEBUG,
     }
 
     return render(request, "agendamentos/dashboard.html", context)
 
 
+@login_required
 def dashboard_dados_ajax(request):
     data_inicio = request.GET.get("data_inicio")
     data_fim = request.GET.get("data_fim")
@@ -161,25 +173,17 @@ def dashboard_dados_ajax(request):
         .order_by("mes")
     )
 
-    # Formatando a data no formato string para o gráfico
     for item in evolucao_mensal:
         item["mes"] = item["mes"].strftime("%Y-%m")
 
-    return JsonResponse(
-        {
-            "contagem_status": contagem_status,
-            "evolucao_mensal": evolucao_mensal,
-        }
-    )
-
-
-from django.views.decorators.csrf import csrf_exempt  # use só se chamar de fora do site
-from django.views.decorators.http import require_POST
+    return JsonResponse({"contagem_status": contagem_status, "evolucao_mensal": evolucao_mensal})
 
 
 @require_POST
-# @csrf_exempt  # ❗️descomente APENAS se for chamar esse endpoint de fora do seu site (sem CSRF)
 def criar_agendamento(request):
+    """
+    Endpoint público (ex.: landing page) criando agendamento via JSON.
+    """
     try:
         data = json.loads(request.body or "{}")
     except json.JSONDecodeError:
@@ -192,13 +196,11 @@ def criar_agendamento(request):
             {"erro": f"Campos obrigatórios faltando: {', '.join(faltando)}"}, status=400
         )
 
-    # Buscar serviço pelo nome
     try:
         servico_obj = Servico.objects.get(nome=data["servico"])
     except Servico.DoesNotExist:
         return JsonResponse({"erro": "Serviço não encontrado."}, status=400)
 
-    # Cria o agendamento (DateField/TimeField aceitam 'YYYY-MM-DD' e 'HH:MM')
     ag = Agendamento.objects.create(
         nome=data["nomeTutor"],
         cliente=data["nomePet"],
@@ -207,6 +209,75 @@ def criar_agendamento(request):
         servico=servico_obj,
         data=data["data"],
         hora=data["hora"],
+        status="agendado",
     )
 
     return JsonResponse({"mensagem": "Agendamento salvo com sucesso!", "id": ag.id}, status=201)
+
+
+@login_required
+def agendamentos_hoje_ajax(request):
+    hoje = date.today()
+    qs = Agendamento.objects.filter(data=hoje).order_by("hora")
+
+    itens = []
+    for a in qs:
+        itens.append(
+            {
+                "id": a.id,
+                "hora": a.hora.strftime("%H:%M") if a.hora else "",
+                "cliente": a.cliente or "",
+                "nome": a.nome or "",
+                "servico": str(a.servico) if a.servico else "",
+                "status": a.status or "",
+            }
+        )
+
+    return JsonResponse({"ok": True, "hoje": hoje.strftime("%Y-%m-%d"), "itens": itens})
+
+
+@require_POST
+@csrf_protect
+@login_required
+def acao_agendamento(request, id):
+    """
+    Ação rápida via dashboard:
+    - concluir -> status=concluido (+ gera receita no financeiro)
+    - cancelar -> status=cancelado
+    """
+    ag = get_object_or_404(Agendamento, id=id)
+
+    try:
+        payload = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        payload = {}
+
+    acao = (payload.get("acao") or "").lower().strip()
+    if acao not in ("concluir", "cancelar"):
+        return JsonResponse({"ok": False, "erro": "Ação inválida."}, status=400)
+
+    novo_status = "concluido" if acao == "concluir" else "cancelado"
+    ag.status = novo_status
+    ag.save()
+
+    # ✅ Integração com financeiro ao concluir
+    if acao == "concluir":
+        try:
+            from financeiro.models import Transacao
+
+            # ⚠️ ajuste o campo do preço se for outro nome
+            valor = getattr(ag.servico, "preco", 0) or 0
+
+            Transacao.objects.create(
+                tipo="R",
+                valor=valor,
+                data=ag.data,
+                descricao=f"Serviço concluído: {ag.servico} — {ag.cliente or ''}".strip(),
+            )
+        except Exception as e:
+            return JsonResponse(
+                {"ok": False, "erro": f"Falha ao gerar financeiro: {e}"},
+                status=500,
+            )
+
+    return JsonResponse({"ok": True, "id": ag.id, "status": ag.status})
