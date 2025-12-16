@@ -27,7 +27,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 import os
 
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "unsafe-dev-key")
+SECRET_KEY = os.getenv("SECRET_KEY", "unsafe-dev-key")
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
@@ -224,6 +224,6 @@ TELEGRAM_CHAT_ID_DEFAULT = os.getenv("TELEGRAM_CHAT_ID_DEFAULT", "")
 
 
 # === WhatsApp Cloud API ===
-WHATSAPP_CLOUD_TOKEN = "SEU_TOKEN_AQUI"
-WHATSAPP_PHONE_ID = "SEU_PHONE_ID_AQUI"  # ex: "123456789012345"
-WHATSAPP_TO_DEFAULT = "55DDDSEUNUMERO"  # ex: "5599999999999"
+WHATSAPP_CLOUD_TOKEN = os.getenv("WHATSAPP_CLOUD_TOKEN", "")
+WHATSAPP_PHONE_ID = os.getenv("WHATSAPP_PHONE_ID", "")
+WHATSAPP_TO_DEFAULT = os.getenv("WHATSAPP_TO_DEFAULT", "")
