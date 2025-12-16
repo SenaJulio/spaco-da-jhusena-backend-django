@@ -33,7 +33,7 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "unsafe-dev-key")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+# ALLOWED_HOSTS = []
 
 
 # Application definition
@@ -188,13 +188,14 @@ EMAIL_USE_TLS = True
 EMAIL_HOST = "smtp.gmail.com"  # Ou o servidor que estiver usando
 EMAIL_PORT = 587
 EMAIL_HOST_USER = "julioviana07@gmail.com"
-EMAIL_HOST_PASSWORD = "vktj pcpx tcwf qvnw"
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 
 DEFAULT_FROM_EMAIL = "Spaço da Jhuséna <no-reply@spaco.local>"
 
 ADMIN_MEDIA_PREFIX = "/static/admin/"
 
-DEBUG = True
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+
 
 LOGGING = {
     "version": 1,
@@ -212,13 +213,14 @@ LOGGING = {
     },
 }
 
-ALLOWED_HOSTS = ["localhost", "127.0.0.1", "testserver"]
+# === Hosts (Render / Produção) ===
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = [h.strip() for h in ALLOWED_HOSTS if h.strip()]
+
 
 # ========= Integrações externas =========
-TELEGRAM_BOT_TOKEN = (
-    "8229705100:AAEtRO291nZB9IxwKpUiFVWzbLXluXkivbk"  # trocar pelo token real do BotFather
-)
-TELEGRAM_CHAT_ID_DEFAULT = "6126423440"
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID_DEFAULT = os.getenv("TELEGRAM_CHAT_ID_DEFAULT", "")
 
 
 # === WhatsApp Cloud API ===
