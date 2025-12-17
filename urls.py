@@ -1,21 +1,16 @@
 from django.contrib import admin
-from django.urls import  path, include # 👈 precisa importar o include!
+from django.urls import path, include
+from django.views.generic import TemplateView
 
-from agendamentos.views import agendar_servico
-from core.views import home
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path(
-        "financeiro/",
-        include(
-            ("financeiro.urls", "financeiro"),
-            path("", include("core.urls")),  # 👈 adiciona esta linha
-            path("agendamentos/", include("agendamentos.urls")),
-            path("agendar/", agendar_servico, name="agendar"),
-            path("financeiro/", include("financeiro.urls")),
-            path("", include("agendamentos.urls")),
-            namespace="financeiro",
-        ),
-    ),
+    # HOME (sua página principal)
+    path("", include("core.urls")),
+    # Módulos
+    path("agendamentos/", include("agendamentos.urls")),
+    path("financeiro/", include("financeiro.urls")),
+    path("estoque/", include("estoque.urls")),  # só se existir esse app/urls
+    path("vendas/", include("vendas.urls")),  # só se existir esse app/urls
+    path("", TemplateView.as_view(template_name="home.html"), name="home"),
 ]

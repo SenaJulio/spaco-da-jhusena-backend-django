@@ -830,9 +830,6 @@ body.sj-dark .chart-box {
     ),
     rgba(7, 26, 17, 0.96);
 }
-<<<<<<< HEAD
-=======
-
 
 /* ==== IA — Visual premium do histórico ==== */
 
@@ -942,9 +939,7 @@ body.sj-dark .chart-box {
   background: #ffe9a6;
 }
 
-<<<<<<< HEAD
->>>>>>> 660ae25 (atualizando modulos)
-=======
+
 .ia-card-lote-critico{
   border: 2px solid #dc3545 !important;
   box-shadow: 0 0 0 .15rem rgba(220,53,69,.15);
@@ -975,4 +970,4 @@ body.sj-dark .chart-box {
   box-shadow: 0 0 0 1px rgba(255, 80, 80, 0.15) inset;
   background: rgba(255, 80, 80, 0.06);
 }
->>>>>>> 519c13b (docs: atualiza README do ERP Spaço da Jhuséna (v1.0))
+

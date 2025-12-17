@@ -1,5 +1,7 @@
 # estoque/models.py
 from django.db import models
+from django.db.models import Sum, F, Case, When, DecimalField
+from django.core.exceptions import ValidationError
 
 
 class ItemEstoque(models.Model):
@@ -55,6 +57,63 @@ class Produto(models.Model):
         return self.nome
 
 
+class LoteProduto(models.Model):
+    """
+    Lote de um produto com validade opcional.
+    Serve para rastrear de qual lote vieram as entradas/saídas.
+    """
+
+    produto = models.ForeignKey(
+        Produto,
+        on_delete=models.PROTECT,
+        related_name="lotes",
+    )
+    codigo = models.CharField(
+        "Lote",
+        max_length=50,
+        blank=True,
+        help_text="Código do lote impresso na embalagem (opcional).",
+    )
+    validade = models.DateField(
+        "Validade",
+        null=True,
+        blank=True,
+        help_text="Data de validade do lote (se houver).",
+    )
+    criado_em = models.DateTimeField("Criado em", auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Lote de produto"
+        verbose_name_plural = "Lotes de produto"
+        ordering = ["produto", "validade", "codigo"]
+
+    def __str__(self):
+        base = self.produto.nome
+        if self.codigo:
+            base += f" — lote {self.codigo}"
+        if self.validade:
+            base += f" (val {self.validade:%d/%m/%Y})"
+        return base
+
+    @property
+    def saldo_atual(self):
+        """
+        Calcula o saldo do lote somando os movimentos vinculados a ele.
+        (entradas - saídas)
+        """
+        agg = self.movimentos.aggregate(
+            saldo=Sum(
+                Case(
+                    When(tipo="E", then=F("quantidade")),
+                    When(tipo="S", then=-F("quantidade")),
+                    default=0,
+                    output_field=DecimalField(),
+                )
+            )
+        )
+        return agg["saldo"] or 0
+
+
 class MovimentoEstoque(models.Model):
     """
     Registro de entradas/saídas de estoque.
@@ -84,6 +143,16 @@ class MovimentoEstoque(models.Model):
         blank=True,
     )
 
+    # 👉 NOVO: vínculo opcional com lote
+    lote = models.ForeignKey(
+        LoteProduto,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name="movimentos",
+        verbose_name="Lote",
+    )
+
     class Meta:
         verbose_name = "Movimento de estoque"
         verbose_name_plural = "Movimentos de estoque"
@@ -91,18 +160,48 @@ class MovimentoEstoque(models.Model):
 
     def __str__(self):
         return f"{self.get_tipo_display()} de {self.quantidade} de {self.produto}"
-from django.db import models
 
+    # 🔒 Regra: não permitir saída acima do saldo atual
+    def clean(self):
+        super().clean()
 
-class LoteProduto(models.Model):
-    produto = models.ForeignKey(
-        "produtos.Produto",
-        on_delete=models.CASCADE,
-        related_name="lotes",
-    )
-    validade = models.DateField(null=True, blank=True)
-    saldo_atual = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-    criado_em = models.DateTimeField(auto_now_add=True)
+        # Só valida SAÍDA de produto que controla estoque
+        if (
+            self.tipo == "S"
+            and self.produto_id
+            and getattr(self.produto, "controla_estoque", False)
+        ):
+            qs = type(self).objects.filter(produto=self.produto)
 
-    def __str__(self):
-        return f"{self.produto} | Val: {self.validade} | Saldo: {self.saldo_atual}"
+            # se estiver editando um movimento já existente, ignora ele no cálculo
+            if self.pk:
+                qs = qs.exclude(pk=self.pk)
+
+            agg = qs.aggregate(
+                saldo=Sum(
+                    Case(
+                        When(tipo="E", then=F("quantidade")),
+                        When(tipo="S", then=-F("quantidade")),
+                        default=0,
+                        output_field=DecimalField(),
+                    )
+                )
+            )
+            saldo_atual = agg["saldo"] or 0
+            if saldo_atual < 0:
+                saldo_atual = 0
+
+            if self.quantidade > saldo_atual:
+                raise ValidationError(
+                    {
+                        "quantidade": (
+                            f"Estoque insuficiente para {self.produto}. "
+                            f"Saldo atual: {saldo_atual}."
+                        )
+                    }
+                )
+
+    # garante que a validação rode mesmo quando salvar via código
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
