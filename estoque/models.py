@@ -91,4 +91,18 @@ class MovimentoEstoque(models.Model):
 
     def __str__(self):
         return f"{self.get_tipo_display()} de {self.quantidade} de {self.produto}"
-   
+from django.db import models
+
+
+class LoteProduto(models.Model):
+    produto = models.ForeignKey(
+        "produtos.Produto",
+        on_delete=models.CASCADE,
+        related_name="lotes",
+    )
+    validade = models.DateField(null=True, blank=True)
+    saldo_atual = models.DecimalField(max_digits=10, decimal_places=2, default=0)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.produto} | Val: {self.validade} | Saldo: {self.saldo_atual}"
