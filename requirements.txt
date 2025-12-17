@@ -24,3 +24,5 @@ pre-commit==3.8.0
 
 # === Dev tools ===
 ipython==8.28.0
+
+whitenoise==6.6.0
