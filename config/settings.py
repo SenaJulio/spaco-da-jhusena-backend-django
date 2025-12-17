@@ -64,8 +64,9 @@ INSTALLED_APPS = [
 
 LOGIN_URL = "/admin/login/"
 MIDDLEWARE = [
-    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -142,21 +143,17 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = "static/"
-
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
-
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-import os
-
+# === Static files ===
 STATIC_URL = "/static/"
-
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, "static"),
-]
-
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+
+# Só use STATICFILES_DIRS em desenvolvimento local
+if DEBUG:
+    STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
+
+# WhiteNoise (produção)
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+
 
 # settings.py (no final do arquivo)
 import ssl
