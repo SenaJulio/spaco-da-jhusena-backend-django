@@ -1,7 +1,10 @@
-# Create your views here.
-from django.http import HttpResponse
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 
 
-def index(request):
-    return HttpResponse("Bem-vindo ao módulo de Estoque!")
+@login_required
+def dashboard_estoque(request):
+    """
+    Página principal do Dashboard de Estoque
+    """
+    return render(request, "estoque/dashboard.html")

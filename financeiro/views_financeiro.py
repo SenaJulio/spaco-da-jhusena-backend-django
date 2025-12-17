@@ -47,14 +47,6 @@ from notificacoes.services import (
 from datetime import date
 from django.http import JsonResponse
 from django.db.models import Sum, F
-<<<<<<< HEAD
-
-=======
-from financeiro.services.ia import salvar_recomendacao_ia
-from estoque.services_ia import gerar_alertas_estoque_baixo
-from .ia_estoque_bridge import registrar_alertas_lote_no_historico
-from estoque.services_lotes import gerar_textos_alerta_lotes
->>>>>>> 660ae25 (atualizando modulos)
 
 # IA (motor oficial do preview)
 from ia.services.analysis import analisar_30d_dict
@@ -243,194 +235,6 @@ def map_tipo_textual(texto: str) -> str:
     return _fallback_classify(tx)
 
 
-<<<<<<< HEAD
-=======
-def _map_db_tipo_to_hist_tipo(db_tipo: str, texto: str) -> str:
-    """
-    Converte o 'tipo' salvo no banco (Economia / Alerta / Oportunidade / Meta)
-    para o tipo lógico do histórico: 'positiva' / 'alerta' / 'neutra'.
-
-    Regra:
-      - 'Alerta'                    -> 'alerta'
-      - 'Economia'/'Oportunidade'/'Meta' -> 'positiva'
-      - vazio/outra coisa           -> usa map_tipo_textual(texto)
-    """
-    t = (db_tipo or "").strip().lower()
-
-    if t == "alerta":
-        return "alerta"
-
-    if t in ("economia", "oportunidade", "meta"):
-        return "positiva"
-
-    k = map_tipo_textual(texto)
-    return k if k in ("positiva", "alerta", "neutra") else "neutra"
-
-
-# ============================================================
-# 2) Endpoint do Histórico da IA com filtros + paginação
-# ============================================================
-
-
-@login_required
-def ia_historico_feed_v2(request):
-    """
-    Endpoint do Histórico da IA.
-
-    Junta:
-      - RecomendacaoIA (IA TURBO)
-      - HistoricoIA (alertas extras, como lote vencido), se existir.
-
-    Aceita:
-      - ?filtro= (todas/positiva/alerta/neutra)
-      - ?limit=
-      - ?offset=
-      - ?debug=1 para info extra
-    """
-    user = request.user
-
-    # 1) Compatibilidade: aceitar ?filtro= ou ?tipo=
-    filtro_raw = (request.GET.get("filtro") or request.GET.get("tipo") or "").strip().lower()
-    tipo_param = filtro_raw if filtro_raw in ("positiva", "alerta", "neutra") else ""
-
-    # 2) Sanitiza paginação
-    try:
-        limit = int(request.GET.get("limit", 20))
-    except ValueError:
-        limit = 20
-    limit = max(1, min(limit, 100))
-
-    try:
-        offset = max(0, int(request.GET.get("offset", 0)))
-    except ValueError:
-        offset = 0
-
-    tz = timezone.get_current_timezone()
-    normalizados = []
-    counts = {"positiva": 0, "alerta": 0, "neutra": 0}
-    total = 0
-
-    # 3A) Base IA TURBO (RecomendacaoIA)
-    base_turbo = RecomendacaoIA.objects.filter(usuario=user).order_by("-criado_em")
-
-    for rec in base_turbo:
-        tnorm = _map_db_tipo_to_hist_tipo(getattr(rec, "tipo", "") or "", rec.texto or "")
-        if tnorm not in ("positiva", "alerta", "neutra"):
-            tnorm = "neutra"
-
-        counts[tnorm] += 1
-        total += 1
-
-        dt_local = timezone.localtime(rec.criado_em, tz) if rec.criado_em else None
-
-        normalizados.append(
-            {
-                "id": rec.id,
-                "tipo": tnorm,
-                "texto": rec.texto or "",
-                "criado_em": rec.criado_em.isoformat() if rec.criado_em else "",
-                "criado_em_fmt": dt_local.strftime("%d/%m/%Y %H:%M") if dt_local else "",
-                "_stamp": rec.criado_em.timestamp() if rec.criado_em else 0,
-                "origem": "turbo",
-            }
-        )
-
-    # 3B) Base HistoricoIA (alertas de lote etc.), se existir
-    if HistoricoIA is not None:
-        base_hist = HistoricoIA.objects.filter(usuario=user).order_by("-criado_em")
-
-        for rec in base_hist:
-            texto = rec.texto or ""
-            tnorm = _map_db_tipo_to_hist_tipo(getattr(rec, "tipo", "") or "", texto)
-            if tnorm not in ("positiva", "alerta", "neutra"):
-                tnorm = "neutra"
-
-            # 💡 tenta extrair saldo do texto (p/ badge "30 un")
-            saldo_lote = None
-            try:
-                m = re.search(r"saldo de\s+(\d+)\s+unidade", texto)
-                if m:
-                    saldo_lote = int(m.group(1))
-            except Exception:
-                saldo_lote = None
-
-            counts[tnorm] += 1
-            total += 1
-
-            dt_local = timezone.localtime(rec.criado_em, tz) if rec.criado_em else None
-
-            normalizados.append(
-                {
-                    "id": rec.id,
-                    "tipo": tnorm,
-                    "texto": texto,
-                    "criado_em": rec.criado_em.isoformat() if rec.criado_em else "",
-                    "criado_em_fmt": dt_local.strftime("%d/%m/%Y %H:%M") if dt_local else "",
-                    "_stamp": rec.criado_em.timestamp() if rec.criado_em else 0,
-                    "origem": getattr(rec, "origem", "legacy") or "legacy",
-                    "saldo_lote": saldo_lote,
-                }
-            )
-
-    # 3C) Ordena todo mundo por data desc
-    normalizados.sort(key=lambda it: it.get("_stamp", 0), reverse=True)
-
-    # 4) Aplica filtro em cima do tipo normalizado
-    if tipo_param in ("positiva", "alerta", "neutra"):
-        filtrados = [it for it in normalizados if it["tipo"] == tipo_param]
-        filtro_label = tipo_param
-    else:
-        filtrados = normalizados
-        filtro_label = "todas"
-
-    total_filtrado = len(filtrados)
-
-    # 5) Paginação
-    page_items = filtrados[offset : offset + limit]
-    has_more = total_filtrado > (offset + len(page_items))
-
-    resp = {
-        "ok": True,
-        "filtro": filtro_label,
-        "count": {**counts, "total": total},
-        "items": [
-            {
-                "id": it["id"],
-                "tipo": it["tipo"],
-                "texto": it["texto"],
-                "criado_em": it["criado_em"],
-                "criado_em_fmt": it["criado_em_fmt"],
-                "origem": it.get("origem", "turbo"),
-            }
-            for it in page_items
-        ],
-        "limit": limit,
-        "offset": offset,
-        "returned": len(page_items),
-        "total_filtered": total_filtrado,
-        "has_more": has_more,
-        "hasMore": has_more,
-    }
-
-    if request.GET.get("debug") == "1":
-        resp["__debug"] = {
-            "user": {
-                "id": request.user.id,
-                "username": getattr(request.user, "username", None),
-                "email": getattr(request.user, "email", None),
-            },
-            "params": {
-                "filtro": filtro_raw,
-                "tipo_param": tipo_param,
-                "limit": limit,
-                "offset": offset,
-            },
-        }
-
-    return JsonResponse(resp)
-
-
->>>>>>> 660ae25 (atualizando modulos)
 # -----------------------------------------------------------------------------
 # Helpers
 # -----------------------------------------------------------------------------
@@ -538,14 +342,6 @@ def despesas_fixas_variaveis_mensal(request):
 # -----------------------------------------------------------------------------
 @login_required(login_url="/admin/login/")
 def dashboard_financeiro(request):
-<<<<<<< HEAD
-=======
-    try:
-        gerar_alertas_estoque_baixo(usuario=request.user, limite_padrao=3)
-    except Exception as exc:
-        print("[IA ESTOQUE BAIXO - dashboard]", exc)
-
->>>>>>> 660ae25 (atualizando modulos)
     if not getattr(request.user, "is_authenticated", False):
         login_url = getattr(settings, "LOGIN_URL", "/admin/login/")
         return redirect(f"{login_url}?next={request.path}")
@@ -2041,89 +1837,24 @@ def categoria_que_mais_cresceu(request):
             "mes_anterior": f"{mes_ant:02d}/{ano_ant}",
         }
     )
-<<<<<<< HEAD
-=======
 
-
-from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-from .ia_estoque_bridge import registrar_alertas_lote_no_historico
-
-
-@login_required
-@require_POST
-def ia_alertas_lotes(request):
-         
-    try:
-        msgs = gerar_textos_alerta_lotes(dias_aviso=30)
-        if not msgs:
-            return JsonResponse({"ok": True, "total_criados": 0, "ids": []})
-
-        agora = timezone.now()
-        janela = agora - timedelta(hours=24)
-
-        ids = []
-        pulados = 0
-   
-        for m in msgs:
-            lote_id = m.get("lote_id")
-            status = m.get("tipo")  # "vencido" / "prestes_vencer"
-            validade = m.get("validade")  # "YYYY-MM-DD"
-
-            # 🔑 Assinatura única lógica do alerta
-            dedup_key = f"lote:{lote_id}|status:{status}|val:{validade}"
-
-            # ✅ Se já existe algo igual nas últimas 24h, não cria de novo
-            ja_existe = HistoricoIA.objects.filter(
-                usuario=request.user,
-                origem="lote",
-                criado_em__gte=janela,
-                texto__contains=dedup_key,
-            ).exists()
-
-            if ja_existe:
-                pulados += 1
-                continue
-
-            # salva texto COM a chave escondida no final (não atrapalha visual)
-            texto = (m.get("texto") or "").strip()
-            texto_salvo = f"{texto}\n\n[{dedup_key}]"
-
-            obj = HistoricoIA.objects.create(
-                usuario=request.user,
-                texto=texto_salvo,
-                tipo="alerta",
-                origem="lote",
-                criado_em=agora,
-            )
-            ids.append(obj.id)
-
-        return JsonResponse({"ok": True, "total_criados": len(ids), "ids": ids, "pulados": pulados})
-
-    except Exception as exc:
-        return JsonResponse({"ok": False, "error": str(exc)}, status=500)
 
 
 @login_required
 def ia_alertas_estoque_baixo(request):
     """
-    Gera recomendações de ALERTA de estoque baixo e retorna um resumo em JSON.
-    Integra direto com o histórico da IA (RecomendacaoIA).
+    IA: alerta de estoque baixo (stub para estabilidade do sistema).
     """
-    if request.method != "POST":
-        return JsonResponse({"ok": False, "error": "Método não permitido"}, status=405)
+    return JsonResponse({"ok": True, "source": "ia_alertas_estoque_baixo"})
 
-    try:
-        criados = gerar_alertas_estoque_baixo(usuario=request.user, limite_padrao=3)
-    except Exception as exc:
-        return JsonResponse({"ok": False, "error": str(exc)}, status=500)
+from estoque.views_api import lotes_criticos
 
-    return JsonResponse(
-        {
-            "ok": True,
-            "total_alertas_criados": len(criados),
-            "itens": criados,
-        }
-    )
->>>>>>> 660ae25 (atualizando modulos)
+
+def ia_alertas_lotes(request):
+    """
+    Alias financeiro → estoque.
+    Mantém compatibilidade com URLs antigas.
+    """
+    return lotes_criticos(request)

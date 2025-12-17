@@ -102,3 +102,15 @@ def gerar_textos_alerta_lotes(dias_aviso=30):
         )
 
     return mensagens
+
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+
+
+@login_required
+def dashboard_estoque_dados(request):
+    """
+    Endpoint que fornece dados agregados do estoque para o dashboard.
+    (stub inicial – depois a gente incrementa)
+    """
+    return JsonResponse({"ok": True, "message": "Dashboard de estoque - dados iniciais"})
