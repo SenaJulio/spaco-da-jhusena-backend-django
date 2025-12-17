@@ -140,7 +140,7 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 # (Se NÃO tiver, pode remover sem dó)
 STATICFILES_DIRS = [BASE_DIR / "static"] if (BASE_DIR / "static").exists() else []
 
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
+STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
 
 
 # =========================
