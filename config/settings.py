@@ -26,13 +26,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 import os
 
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-key-only")
+SECRET_KEY = os.getenv("SECRET_KEY", "dev-key-only")
 
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
-ALLOWED_HOSTS = []
+
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = [h.strip() for h in ALLOWED_HOSTS if h.strip()]
 
 
 # Application definition
@@ -185,7 +187,8 @@ EMAIL_USE_TLS = True
 EMAIL_HOST = "smtp.gmail.com"  # Ou o servidor que estiver usando
 EMAIL_PORT = 587
 EMAIL_HOST_USER = "julioviana07@gmail.com"
-EMAIL_HOST_PASSWORD = "vktj pcpx tcwf qvnw"
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
+
 
 ADMIN_MEDIA_PREFIX = "/static/admin/"
 
