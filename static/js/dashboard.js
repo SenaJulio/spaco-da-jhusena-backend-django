@@ -2947,8 +2947,6 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 })();
 
-<<<<<<< HEAD
-=======
   (function () {
     "use strict";
 
@@ -3138,6 +3136,5 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
 
->>>>>>> 660ae25 (atualizando modulos)
 
 

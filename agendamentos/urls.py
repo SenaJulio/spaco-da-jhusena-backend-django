@@ -1,10 +1,16 @@
 from django.urls import path
-
+from django.shortcuts import redirect
 from . import views
 
 app_name = "agendamentos"
 
+
+def agendamentos_home(request):
+    return redirect("agendar")  # ou redirect("dashboard_agendamentos")
+
+
 urlpatterns = [
+    path("", agendamentos_home, name="agendamentos_home"),
     path("agendar/", views.agendar_servico, name="agendar"),
     path("agendamento_sucesso/", views.agendamento_sucesso, name="agendamento_sucesso"),
     path("listar/", views.listar_agendamentos, name="listar_agendamentos"),

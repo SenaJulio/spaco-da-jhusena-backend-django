@@ -59,7 +59,8 @@ def dashboard_estoque(request):
 
     labels_produtos = [p.nome for p in produtos_rank]
     dados_saldo = [float(p.saldo or 0) for p in produtos_rank]
-    dados_vendidos = [float((p.vendidos or 0) * -1) for p in produtos_rank]  # saídas → positivo
+    dados_vendidos = [float(p.vendidos or 0) for p in produtos_rank]
+    # saídas → positivo
 
     # 2) Série mensal entradas x saídas
     mov_qs = (
@@ -84,6 +85,8 @@ def dashboard_estoque(request):
     dados_entradas = [meses[m]["E"] for m in labels_meses]
     dados_saidas = [meses[m]["S"] for m in labels_meses]
 
+    alertas_lotes = gerar_textos_alerta_lotes(dias_aviso=30)
+
     context = {
         "labels_produtos": labels_produtos,
         "dados_saldo": dados_saldo,
@@ -91,6 +94,7 @@ def dashboard_estoque(request):
         "labels_meses": labels_meses,
         "dados_entradas": dados_entradas,
         "dados_saidas": dados_saidas,
+        "alertas_lotes": alertas_lotes,
     }
     return render(request, "estoque/dashboard_estoque.html", context)
 

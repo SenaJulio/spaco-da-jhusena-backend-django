@@ -135,7 +135,7 @@ USE_TZ = True
 # =========================
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 # Se você tem pasta /static no projeto, mantenha:
 # (Se NÃO tiver, pode remover sem dó)
 STATICFILES_DIRS = [BASE_DIR / "static"] if (BASE_DIR / "static").exists() else []

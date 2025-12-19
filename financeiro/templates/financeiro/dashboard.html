@@ -16,36 +16,16 @@
 
 {% block content %}
 <!-- todo o painel aqui -->
+ 
 
-<div class="container py-4">
-  <div class="alert alert-success mb-3">
-    Template OK ✔ — Bootstrap + <code>financeiro/style.css</code> carregados.
-  </div>
-
-  <button class="btn btn-success">Botão Bootstrap</button>
-
-  <div class="mt-3 p-3 border rounded" style="background:#f4fdf5;">
-    <strong>Teste de CSS do painel:</strong>
-    <div class="badge-tipo badge-positiva mt-2">
-      <span class="badge-dot"></span> Positiva
-    </div>
-  </div>
+<div class="d-flex justify-content-between align-items-center mb-3">
+  <a href="{% url 'core:home' %}" class="btn btn-sm btn-outline-success">
+    ⬅ Início
+  </a>
 </div>
-
-<p style="opacity:.6">
-  DEBUG: {{ total_receitas }} | {{ total_despesas }} | {{ saldo }}
-</p>
-
-<!-- 🐶 Badge Dev Spaço da Jhuséna -->
-<div id="devBadge" class="alert alert-success py-1 px-2 mb-2 d-inline-flex align-items-center" style="font-size:.9rem; display:none;">
-  <strong class="me-2">Dev mode</strong>
-  <span id="devBadgeText">inicializando…</span>
-</div>
-
 <h2 class="mb-3">📊 Painel Financeiro Inteligente</h2>
-<div class="alert alert-success">
-  Se você está vendo esta mensagem, o template carregou certinho. 🤝
-</div>
+
+
 <div class="d-flex justify-content-end mb-3">
   <button id="btnToggleTema" class="btn btn-outline-dark btn-sm" type="button">
     🌙 Modo escuro

@@ -22,8 +22,15 @@ from django.urls import include, path
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    path("", include(("core.urls", "core"), namespace="core")),  # raiz controlada pelo app core
+    # Módulos primeiro
     path("agendamentos/", include(("agendamentos.urls", "agendamentos"), namespace="agendamentos")),
     path("estoque/", include(("estoque.urls", "estoque"), namespace="estoque")),
     path("financeiro/", include(("financeiro.urls", "financeiro"), namespace="financeiro")),
+    # Core (raiz) por ÚLTIMO, senão engole tudo
+    path("", include(("core.urls", "core"), namespace="core")),
 ]
+
+from django.conf import settings
+from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+
+urlpatterns += staticfiles_urlpatterns()
