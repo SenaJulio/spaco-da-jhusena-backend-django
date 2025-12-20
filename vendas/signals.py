@@ -1,5 +1,5 @@
 # vendas/signals.py
-
+import os
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
@@ -15,7 +15,8 @@ def sync_venda_transacao(sender, instance, **kwargs):
     - Sempre que a Venda for salva com total > 0,
       cria ou atualiza uma Transacao de receita "Venda (PDV)".
     """
-
+    if os.getenv("DJANGO_DISABLE_SIGNALS") == "1":
+        return
     print(
         ">>> SIGNAL sync_venda_transacao rodando para venda", instance.id, "total=", instance.total
     )
