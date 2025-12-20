@@ -180,7 +180,7 @@ const gradientFillPlugin = {
 };
 
 (function () {
-  ("use strict");
+  "use strict";
 
   // ================== REGISTRO Chart.js v4 (global) ==================
   if (window.Chart && Chart.register) {
@@ -448,75 +448,75 @@ const gradientFillPlugin = {
           },
         ],
       },
-     options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    interaction: { mode: "index", intersect: false },
-    plugins: {
-      legend: {
-        position: "bottom",
-        labels: { color: "#c8e6c9", font: { size: 13 } },
-      },
-      tooltip: {
-        backgroundColor: "#fff",
-        borderColor: "#a5d6a7",
-        borderWidth: 1,
-        titleColor: "#1b5e20",
-        bodyColor: "#1b5e20",
-        callbacks: {
-          title(items) {
-            const item = items[0];
-            return item.label || "";
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: { color: "#c8e6c9", font: { size: 13 } },
           },
-          label(ctx) {
-            const label = ctx.dataset.label || "";
-            const v = ctx.parsed.y;
-            if (v == null) return null;
+          tooltip: {
+            backgroundColor: "#fff",
+            borderColor: "#a5d6a7",
+            borderWidth: 1,
+            titleColor: "#1b5e20",
+            bodyColor: "#1b5e20",
+            callbacks: {
+              title(items) {
+                const item = items[0];
+                return item.label || "";
+              },
+              label(ctx) {
+                const label = ctx.dataset.label || "";
+                const v = ctx.parsed.y;
+                if (v == null) return null;
 
-            const valor = Number(v).toLocaleString("pt-BR", {
-              minimumFractionDigits: 2,
-            });
+                const valor = Number(v).toLocaleString("pt-BR", {
+                  minimumFractionDigits: 2,
+                });
 
-            return `${label}: R$ ${valor}`;
+                return `${label}: R$ ${valor}`;
+              },
+            },
+          },
+        },
+        elements: {
+          line: { borderWidth: 3, fill: false },
+          point: { radius: 3 },
+        },
+        scales: {
+          x: {
+            grid: { color: "rgba(0,0,0,0.08)" },
+            ticks: { color: "#1b5e20", maxRotation: 0, autoSkip: true },
+          },
+          y: {
+            beginAtZero: true,
+            grid: { color: "rgba(0,0,0,0.08)" },
+            ticks: {
+              color: "#1b5e20",
+              callback: (v) => Number(v).toLocaleString("pt-BR"),
+            },
+          },
+        },
+
+        // ✅ AQUI DENTRO
+        animation: {
+          duration: 900,
+          easing: "easeOutQuart",
+          delay(ctx) {
+            const i = ctx.dataIndex ?? 0;
+            const ds = ctx.datasetIndex ?? 0;
+            return (i + ds) * 25;
           },
         },
       },
-    },
-    elements: {
-      line: { borderWidth: 3, fill: false },
-      point: { radius: 3 },
-    },
-    scales: {
-      x: {
-        grid: { color: "rgba(0,0,0,0.08)" },
-        ticks: { color: "#1b5e20", maxRotation: 0, autoSkip: true },
-      },
-      y: {
-        beginAtZero: true,
-        grid: { color: "rgba(0,0,0,0.08)" },
-        ticks: {
-          color: "#1b5e20",
-          callback: (v) => Number(v).toLocaleString("pt-BR"),
-        },
-      },
-    },
 
-    // ✅ AQUI DENTRO
-    animation: {
-      duration: 900,
-      easing: "easeOutQuart",
-      delay(ctx) {
-        const i = ctx.dataIndex ?? 0;
-        const ds = ctx.datasetIndex ?? 0;
-        return (i + ds) * 25;
-      },
-    },
-  },
-
-  // ✅ pode ficar aqui fora mesmo
-  plugins: [glowPlugin, gradientFillPlugin],
-});
-
+      // ✅ pode ficar aqui fora mesmo
+      plugins: [glowPlugin, gradientFillPlugin],
+    });
+  }; // ✅ FECHA montarGraficoEvolucao
   // --------- Categorias (pizza)
   function montarGraficoCategorias(categorias, valores) {
     var canvas = document.getElementById("graficoCategorias");
@@ -625,7 +625,6 @@ const gradientFillPlugin = {
       ],
     });
   }
-
 
   function sjCarregarPainelIaMensal() {
     var elCanvas = document.getElementById("graficoRankingServicosIa");
@@ -791,7 +790,6 @@ const gradientFillPlugin = {
       });
   }
 
-
   function sjCarregarAlertasIaMensal() {
     var elLista = document.getElementById("listaAlertasIaMensal");
     if (!elLista) return;
@@ -860,534 +858,539 @@ const gradientFillPlugin = {
       });
   }
 
- function sjCarregarGraficoSerieMensalIa() {
-   var elCanvas = document.getElementById("graficoSerieMensalIa");
-   if (!elCanvas) return;
+  function sjCarregarGraficoSerieMensalIa() {
+    var elCanvas = document.getElementById("graficoSerieMensalIa");
+    if (!elCanvas) return;
 
-   fetch("/financeiro/ia/resumo_mensal_series/", {
-     headers: {
-       "X-Requested-With": "XMLHttpRequest",
-       Accept: "application/json",
-     },
-     credentials: "same-origin",
-   })
-     .then(function (resp) {
-       if (!resp.ok) {
-         throw new Error("HTTP " + resp.status);
-       }
-       return resp.json();
-     })
-     .then(function (data) {
-       if (!data || data.ok !== true || !Array.isArray(data.series)) {
-         throw new Error("Payload inválido em ia_resumo_mensal_series");
-       }
+    fetch("/financeiro/ia/resumo_mensal_series/", {
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+        Accept: "application/json",
+      },
+      credentials: "same-origin",
+    })
+      .then(function (resp) {
+        if (!resp.ok) {
+          throw new Error("HTTP " + resp.status);
+        }
+        return resp.json();
+      })
+      .then(function (data) {
+        if (!data || data.ok !== true || !Array.isArray(data.series)) {
+          throw new Error("Payload inválido em ia_resumo_mensal_series");
+        }
 
-       var series = data.series;
-       if (!series.length) {
-         var ctxClear = elCanvas.getContext("2d");
-         ctxClear.clearRect(0, 0, elCanvas.width, elCanvas.height);
-         return;
-       }
+        var series = data.series;
+        if (!series.length) {
+          var ctxClear = elCanvas.getContext("2d");
+          ctxClear.clearRect(0, 0, elCanvas.width, elCanvas.height);
+          return;
+        }
 
-       // ---------- Séries base ----------
-       var labels = series.map(function (s) {
-         return s.label || "";
-       });
-       var receitas = series.map(function (s) {
-         return s.total_receitas || 0;
-       });
-       var despesas = series.map(function (s) {
-         return s.total_despesas || 0;
-       });
-       var saldos = series.map(function (s) {
-         return s.saldo || 0;
-       });
+        // ---------- Séries base ----------
+        var labels = series.map(function (s) {
+          return s.label || "";
+        });
+        var receitas = series.map(function (s) {
+          return s.total_receitas || 0;
+        });
+        var despesas = series.map(function (s) {
+          return s.total_despesas || 0;
+        });
+        var saldos = series.map(function (s) {
+          return s.saldo || 0;
+        });
 
-       var lastSaldo = saldos[saldos.length - 1] || 0;
-       var lastLabel = labels[labels.length - 1] || "";
+        var lastSaldo = saldos[saldos.length - 1] || 0;
+        var lastLabel = labels[labels.length - 1] || "";
 
-       // ---------- Forecast (regressão linear) ----------
-       var forecast = null; // próximo mês
-       var nextLabel = null; // label do próximo mês
-       var forecast2 = null; // +2 meses
-       var forecast3 = null; // +3 meses
-       var label2 = null;
-       var label3 = null;
-       var faixaMin = null;
-       var faixaMax = null;
+        // ---------- Forecast (regressão linear) ----------
+        var forecast = null; // próximo mês
+        var nextLabel = null; // label do próximo mês
+        var forecast2 = null; // +2 meses
+        var forecast3 = null; // +3 meses
+        var label2 = null;
+        var label3 = null;
+        var faixaMin = null;
+        var faixaMax = null;
 
-       if (saldos.length >= 2) {
-         var n = saldos.length;
-         var xs = [];
-         for (var i = 0; i < n; i++) xs.push(i);
+        if (saldos.length >= 2) {
+          var n = saldos.length;
+          var xs = [];
+          for (var i = 0; i < n; i++) xs.push(i);
 
-         var sumx = 0;
-         var sumy = 0;
-         var sumxy = 0;
-         var sumx2 = 0;
-         for (var j = 0; j < n; j++) {
-           var x = xs[j];
-           var y = saldos[j];
-           sumx += x;
-           sumy += y;
-           sumxy += x * y;
-           sumx2 += x * x;
-         }
-         var denom = n * sumx2 - sumx * sumx;
-         if (denom === 0) denom = 1;
+          var sumx = 0;
+          var sumy = 0;
+          var sumxy = 0;
+          var sumx2 = 0;
+          for (var j = 0; j < n; j++) {
+            var x = xs[j];
+            var y = saldos[j];
+            sumx += x;
+            sumy += y;
+            sumxy += x * y;
+            sumx2 += x * x;
+          }
+          var denom = n * sumx2 - sumx * sumx;
+          if (denom === 0) denom = 1;
 
-         var a = (n * sumxy - sumx * sumy) / denom;
-         var b = (sumy - a * sumx) / n;
+          var a = (n * sumxy - sumx * sumy) / denom;
+          var b = (sumy - a * sumx) / n;
 
-         // x base do último ponto real
-         var lastX = n - 1;
+          // x base do último ponto real
+          var lastX = n - 1;
 
-         // previsão +1 mês
-         var nextX = lastX + 1;
-         forecast = a * nextX + b;
+          // previsão +1 mês
+          var nextX = lastX + 1;
+          forecast = a * nextX + b;
 
-         // label do próximo mês (MM/AAAA)
-         var last = series[series.length - 1];
-         var ano = last.ano;
-         var mes = last.mes;
+          // label do próximo mês (MM/AAAA)
+          var last = series[series.length - 1];
+          var ano = last.ano;
+          var mes = last.mes;
 
-         var proxMes1 = mes === 12 ? 1 : mes + 1;
-         var proxAno1 = mes === 12 ? ano + 1 : ano;
-         nextLabel =
-           (proxMes1 < 10 ? "0" + proxMes1 : String(proxMes1)) + "/" + proxAno1;
+          var proxMes1 = mes === 12 ? 1 : mes + 1;
+          var proxAno1 = mes === 12 ? ano + 1 : ano;
+          nextLabel =
+            (proxMes1 < 10 ? "0" + proxMes1 : String(proxMes1)) +
+            "/" +
+            proxAno1;
 
-         // previsão +2 meses
-         var proxMes2 = proxMes1 === 12 ? 1 : proxMes1 + 1;
-         var proxAno2 = proxMes1 === 12 ? proxAno1 + 1 : proxAno1;
-         var x2 = lastX + 2;
-         forecast2 = a * x2 + b;
-         label2 =
-           (proxMes2 < 10 ? "0" + proxMes2 : String(proxMes2)) + "/" + proxAno2;
+          // previsão +2 meses
+          var proxMes2 = proxMes1 === 12 ? 1 : proxMes1 + 1;
+          var proxAno2 = proxMes1 === 12 ? proxAno1 + 1 : proxAno1;
+          var x2 = lastX + 2;
+          forecast2 = a * x2 + b;
+          label2 =
+            (proxMes2 < 10 ? "0" + proxMes2 : String(proxMes2)) +
+            "/" +
+            proxAno2;
 
-         // previsão +3 meses
-         var proxMes3 = proxMes2 === 12 ? 1 : proxMes2 + 1;
-         var proxAno3 = proxMes2 === 12 ? proxAno2 + 1 : proxAno2;
-         var x3 = lastX + 3;
-         forecast3 = a * x3 + b;
-         label3 =
-           (proxMes3 < 10 ? "0" + proxMes3 : String(proxMes3)) + "/" + proxAno3;
+          // previsão +3 meses
+          var proxMes3 = proxMes2 === 12 ? 1 : proxMes2 + 1;
+          var proxAno3 = proxMes2 === 12 ? proxAno2 + 1 : proxAno2;
+          var x3 = lastX + 3;
+          forecast3 = a * x3 + b;
+          label3 =
+            (proxMes3 < 10 ? "0" + proxMes3 : String(proxMes3)) +
+            "/" +
+            proxAno3;
 
-         // faixa de incerteza em torno do horizonte mais distante
-         var baseFaixa = forecast3 || forecast2 || forecast || 0;
-         var margemErro = Math.abs(baseFaixa) * 0.15; // ~15% de "erro"
-         faixaMin = baseFaixa - margemErro;
-         faixaMax = baseFaixa + margemErro;
-       }
+          // faixa de incerteza em torno do horizonte mais distante
+          var baseFaixa = forecast3 || forecast2 || forecast || 0;
+          var margemErro = Math.abs(baseFaixa) * 0.15; // ~15% de "erro"
+          faixaMin = baseFaixa - margemErro;
+          faixaMax = baseFaixa + margemErro;
+        }
 
-       // ---------- Array da linha prevista ----------
-       var forecastData = new Array(saldos.length).fill(null);
-       var trendShadeData = new Array(saldos.length).fill(null);
+        // ---------- Array da linha prevista ----------
+        var forecastData = new Array(saldos.length).fill(null);
+        var trendShadeData = new Array(saldos.length).fill(null);
 
-       var delta = 0;
-       var pct = null;
+        var delta = 0;
+        var pct = null;
 
-       if (forecast !== null && nextLabel) {
-         // estende labels com o mês projetado
-         labels.push(nextLabel);
-         receitas.push(null);
-         despesas.push(null);
-         saldos.push(null);
+        if (forecast !== null && nextLabel) {
+          // estende labels com o mês projetado
+          labels.push(nextLabel);
+          receitas.push(null);
+          despesas.push(null);
+          saldos.push(null);
 
-         // forecast somente no último ponto
-         forecastData = new Array(labels.length).fill(null);
-         forecastData[forecastData.length - 1] = forecast;
+          // forecast somente no último ponto
+          forecastData = new Array(labels.length).fill(null);
+          forecastData[forecastData.length - 1] = forecast;
 
-         // área de tendência: último saldo + forecast
-         trendShadeData = new Array(labels.length).fill(null);
-         trendShadeData[trendShadeData.length - 2] =
-           saldos[saldos.length - 2] || lastSaldo;
-         trendShadeData[trendShadeData.length - 1] = forecast;
+          // área de tendência: último saldo + forecast
+          trendShadeData = new Array(labels.length).fill(null);
+          trendShadeData[trendShadeData.length - 2] =
+            saldos[saldos.length - 2] || lastSaldo;
+          trendShadeData[trendShadeData.length - 1] = forecast;
 
-         delta = forecast - lastSaldo;
-         if (lastSaldo !== 0) {
-           pct = (delta / Math.abs(lastSaldo)) * 100;
-         }
-       }
+          delta = forecast - lastSaldo;
+          if (lastSaldo !== 0) {
+            pct = (delta / Math.abs(lastSaldo)) * 100;
+          }
+        }
 
-       // ---------- Estilo dinâmico do ponto dourado ----------
-       var forecastColor = "#ffcc33"; // padrão
+        // ---------- Estilo dinâmico do ponto dourado ----------
+        var forecastColor = "#ffcc33"; // padrão
 
-       // textos que vão para o CARD
-       var linhaResumo = "";
-       var linhaInterp = "";
-       var linhaHorizonte = "";
-       var linhaRisco = "";
+        // textos que vão para o CARD
+        var linhaResumo = "";
+        var linhaInterp = "";
+        var linhaHorizonte = "";
+        var linhaRisco = "";
 
-       // ---------- INSIGHT "Previsão da IA" + CARD ----------
-       if (forecast !== null && nextLabel) {
-         var ul2 = document.getElementById("listaInsightsIaMensal");
-         if (ul2) {
-           var li2 = document.getElementById("iaInsightForecast");
-           if (!li2) {
-             li2 = document.createElement("li");
-             li2.id = "iaInsightForecast";
-             li2.className = "list-group-item small";
-             ul2.appendChild(li2);
-           }
+        // ---------- INSIGHT "Previsão da IA" + CARD ----------
+        if (forecast !== null && nextLabel) {
+          var ul2 = document.getElementById("listaInsightsIaMensal");
+          if (ul2) {
+            var li2 = document.getElementById("iaInsightForecast");
+            if (!li2) {
+              li2 = document.createElement("li");
+              li2.id = "iaInsightForecast";
+              li2.className = "list-group-item small";
+              ul2.appendChild(li2);
+            }
 
-           var forecastFmt2 =
-             "R$ " +
-             forecast.toLocaleString("pt-BR", {
-               minimumFractionDigits: 2,
-               maximumFractionDigits: 2,
-             });
+            var forecastFmt2 =
+              "R$ " +
+              forecast.toLocaleString("pt-BR", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              });
 
-           var lastSaldoFmt2 =
-             "R$ " +
-             lastSaldo.toLocaleString("pt-BR", {
-               minimumFractionDigits: 2,
-               maximumFractionDigits: 2,
-             });
+            var lastSaldoFmt2 =
+              "R$ " +
+              lastSaldo.toLocaleString("pt-BR", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              });
 
-           var delta2 = forecast - lastSaldo;
-           var pct2 = null;
-           if (lastSaldo !== 0) {
-             pct2 = (delta2 / Math.abs(lastSaldo)) * 100;
-           }
+            var delta2 = forecast - lastSaldo;
+            var pct2 = null;
+            if (lastSaldo !== 0) {
+              pct2 = (delta2 / Math.abs(lastSaldo)) * 100;
+            }
 
-           // -------- badge de tendência (paleta unificada) --------
-           var badgeText2 = "Estável";
-           var badgeClass2 =
-             "bg-secondary-subtle text-secondary border border-secondary-subtle";
-           var icon2 = "📊";
+            // -------- badge de tendência (paleta unificada) --------
+            var badgeText2 = "Estável";
+            var badgeClass2 =
+              "bg-secondary-subtle text-secondary border border-secondary-subtle";
+            var icon2 = "📊";
 
-           if (lastSaldo < 0 && forecast >= 0) {
-             badgeText2 = "Recuperação";
-             badgeClass2 = "bg-success text-light border border-success";
-             icon2 = "🟢";
-           } else if (delta2 > 0 && pct2 !== null) {
-             if (pct2 >= 30) {
-               // ALTA FORTE
-               badgeText2 = "Alta forte";
-               badgeClass2 = "bg-success text-light border border-success";
-               icon2 = "📈";
-             } else {
-               // ALTA LEVE
-               badgeText2 = "Alta leve";
-               badgeClass2 =
-                 "bg-success-subtle text-success border border-success-subtle";
-               icon2 = "📈";
-             }
-           } else if (delta2 < 0 && pct2 !== null) {
-             if (pct2 <= -30) {
-               // QUEDA FORTE
-               badgeText2 = "Queda forte";
-               badgeClass2 =
-                 "bg-danger-subtle text-danger border border-danger-subtle";
-               icon2 = "🔻";
-             } else {
-               // RISCO DE QUEDA
-               badgeText2 = "Risco de queda";
-               badgeClass2 =
-                 "bg-warning-subtle text-warning border border-warning-subtle";
-               icon2 = "⚠️";
-             }
-           } else {
-             // ESTÁVEL
-             badgeText2 = "Estável";
-             badgeClass2 =
-               "bg-secondary-subtle text-secondary border border-secondary-subtle";
-             icon2 = "⚖️";
-           }
+            if (lastSaldo < 0 && forecast >= 0) {
+              badgeText2 = "Recuperação";
+              badgeClass2 = "bg-success text-light border border-success";
+              icon2 = "🟢";
+            } else if (delta2 > 0 && pct2 !== null) {
+              if (pct2 >= 30) {
+                // ALTA FORTE
+                badgeText2 = "Alta forte";
+                badgeClass2 = "bg-success text-light border border-success";
+                icon2 = "📈";
+              } else {
+                // ALTA LEVE
+                badgeText2 = "Alta leve";
+                badgeClass2 =
+                  "bg-success-subtle text-success border border-success-subtle";
+                icon2 = "📈";
+              }
+            } else if (delta2 < 0 && pct2 !== null) {
+              if (pct2 <= -30) {
+                // QUEDA FORTE
+                badgeText2 = "Queda forte";
+                badgeClass2 =
+                  "bg-danger-subtle text-danger border border-danger-subtle";
+                icon2 = "🔻";
+              } else {
+                // RISCO DE QUEDA
+                badgeText2 = "Risco de queda";
+                badgeClass2 =
+                  "bg-warning-subtle text-warning border border-warning-subtle";
+                icon2 = "⚠️";
+              }
+            } else {
+              // ESTÁVEL
+              badgeText2 = "Estável";
+              badgeClass2 =
+                "bg-secondary-subtle text-secondary border border-secondary-subtle";
+              icon2 = "⚖️";
+            }
 
-           // -------- textos principais --------
-           linhaResumo =
-             "Saldo projetado para " + nextLabel + ": " + forecastFmt2 + ".";
+            // -------- textos principais --------
+            linhaResumo =
+              "Saldo projetado para " + nextLabel + ": " + forecastFmt2 + ".";
 
-           if (pct2 !== null) {
-             var sinalValor = delta2 >= 0 ? "+" : "-";
-             var valorAbs = Math.abs(delta2).toLocaleString("pt-BR", {
-               minimumFractionDigits: 2,
-               maximumFractionDigits: 2,
-             });
-             var sinalPct = pct2 >= 0 ? "+" : "-";
-             var pctAbs = Math.abs(pct2).toFixed(1).replace(".", ",");
+            if (pct2 !== null) {
+              var sinalValor = delta2 >= 0 ? "+" : "-";
+              var valorAbs = Math.abs(delta2).toLocaleString("pt-BR", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              });
+              var sinalPct = pct2 >= 0 ? "+" : "-";
+              var pctAbs = Math.abs(pct2).toFixed(1).replace(".", ",");
 
-             linhaResumo +=
-               " Variação esperada frente a " +
-               lastLabel +
-               ": " +
-               sinalValor +
-               "R$ " +
-               valorAbs +
-               " (" +
-               sinalPct +
-               pctAbs +
-               "%).";
-           }
+              linhaResumo +=
+                " Variação esperada frente a " +
+                lastLabel +
+                ": " +
+                sinalValor +
+                "R$ " +
+                valorAbs +
+                " (" +
+                sinalPct +
+                pctAbs +
+                "%).";
+            }
 
-           linhaInterp =
-             "Leitura executiva: o modelo indica " +
-             (delta2 > 0
-               ? "movimento de melhora do caixa, com tendência de reforço do saldo."
-               : delta2 < 0
-                 ? "pressão adicional sobre o caixa, exigindo maior controle de despesas."
-                 : "estabilidade no curto prazo, sem grandes oscilações de saldo.");
+            linhaInterp =
+              "Leitura executiva: o modelo indica " +
+              (delta2 > 0
+                ? "movimento de melhora do caixa, com tendência de reforço do saldo."
+                : delta2 < 0
+                  ? "pressão adicional sobre o caixa, exigindo maior controle de despesas."
+                  : "estabilidade no curto prazo, sem grandes oscilações de saldo.");
 
-           // horizonte 3 meses + faixa de incerteza
-           if (forecast3 !== null || forecast2 !== null) {
-             var alvo = forecast3 !== null ? forecast3 : forecast2;
-             var alvoLabel = label3 || label2 || nextLabel;
-             var faixaMinFmt =
-               "R$ " +
-               (faixaMin || 0).toLocaleString("pt-BR", {
-                 minimumFractionDigits: 2,
-                 maximumFractionDigits: 2,
-               });
-             var faixaMaxFmt =
-               "R$ " +
-               (faixaMax || 0).toLocaleString("pt-BR", {
-                 minimumFractionDigits: 2,
-                 maximumFractionDigits: 2,
-               });
+            // horizonte 3 meses + faixa de incerteza
+            if (forecast3 !== null || forecast2 !== null) {
+              var alvo = forecast3 !== null ? forecast3 : forecast2;
+              var alvoLabel = label3 || label2 || nextLabel;
+              var faixaMinFmt =
+                "R$ " +
+                (faixaMin || 0).toLocaleString("pt-BR", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                });
+              var faixaMaxFmt =
+                "R$ " +
+                (faixaMax || 0).toLocaleString("pt-BR", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                });
 
-             linhaHorizonte =
-               "Cenário de 3 meses: para " +
-               alvoLabel +
-               ", a faixa projetada de saldo está entre " +
-               faixaMinFmt +
-               " e " +
-               faixaMaxFmt +
-               " (intervalo aproximado de confiança da IA).";
-           }
+              linhaHorizonte =
+                "Cenário de 3 meses: para " +
+                alvoLabel +
+                ", a faixa projetada de saldo está entre " +
+                faixaMinFmt +
+                " e " +
+                faixaMaxFmt +
+                " (intervalo aproximado de confiança da IA).";
+            }
 
-           if (delta2 >= 0) {
-             linhaRisco =
-               "Risco & cuidado: ainda assim, vale monitorar despesas variáveis semanalmente para evitar reversão da tendência.";
-           } else {
-             linhaRisco =
-               "Risco & cuidado: mantenha atenção especial em gastos recorrentes e decisões pontuais de compra para não comprometer o fluxo de caixa.";
-           }
+            if (delta2 >= 0) {
+              linhaRisco =
+                "Risco & cuidado: ainda assim, vale monitorar despesas variáveis semanalmente para evitar reversão da tendência.";
+            } else {
+              linhaRisco =
+                "Risco & cuidado: mantenha atenção especial em gastos recorrentes e decisões pontuais de compra para não comprometer o fluxo de caixa.";
+            }
 
-           li2.innerHTML =
-             '<div class="d-flex justify-content-between align-items-start mb-1">' +
-             "<div>" +
-             "<strong>🔮 Previsão Financeira (IA) — próximo mês</strong><br>" +
-             '<span class="badge bg-dark-subtle text-info border border-info-subtle mt-1">' +
-             "Modelo: regressão linear • horizonte 3 meses" +
-             "</span>" +
-             "</div>" +
-             '<span class="badge ' +
-             badgeClass2 +
-             '">' +
-             badgeText2 +
-             "</span>" +
-             "</div>" +
-             '<div class="mb-1"><strong>Saldo previsto:</strong> ' +
-             forecastFmt2 +
-             " (vs " +
-             lastLabel +
-             ": " +
-             lastSaldoFmt2 +
-             ")." +
-             "</div>" +
-             (pct2 !== null
-               ? '<div class="mb-1"><strong>Sinal da IA:</strong> ' +
-                 (delta2 > 0
-                   ? "tendência de melhora do caixa, com aumento do saldo."
-                   : delta2 < 0
-                     ? "pressão sobre o caixa, com risco de redução do saldo."
-                     : "estabilidade no curto prazo, sem grandes oscilações.") +
-                 " Variação esperada: " +
-                 (delta2 >= 0 ? "+" : "-") +
-                 "R$ " +
-                 Math.abs(delta2).toLocaleString("pt-BR", {
-                   minimumFractionDigits: 2,
-                   maximumFractionDigits: 2,
-                 }) +
-                 " (" +
-                 (pct2 >= 0 ? "+" : "-") +
-                 Math.abs(pct2).toFixed(1).replace(".", ",") +
-                 "%)." +
-                 "</div>"
-               : "") +
-             '<div class="small text-muted mb-1"><strong>Ação prática:</strong> ' +
-             (delta2 >= 0
-               ? "reforçar a reserva e manter despesas variáveis sob vigilância para aproveitar a fase positiva."
-               : "rever despesas não essenciais, segurar novas contratações e focar em serviços com melhor margem.") +
-             "</div>" +
-             '<div class="small text-muted">' +
-             "<strong>Cenário & faixa:</strong> " +
-             (linhaHorizonte ||
-               "Modelo ainda com poucos pontos para projetar horizonte mais longo.") +
-             "</div>";
-         }
+            li2.innerHTML =
+              '<div class="d-flex justify-content-between align-items-start mb-1">' +
+              "<div>" +
+              "<strong>🔮 Previsão Financeira (IA) — próximo mês</strong><br>" +
+              '<span class="badge bg-dark-subtle text-info border border-info-subtle mt-1">' +
+              "Modelo: regressão linear • horizonte 3 meses" +
+              "</span>" +
+              "</div>" +
+              '<span class="badge ' +
+              badgeClass2 +
+              '">' +
+              badgeText2 +
+              "</span>" +
+              "</div>" +
+              '<div class="mb-1"><strong>Saldo previsto:</strong> ' +
+              forecastFmt2 +
+              " (vs " +
+              lastLabel +
+              ": " +
+              lastSaldoFmt2 +
+              ")." +
+              "</div>" +
+              (pct2 !== null
+                ? '<div class="mb-1"><strong>Sinal da IA:</strong> ' +
+                  (delta2 > 0
+                    ? "tendência de melhora do caixa, com aumento do saldo."
+                    : delta2 < 0
+                      ? "pressão sobre o caixa, com risco de redução do saldo."
+                      : "estabilidade no curto prazo, sem grandes oscilações.") +
+                  " Variação esperada: " +
+                  (delta2 >= 0 ? "+" : "-") +
+                  "R$ " +
+                  Math.abs(delta2).toLocaleString("pt-BR", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  }) +
+                  " (" +
+                  (pct2 >= 0 ? "+" : "-") +
+                  Math.abs(pct2).toFixed(1).replace(".", ",") +
+                  "%)." +
+                  "</div>"
+                : "") +
+              '<div class="small text-muted mb-1"><strong>Ação prática:</strong> ' +
+              (delta2 >= 0
+                ? "reforçar a reserva e manter despesas variáveis sob vigilância para aproveitar a fase positiva."
+                : "rever despesas não essenciais, segurar novas contratações e focar em serviços com melhor margem.") +
+              "</div>" +
+              '<div class="small text-muted">' +
+              "<strong>Cenário & faixa:</strong> " +
+              (linhaHorizonte ||
+                "Modelo ainda com poucos pontos para projetar horizonte mais longo.") +
+              "</div>";
+          }
 
-         // === Preenche também o CARD abaixo do gráfico ===
-         var cardResumo = document.getElementById("sjPrevResumoLinha");
-         var cardInterp = document.getElementById("sjPrevInterpLinha");
-         var cardFaixa = document.getElementById("sjPrevFaixaLinha");
-         var cardWrap = document.getElementById("cardPrevisaoMensal");
+          // === Preenche também o CARD abaixo do gráfico ===
+          var cardResumo = document.getElementById("sjPrevResumoLinha");
+          var cardInterp = document.getElementById("sjPrevInterpLinha");
+          var cardFaixa = document.getElementById("sjPrevFaixaLinha");
+          var cardWrap = document.getElementById("cardPrevisaoMensal");
 
-         if (cardResumo) cardResumo.textContent = linhaResumo;
-         if (cardInterp) cardInterp.textContent = linhaInterp;
-         if (cardFaixa)
-           cardFaixa.textContent = (linhaHorizonte || "").trim() || linhaRisco;
+          if (cardResumo) cardResumo.textContent = linhaResumo;
+          if (cardInterp) cardInterp.textContent = linhaInterp;
+          if (cardFaixa)
+            cardFaixa.textContent = (linhaHorizonte || "").trim() || linhaRisco;
 
-         if (cardWrap) {
-           cardWrap.classList.remove("d-none");
-           cardWrap.classList.add("sj-previsao-card");
-         }
-       } else {
-         // se não tiver forecast, esconde os cards de previsão
-         var cardOff1 = document.getElementById("cardPrevisaoMensal");
-         if (cardOff1) cardOff1.classList.add("d-none");
-         var cardOff2 = document.getElementById("cardPrevisaoResumoIa");
-         if (cardOff2) cardOff2.classList.add("d-none");
-       }
+          if (cardWrap) {
+            cardWrap.classList.remove("d-none");
+            cardWrap.classList.add("sj-previsao-card");
+          }
+        } else {
+          // se não tiver forecast, esconde os cards de previsão
+          var cardOff1 = document.getElementById("cardPrevisaoMensal");
+          if (cardOff1) cardOff1.classList.add("d-none");
+          var cardOff2 = document.getElementById("cardPrevisaoResumoIa");
+          if (cardOff2) cardOff2.classList.add("d-none");
+        }
 
-       // ---------- Monta o gráfico ----------
-       if (sjChartSerieIa) {
-         sjChartSerieIa.destroy();
-       }
+        // ---------- Monta o gráfico ----------
+        if (sjChartSerieIa) {
+          sjChartSerieIa.destroy();
+        }
 
-       var ctx = elCanvas.getContext("2d");
-       sjChartSerieIa = new Chart(ctx, {
-         type: "line",
-         data: {
-           labels: labels,
-           datasets: [
-             {
-               label: "Receitas",
-               data: receitas,
-               tension: 0.3,
-             },
-             {
-               label: "Despesas",
-               data: despesas,
-               tension: 0.3,
-             },
-             {
-               label: "Saldo",
-               data: saldos,
-               tension: 0.3,
-             },
-             // Sombra da tendência (não aparece na legenda)
-             {
-               label: "_Tendência",
-               data: trendShadeData,
-               tension: 0.3,
-               fill: "origin",
-               borderWidth: 0,
-               pointRadius: 0,
-               pointHoverRadius: 0,
-               backgroundColor: "rgba(255,204,51,0.10)",
-             },
-             // Ponto dourado da previsão
-             {
-               label: "Saldo (previsto)",
-               data: forecastData,
-               tension: 0.3,
-               borderDash: [6, 4],
-               spanGaps: true,
-               borderColor: forecastColor,
-               backgroundColor: forecastColor,
-               pointBackgroundColor: forecastColor,
-               pointBorderColor: "#00000088",
-               // responsivo: menor no mobile, maior no desktop
-               pointRadius: function (ctx2) {
-                 var w =
-                   ctx2 && ctx2.chart && ctx2.chart.width
-                     ? ctx2.chart.width
-                     : 600;
-                 return w < 480 ? 5 : 8;
-               },
-               pointHoverRadius: function (ctx2) {
-                 var w =
-                   ctx2 && ctx2.chart && ctx2.chart.width
-                     ? ctx2.chart.width
-                     : 600;
-                 return w < 480 ? 8 : 12;
-               },
-               pointStyle: "circle",
-               borderWidth: 2,
-             },
-           ],
-         },
-         options: {
-           responsive: true,
-           maintainAspectRatio: false,
-           plugins: {
-             legend: {
-               position: "bottom",
-               labels: {
-                 filter: function (item) {
-                   // esconde dataset interno "_Tendência"
-                   return item.text && item.text.indexOf("_") !== 0;
-                 },
-               },
-             },
-             tooltip: {
-               callbacks: {
-                 label: function (context) {
-                   var dsLabel = context.dataset.label || "";
-                   var v = context.parsed.y;
-                   if (v == null) return null;
+        var ctx = elCanvas.getContext("2d");
+        sjChartSerieIa = new Chart(ctx, {
+          type: "line",
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: "Receitas",
+                data: receitas,
+                tension: 0.3,
+              },
+              {
+                label: "Despesas",
+                data: despesas,
+                tension: 0.3,
+              },
+              {
+                label: "Saldo",
+                data: saldos,
+                tension: 0.3,
+              },
+              // Sombra da tendência (não aparece na legenda)
+              {
+                label: "_Tendência",
+                data: trendShadeData,
+                tension: 0.3,
+                fill: "origin",
+                borderWidth: 0,
+                pointRadius: 0,
+                pointHoverRadius: 0,
+                backgroundColor: "rgba(255,204,51,0.10)",
+              },
+              // Ponto dourado da previsão
+              {
+                label: "Saldo (previsto)",
+                data: forecastData,
+                tension: 0.3,
+                borderDash: [6, 4],
+                spanGaps: true,
+                borderColor: forecastColor,
+                backgroundColor: forecastColor,
+                pointBackgroundColor: forecastColor,
+                pointBorderColor: "#00000088",
+                // responsivo: menor no mobile, maior no desktop
+                pointRadius: function (ctx2) {
+                  var w =
+                    ctx2 && ctx2.chart && ctx2.chart.width
+                      ? ctx2.chart.width
+                      : 600;
+                  return w < 480 ? 5 : 8;
+                },
+                pointHoverRadius: function (ctx2) {
+                  var w =
+                    ctx2 && ctx2.chart && ctx2.chart.width
+                      ? ctx2.chart.width
+                      : 600;
+                  return w < 480 ? 8 : 12;
+                },
+                pointStyle: "circle",
+                borderWidth: 2,
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+              legend: {
+                position: "bottom",
+                labels: {
+                  filter: function (item) {
+                    // esconde dataset interno "_Tendência"
+                    return item.text && item.text.indexOf("_") !== 0;
+                  },
+                },
+              },
+              tooltip: {
+                callbacks: {
+                  label: function (context) {
+                    var dsLabel = context.dataset.label || "";
+                    var v = context.parsed.y;
+                    if (v == null) return null;
 
-                   var valor = v.toLocaleString("pt-BR", {
-                     minimumFractionDigits: 2,
-                     maximumFractionDigits: 2,
-                   });
+                    var valor = v.toLocaleString("pt-BR", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    });
 
-                   // tooltip especial do ponto previsto
-                   if (dsLabel.indexOf("Saldo (previsto") === 0) {
-                     var linhas = ["Saldo (previsto): R$ " + valor];
+                    // tooltip especial do ponto previsto
+                    if (dsLabel.indexOf("Saldo (previsto") === 0) {
+                      var linhas = ["Saldo (previsto): R$ " + valor];
 
-                     if (forecast !== null && pct !== null) {
-                       var sinalValor = delta >= 0 ? "+" : "-";
-                       var valorAbs = Math.abs(delta).toLocaleString("pt-BR", {
-                         minimumFractionDigits: 2,
-                         maximumFractionDigits: 2,
-                       });
-                       var sinalPct = pct >= 0 ? "+" : "-";
-                       var pctAbs = Math.abs(pct).toFixed(1).replace(".", ",");
+                      if (forecast !== null && pct !== null) {
+                        var sinalValor = delta >= 0 ? "+" : "-";
+                        var valorAbs = Math.abs(delta).toLocaleString("pt-BR", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        });
+                        var sinalPct = pct >= 0 ? "+" : "-";
+                        var pctAbs = Math.abs(pct).toFixed(1).replace(".", ",");
 
-                       linhas.push(
-                         "Diferença vs " +
-                           lastLabel +
-                           ": " +
-                           sinalValor +
-                           "R$ " +
-                           valorAbs +
-                           " (" +
-                           sinalPct +
-                           pctAbs +
-                           "%)"
-                       );
-                     }
+                        linhas.push(
+                          "Diferença vs " +
+                            lastLabel +
+                            ": " +
+                            sinalValor +
+                            "R$ " +
+                            valorAbs +
+                            " (" +
+                            sinalPct +
+                            pctAbs +
+                            "%)"
+                        );
+                      }
 
-                     return linhas;
-                   }
+                      return linhas;
+                    }
 
-                   return dsLabel + ": R$ " + valor;
-                 },
-               },
-             },
-           },
-           scales: {
-             y: {
-               ticks: {
-                 callback: function (value) {
-                   return "R$ " + value.toLocaleString("pt-BR");
-                 },
-               },
-             },
-           },
-         },
-       });
-     })
-     .catch(function (err) {
-       console.error("[IA Série Mensal]", err);
-       var ctxClear = elCanvas.getContext("2d");
-       ctxClear.clearRect(0, 0, elCanvas.width, elCanvas.height);
-     });
- }
-
+                    return dsLabel + ": R$ " + valor;
+                  },
+                },
+              },
+            },
+            scales: {
+              y: {
+                ticks: {
+                  callback: function (value) {
+                    return "R$ " + value.toLocaleString("pt-BR");
+                  },
+                },
+              },
+            },
+          },
+        });
+      })
+      .catch(function (err) {
+        console.error("[IA Série Mensal]", err);
+        var ctxClear = elCanvas.getContext("2d");
+        ctxClear.clearRect(0, 0, elCanvas.width, elCanvas.height);
+      });
+  }
 
   function sjCarregarComparacaoIaMensal() {
     var elLista = document.getElementById("listaComparacaoIaMensal");
@@ -1577,8 +1580,6 @@ const gradientFillPlugin = {
           '<li class="list-group-item small text-muted">Verifique se a URL /financeiro/ia/resumo_mensal_series/ está acessível.</li>';
       });
   }
-
-
 
   // --------- Atualiza card resumo (reutilizável)
   function __updateCardResumo(origem) {
@@ -2249,7 +2250,8 @@ const gradientFillPlugin = {
       await window.carregarHistorico(20, filtroAtual, false);
     }
     // deixa a função acessível globalmente
-    window.recarregarHistoricoComFiltroAtual = recarregarHistoricoComFiltroAtual;
+    window.recarregarHistoricoComFiltroAtual =
+      recarregarHistoricoComFiltroAtual;
 
     async function gerarDica(path, origem, btn) {
       const oldLabel = btn.textContent;
