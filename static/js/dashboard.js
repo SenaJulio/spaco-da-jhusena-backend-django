@@ -448,71 +448,74 @@ const gradientFillPlugin = {
           },
         ],
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: "index", intersect: false },
-        plugins: {
-          legend: {
-            position: "bottom",
-            labels: { color: "#c8e6c9", font: { size: 13 } },
+     options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: "index", intersect: false },
+    plugins: {
+      legend: {
+        position: "bottom",
+        labels: { color: "#c8e6c9", font: { size: 13 } },
+      },
+      tooltip: {
+        backgroundColor: "#fff",
+        borderColor: "#a5d6a7",
+        borderWidth: 1,
+        titleColor: "#1b5e20",
+        bodyColor: "#1b5e20",
+        callbacks: {
+          title(items) {
+            const item = items[0];
+            return item.label || "";
           },
-          tooltip: {
-            backgroundColor: "#fff",
-            borderColor: "#a5d6a7",
-            borderWidth: 1,
-            titleColor: "#1b5e20",
-            bodyColor: "#1b5e20",
-            callbacks: {
-              title(items) {
-                const item = items[0];
-                return item.label || "";
-              },
-              label(ctx) {
-                const label = ctx.dataset.label || "";
-                const v = ctx.parsed.y;
-                if (v == null) return null;
+          label(ctx) {
+            const label = ctx.dataset.label || "";
+            const v = ctx.parsed.y;
+            if (v == null) return null;
 
-                const valor = Number(v).toLocaleString("pt-BR", {
-                  minimumFractionDigits: 2,
-                });
+            const valor = Number(v).toLocaleString("pt-BR", {
+              minimumFractionDigits: 2,
+            });
 
-                return `${label}: R$ ${valor}`;
-              },
-            },
-          },
-        },
-        elements: {
-          line: { borderWidth: 3, fill: false },
-          point: { radius: 3 },
-        },
-        scales: {
-          x: {
-            grid: { color: "rgba(0,0,0,0.08)" },
-            ticks: { color: "#1b5e20", maxRotation: 0, autoSkip: true },
-          },
-          y: {
-            beginAtZero: true,
-            grid: { color: "rgba(0,0,0,0.08)" },
-            ticks: {
-              color: "#1b5e20",
-              callback: (v) => Number(v).toLocaleString("pt-BR"),
-            },
+            return `${label}: R$ ${valor}`;
           },
         },
       },
-      plugins: [glowPlugin, gradientFillPlugin],
-      animation: {
-        duration: 900,
-        easing: "easeOutQuart",
-        delay(ctx) {
-          const i = ctx.dataIndex ?? 0;
-          const ds = ctx.datasetIndex ?? 0;
-          return (i + ds) * 25;
+    },
+    elements: {
+      line: { borderWidth: 3, fill: false },
+      point: { radius: 3 },
+    },
+    scales: {
+      x: {
+        grid: { color: "rgba(0,0,0,0.08)" },
+        ticks: { color: "#1b5e20", maxRotation: 0, autoSkip: true },
+      },
+      y: {
+        beginAtZero: true,
+        grid: { color: "rgba(0,0,0,0.08)" },
+        ticks: {
+          color: "#1b5e20",
+          callback: (v) => Number(v).toLocaleString("pt-BR"),
         },
       },
-    });
-  };
+    },
+
+    // ✅ AQUI DENTRO
+    animation: {
+      duration: 900,
+      easing: "easeOutQuart",
+      delay(ctx) {
+        const i = ctx.dataIndex ?? 0;
+        const ds = ctx.datasetIndex ?? 0;
+        return (i + ds) * 25;
+      },
+    },
+  },
+
+  // ✅ pode ficar aqui fora mesmo
+  plugins: [glowPlugin, gradientFillPlugin],
+});
 
   // --------- Categorias (pizza)
   function montarGraficoCategorias(categorias, valores) {
