@@ -17,7 +17,6 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-key-only")
 
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
-
 # =========================
 # Hardening (produção)
 # =========================
