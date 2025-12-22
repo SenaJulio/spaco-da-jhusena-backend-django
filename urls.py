@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import path, include
 from django.views.generic import TemplateView
-
+from django.conf import settings
 
 urlpatterns = [
     path("admin/", admin.site.urls),
@@ -13,4 +13,5 @@ urlpatterns = [
     path("estoque/", include("estoque.urls")),  # só se existir esse app/urls
     path("vendas/", include("vendas.urls")),  # só se existir esse app/urls
     path("", TemplateView.as_view(template_name="home.html"), name="home"),
+    path(settings.ADMIN_URL, admin.site.urls),
 ]

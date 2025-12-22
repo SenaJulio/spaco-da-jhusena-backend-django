@@ -6,6 +6,7 @@ from pathlib import Path
 import os
 
 from django.core.mail.backends.smtp import EmailBackend
+ADMIN_URL = os.getenv("ADMIN_URL", "admin/")
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
