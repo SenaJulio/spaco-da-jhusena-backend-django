@@ -18,6 +18,28 @@ SECRET_KEY = os.getenv("SECRET_KEY", "dev-key-only")
 
 DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 
+# =========================
+# Hardening (produção)
+# =========================
+if not DEBUG:
+    # Render / HTTPS
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = True
+
+    # Cookies seguros
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
+    # Proteções extras
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_REFERRER_POLICY = "same-origin"
+    X_FRAME_OPTIONS = "DENY"
+
+    # HSTS (começa leve; depois a gente sobe)
+    SECURE_HSTS_SECONDS = 3600  # 1 hora
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = False
+
 # Hosts
 # Render: coloque em env ALLOWED_HOSTS="spaco-da-jhusena-backend-django.onrender.com,.onrender.com"
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,.onrender.com").split(",")
@@ -33,7 +55,7 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_X_FORWARDED_HOST = True
 
 
-# =========================
+# =========================F
 # Aplicações
 # =========================
 INSTALLED_APPS = [
