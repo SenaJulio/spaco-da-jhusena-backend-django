@@ -2,6 +2,7 @@
 Django settings for config project.
 """
 
+
 from pathlib import Path
 import os
 import sys
@@ -41,6 +42,7 @@ ADMIN_URL = os.getenv("ADMIN_URL", "admin/")
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+ENV = os.getenv("ENV", "dev")  # dev / prod
 
 # =========================
 # Segurança / Ambiente
@@ -51,24 +53,26 @@ DEBUG = os.getenv("DEBUG", "False").lower() == "true"
 # =========================
 # Hardening (produção)
 # =========================
-if not DEBUG:
-    # Render / HTTPS
+if ENV == "prod" and not DEBUG:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
     SECURE_SSL_REDIRECT = True
 
-    # Cookies seguros
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
 
-    # Proteções extras
     SECURE_CONTENT_TYPE_NOSNIFF = True
     SECURE_REFERRER_POLICY = "same-origin"
     X_FRAME_OPTIONS = "DENY"
 
-    # HSTS (começa leve; depois a gente sobe)
-    SECURE_HSTS_SECONDS = 3600  # 1 hora
+    SECURE_HSTS_SECONDS = 3600
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = False
+else:
+    # Ambiente local / dev
+    SECURE_SSL_REDIRECT = False
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+
 
 # Hosts
 # Render: coloque em env ALLOWED_HOSTS="spaco-da-jhusena-backend-django.onrender.com,.onrender.com"
