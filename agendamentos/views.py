@@ -3,6 +3,8 @@ from datetime import datetime
 
 from django.contrib import messages
 from django.core.mail import send_mail
+from django.conf import settings
+import logging
 from django.db.models import Count
 from django.db.models.functions import TruncMonth
 from django.http import JsonResponse
@@ -13,6 +15,7 @@ from .forms import AgendamentoForm
 from .models import Agendamento, Servico
 from .serializers import AgendamentoSerializer
 
+logger = logging.getLogger(__name__)
 
 class AgendamentoCreateView(generics.CreateAPIView):
     queryset = Agendamento.objects.all()
@@ -33,10 +36,21 @@ def agendar(request):
                 f"Hora: {agendamento.hora.strftime('%H:%M')}\n\n"
                 "Obrigado por confiar no Spaço da Jhuséna 💚🐶\n"
             )
-            remetente = "seuemail@gmail.com"
+            remetente = getattr(settings, "DEFAULT_FROM_EMAIL", "no-reply@spaco.local")
+
             destinatario = [agendamento.email]
 
-            send_mail(assunto, mensagem, remetente, destinatario)
+            try:
+                send_mail(
+                    assunto,
+                    mensagem,
+                    remetente,
+                    destinatario,
+                    fail_silently=False,
+                )
+            except Exception as e:
+                logger.exception("Falha ao enviar e-mail do agendamento: %s", e)
+                # não quebra o agendamento
 
             return redirect("agendamentos:agendamento_sucesso")
     else:
