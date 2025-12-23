@@ -1,14 +1,15 @@
 import json
+import logging
 from datetime import datetime
 
+from django.conf import settings
 from django.contrib import messages
 from django.core.mail import send_mail
-from django.conf import settings
-import logging
 from django.db.models import Count
 from django.db.models.functions import TruncMonth
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.views.decorators.http import require_POST
 from rest_framework import generics
 
 from .forms import AgendamentoForm
@@ -16,6 +17,7 @@ from .models import Agendamento, Servico
 from .serializers import AgendamentoSerializer
 
 logger = logging.getLogger(__name__)
+
 
 class AgendamentoCreateView(generics.CreateAPIView):
     queryset = Agendamento.objects.all()
@@ -25,41 +27,45 @@ class AgendamentoCreateView(generics.CreateAPIView):
 def agendar(request):
     if request.method == "POST":
         form = AgendamentoForm(request.POST)
+
         if form.is_valid():
             agendamento = form.save()
 
+            # ✅ Monta mensagem
             assunto = "Confirmação de Agendamento - Spaço da Jhuséna"
             mensagem = (
                 f"Olá {agendamento.nome},\n\n"
                 f"Seu agendamento para o serviço {agendamento.servico} foi confirmado!\n"
+                f"Pet: {getattr(agendamento, 'cliente', '-')}\n"
                 f"Data: {agendamento.data.strftime('%d/%m/%Y')}\n"
                 f"Hora: {agendamento.hora.strftime('%H:%M')}\n\n"
                 "Obrigado por confiar no Spaço da Jhuséna 💚🐶\n"
             )
-            remetente = getattr(settings, "DEFAULT_FROM_EMAIL", "no-reply@spaco.local")
 
+            remetente = getattr(settings, "DEFAULT_FROM_EMAIL", "no-reply@spaco.local")
             destinatario = [agendamento.email]
 
-            # ... acima você já tem remetente e destinatario
+            # ✅ E-mail é opcional (não derruba o agendamento)
+            if getattr(settings, "ENABLE_EMAIL", False):
+                try:
+                    send_mail(
+                        assunto,
+                        mensagem,
+                        remetente,
+                        destinatario,
+                        fail_silently=False,
+                    )
+                except Exception as e:
+                    logger.exception("Falha ao enviar e-mail do agendamento: %s", e)
 
-        if getattr(settings, "ENABLE_EMAIL", False):
-            try:
-                send_mail(
-                    assunto,
-                    mensagem,
-                    remetente,
-                    destinatario,
-                    fail_silently=False,
-                )
-            except Exception as e:
-                logger.exception("Falha ao enviar e-mail do agendamento: %s", e)
-       
-                # não quebra o agendamento
-
+            # ✅ Sempre redireciona quando salva
             return redirect("agendamentos:agendamento_sucesso")
-    else:
-        form = AgendamentoForm()
 
+        # ❌ Form inválido → cai aqui e re-renderiza com erros
+        return render(request, "agendamentos/agendar.html", {"form": form})
+
+    # GET
+    form = AgendamentoForm()
     return render(request, "agendamentos/agendar.html", {"form": form})
 
 
@@ -110,9 +116,6 @@ def cancelar_agendamento(request, id):
     return redirect("agendamentos:listar_agendamentos")
 
 
-# Removido: definição duplicada e incompleta de dashboard_agendamentos
-
-
 def dashboard_agendamentos(request):
     data_inicio = request.GET.get("data_inicio")
     data_fim = request.GET.get("data_fim")
@@ -124,14 +127,14 @@ def dashboard_agendamentos(request):
             data_inicio_obj = datetime.strptime(data_inicio, "%Y-%m-%d")
             agendamentos_qs = agendamentos_qs.filter(data__gte=data_inicio_obj)
         except ValueError:
-            pass  # Data inválida, ignora
+            pass
 
     if data_fim:
         try:
             data_fim_obj = datetime.strptime(data_fim, "%Y-%m-%d")
             agendamentos_qs = agendamentos_qs.filter(data__lte=data_fim_obj)
         except ValueError:
-            pass  # Data inválida, ignora
+            pass
 
     contagem_status = agendamentos_qs.values("status").annotate(total=Count("id"))
     evolucao_mensal = (
@@ -179,7 +182,6 @@ def dashboard_dados_ajax(request):
         .order_by("mes")
     )
 
-    # Formatando a data no formato string para o gráfico
     for item in evolucao_mensal:
         item["mes"] = item["mes"].strftime("%Y-%m")
 
@@ -191,12 +193,7 @@ def dashboard_dados_ajax(request):
     )
 
 
-from django.views.decorators.csrf import csrf_exempt  # use só se chamar de fora do site
-from django.views.decorators.http import require_POST
-
-
 @require_POST
-# @csrf_exempt  # ❗️descomente APENAS se for chamar esse endpoint de fora do seu site (sem CSRF)
 def criar_agendamento(request):
     try:
         data = json.loads(request.body or "{}")
@@ -210,13 +207,11 @@ def criar_agendamento(request):
             {"erro": f"Campos obrigatórios faltando: {', '.join(faltando)}"}, status=400
         )
 
-    # Buscar serviço pelo nome
     try:
         servico_obj = Servico.objects.get(nome=data["servico"])
     except Servico.DoesNotExist:
         return JsonResponse({"erro": "Serviço não encontrado."}, status=400)
 
-    # Cria o agendamento (DateField/TimeField aceitam 'YYYY-MM-DD' e 'HH:MM')
     ag = Agendamento.objects.create(
         nome=data["nomeTutor"],
         cliente=data["nomePet"],

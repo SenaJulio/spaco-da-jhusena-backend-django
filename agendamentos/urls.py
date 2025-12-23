@@ -1,12 +1,14 @@
-from django.urls import path
 from django.shortcuts import redirect
+from django.urls import path
+
 from . import views
 
 app_name = "agendamentos"
 
 
 def agendamentos_home(request):
-    return redirect("agendar")  # ou redirect("dashboard_agendamentos")
+    # ✅ aponta para a página de agendar correta (com namespace)
+    return redirect("agendamentos:agendar")
 
 
 urlpatterns = [
