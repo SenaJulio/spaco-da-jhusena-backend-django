@@ -40,6 +40,9 @@ def agendar(request):
 
             destinatario = [agendamento.email]
 
+            # ... acima você já tem remetente e destinatario
+
+        if getattr(settings, "ENABLE_EMAIL", False):
             try:
                 send_mail(
                     assunto,
@@ -50,6 +53,7 @@ def agendar(request):
                 )
             except Exception as e:
                 logger.exception("Falha ao enviar e-mail do agendamento: %s", e)
+       
                 # não quebra o agendamento
 
             return redirect("agendamentos:agendamento_sucesso")

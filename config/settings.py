@@ -7,7 +7,6 @@ from pathlib import Path
 import os
 import sys
 
-import sys
 
 LOGGING = {
     "version": 1,
@@ -78,6 +77,9 @@ else:
 # Render: coloque em env ALLOWED_HOSTS="spaco-da-jhusena-backend-django.onrender.com,.onrender.com"
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1,.onrender.com").split(",")
 ALLOWED_HOSTS = [h.strip() for h in ALLOWED_HOSTS if h.strip()]
+
+ENABLE_EMAIL = os.getenv("ENABLE_EMAIL", "0") == "1"
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "no-reply@spaco.local")
 
 # CSRF (necessário quando DEBUG=False)
 # Render: CSRF_TRUSTED_ORIGINS="https://spaco-da-jhusena-backend-django.onrender.com"
