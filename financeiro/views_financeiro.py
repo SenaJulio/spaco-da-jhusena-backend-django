@@ -337,6 +337,7 @@ def despesas_fixas_variaveis_mensal(request):
         }
     )
 
+
 # -----------------------------------------------------------------------------
 # Dashboard (template)
 # -----------------------------------------------------------------------------
@@ -354,10 +355,21 @@ def dashboard_financeiro(request):
     )
     saldo = total_receitas - total_despesas
 
+    ultimas = Transacao.objects.order_by("-id")[:12]
+    pendentes = Transacao.objects.filter(tipo="receita", valor=0).order_by("-id")[:12]
+    qtd_pendentes = Transacao.objects.filter(tipo="receita", valor=0).count()
+
     return render(
         request,
         "financeiro/dashboard.html",
-        {"total_receitas": total_receitas, "total_despesas": total_despesas, "saldo": saldo},
+        {
+            "total_receitas": total_receitas,
+            "total_despesas": total_despesas,
+            "saldo": saldo,
+            "ultimas_transacoes": ultimas,
+            "pendentes_valor": pendentes,
+            "qtd_pendentes_valor": qtd_pendentes,
+        },
     )
 
 
@@ -1064,30 +1076,18 @@ def dados_grafico_filtrados(request):
     DEC = DecimalField(max_digits=18, decimal_places=2)
     ZERO_DEC = Value(Decimal("0.00"), output_field=DEC)
 
-    # 4) Agrega por dia: receitas, despesas (sempre positivas) e nº de lançamentos
+    # 4) Agrega por dia: receitas, despesas e nº de lançamentos (por TIPO)
     diarios = (
         base.annotate(dia=trunc_expr)
         .values("dia")
         .annotate(
             rec=Coalesce(
-                Sum(
-                    Case(
-                        When(valor__gte=0, then=Cast(F("valor"), DEC)),
-                        default=ZERO_DEC,
-                        output_field=DEC,
-                    )
-                ),
+                Sum(Cast("valor", DEC), filter=Q(tipo__in=TIPO_RECEITA)),
                 ZERO_DEC,
                 output_field=DEC,
             ),
             des=Coalesce(
-                Sum(
-                    Case(
-                        When(valor__lt=0, then=Cast(Abs(F("valor")), DEC)),
-                        default=ZERO_DEC,
-                        output_field=DEC,
-                    )
-                ),
+                Sum(Cast("valor", DEC), filter=Q(tipo__in=TIPO_DESPESA)),
                 ZERO_DEC,
                 output_field=DEC,
             ),
@@ -1115,10 +1115,11 @@ def dados_grafico_filtrados(request):
     # Pizza por categoria (DESPESAS) com "Top N + Outras"
     if "categoria" in model_fields:
         cat_qs = (
-            base.values("categoria")
+            base.filter(tipo__in=TIPO_DESPESA)
+            .values("categoria")
             .annotate(
                 total=Coalesce(
-                    Sum(Cast(Abs(F("valor")), DEC), output_field=DEC),
+                    Sum(Cast("valor", DEC), output_field=DEC),
                     ZERO_DEC,
                     output_field=DEC,
                 )

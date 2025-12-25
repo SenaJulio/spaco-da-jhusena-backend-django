@@ -136,26 +136,30 @@
 </div>
 
 <script>
-  // aplica Bootstrap nos campos do Django + debug de submit
-  document.addEventListener("DOMContentLoaded", () => {
-    const ids = ["id_nome","id_cliente","id_telefone","id_email","id_servico","id_data","id_hora"];
-    ids.forEach(id => {
-      const el = document.getElementById(id);
-      if (!el) return;
-      el.classList.add(el.tagName === "SELECT" ? "form-select" : "form-control");
-    });
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.getElementById("agForm");
+  if (!form) return;
 
-    const form = document.getElementById("agForm");
-    if (form) {
-      form.addEventListener("submit", () => console.log("[agendamento] submit disparou"));
+  let enviando = false;
+
+  form.addEventListener("submit", (e) => {
+    if (enviando) {
+      e.preventDefault();
+      return;
+    }
+    enviando = true;
+
+    const btn = form.querySelector("button[type='submit'], input[type='submit']");
+    if (btn) {
+      btn.disabled = true;
+      const old = btn.tagName === "BUTTON" ? btn.textContent : btn.value;
+      btn.dataset.oldText = old || "";
+      if (btn.tagName === "BUTTON") btn.textContent = "Salvando...";
+      else btn.value = "Salvando...";
     }
   });
+});
 </script>
-<script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const h = document.getElementById("id_hora");
-    if (h && !h.value) h.value = "";
-  });
-</script>
+
 
 {% endblock %}

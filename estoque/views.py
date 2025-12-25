@@ -95,6 +95,7 @@ def dashboard_estoque(request):
         "dados_entradas": dados_entradas,
         "dados_saidas": dados_saidas,
         "alertas_lotes": alertas_lotes,
+        "periodo_dias": 30,
     }
     return render(request, "estoque/dashboard_estoque.html", context)
 

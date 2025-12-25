@@ -1,3 +1,8 @@
+
+console.log("🔥 JHUSENA ESTOQUE JS: 20251224_99 (arquivo certo)");
+
+
+
 {% extends "base.html" %}
 {% load static %}
 
@@ -61,10 +66,10 @@
     font-weight: 500;
   }
 </style>
+<!-- ✅ Topo vendável (título + botão) -->
+ 
 
-<div class="sj-wrap">
-
-  <!-- ✅ Topo vendável (título + botão) -->
+<div class="sj-wrap">  
   <div class="sj-topbar">
     <div class="sj-title">Dashboard de Estoque</div>
 
@@ -99,8 +104,17 @@
         </div>
       </div>
     </div>
+                <!-- Card 3: Insights (mini-IA) -->
+    <div class="col-12">
+      <div class="sj-card">
+        <div class="sj-card-header">🧠 Insights do Estoque</div>
+            <div class="sj-card-body">
+              <div id="estoqueInsights" class="sj-muted"></div>
+              </div>
+        </div>
+      </div>
 
-    <!-- Card 3: Alertas -->
+    <!-- Card 4: Alertas -->
     <div class="col-12">
       <div class="sj-card">
         <div class="sj-card-header">Alertas de lotes vencidos / a vencer</div>
@@ -129,7 +143,18 @@
 {{ labels_meses|json_script:"sj_labels_meses" }}
 {{ dados_entradas|json_script:"sj_dados_entradas" }}
 {{ dados_saidas|json_script:"sj_dados_saidas" }}
+{{ periodo_dias|json_script:"sj_periodo_dias" }}
 
-<!-- JS do estoque (uma única vez) -->
-<script src="{% static 'estoque/dashboard_estoque.js' %}"></script>
+<div style="opacity:.5;font-size:12px">
+  JS URL: {% static 'estoque/dashboard_estoque.js' %}
+</div>
 {% endblock %}
+
+
+{% block extrabody %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="{% static 'estoque/dashboard_estoque.js' %}?v=20251224_99"></script>
+{% endblock %}
+
+
+

@@ -98,12 +98,33 @@
 </div>
 {% endblock %}
 
-{% block scripts %}
+{% block extrabody %}
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 
 <script>
   /* global Chart */
 
+  function fetchJson(url, options = {}) {
+  return fetch(url, {
+    credentials: "same-origin",
+    ...options,
+    headers: {
+      "X-Requested-With": "XMLHttpRequest",
+      "Accept": "application/json",
+      ...(options.headers || {})
+    }
+  }).then(async (resp) => {
+    const ct = resp.headers.get("content-type") || "";
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    if (!ct.includes("application/json")) {
+      const txt = await resp.text();
+      throw new Error("API não retornou JSON. Recebi: " + txt.slice(0, 120));
+    }
+    return resp.json();
+  });
+}
+ 
   let mesChart = null;
   let statusChart = null;
 
@@ -227,60 +248,122 @@
   }
 
   function carregarHoje() {
-    const box = document.getElementById("boxHoje");
-    if (box) box.innerHTML = "<div class='text-muted'>Carregando...</div>";
+  const box = document.getElementById("boxHoje");
+  if (box) box.innerHTML = "<div class='text-muted'>Carregando...</div>";
 
-    fetch("/agendamentos/dashboard/hoje/", { credentials: "same-origin" })
-      .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-      .then(data => {
-        const box = document.getElementById("boxHoje");
-        if (!box) return;
+  fetch("/agendamentos/dashboard/hoje/", { credentials: "same-origin" })
+    .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then(data => {
+      const box = document.getElementById("boxHoje");
+      if (!box) return;
 
-        const itens = data.itens || [];
-        if (!itens.length) {
-          box.innerHTML = "<div class='text-muted'>Nenhum agendamento para hoje.</div>";
-          return;
-        }
+      const itens = data.itens || [];
+      if (!itens.length) {
+        box.innerHTML = "<div class='text-muted'>Nenhum agendamento para hoje.</div>";
+        return;
+      }
 
-        box.innerHTML = itens.map(a => `
-          <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+      box.innerHTML = itens.map(a => {
+        const st = String(a.status || "agendado").toLowerCase();
+
+        const badgeMap = {
+          agendado: "<span class='ag-badge'>Agendado</span>",
+          pendente: "<span class='ag-badge'>Pendente</span>",
+          concluido: "<span class='ag-badge'>Concluído</span>",
+          cancelado: "<span class='ag-badge'>Cancelado</span>",
+        };
+
+        const badge = badgeMap[st] || "<span class='ag-badge'>Status</span>";
+
+        return `
+          <div class="d-flex justify-content-between align-items-center ag-row ag-status-${st}"
+               id="ag-item-${a.id}">
             <div>
-              <strong>${a.hora}</strong> — ${a.cliente || "(sem cliente)"} <span class="text-muted">(${a.servico})</span>
+              <div class="d-flex align-items-center gap-2">
+                <strong>${a.hora || "--:--"}</strong>
+                ${badge}
+              </div>
+
+              <div>
+                ${a.cliente || "(sem pet)"} <span class="text-muted">(${a.servico})</span>
+              </div>
+
               <div class="text-muted">Tutor: ${a.nome || "-"}</div>
             </div>
+
+            ${(st === "agendado" || st === "pendente") ? `
             <div class="d-flex gap-2">
-              <button class="btn btn-sm btn-outline-primary" onclick="acaoAgendamento(${a.id}, 'concluir')">Concluir</button>
-              <button class="btn btn-sm btn-outline-danger" onclick="acaoAgendamento(${a.id}, 'cancelar')">Cancelar</button>
+              <button class="btn btn-sm btn-outline-primary"
+                      onclick="acaoAgendamento(${a.id}, 'concluir')">
+                Concluir
+              </button>
+              <button class="btn btn-sm btn-outline-danger"
+                      onclick="acaoAgendamento(${a.id}, 'cancelar')">
+                Cancelar
+              </button>
             </div>
+          ` : `
+            <div class="text-muted small">
+              ${st === "concluido" ? "✔ Finalizado" : "✖ Cancelado"}
+            </div>
+          `}
           </div>
-        `).join("");
-      })
-      .catch(err => {
-        console.error("Erro hoje:", err);
-        const box = document.getElementById("boxHoje");
-        if (box) box.innerHTML = "<div class='text-danger'>Erro ao carregar agendamentos de hoje.</div>";
-      });
-  }
+        `;
+      }).join("");
+    })
+    .catch(err => {
+      console.error("Erro hoje:", err);
+      const box = document.getElementById("boxHoje");
+      if (box) box.innerHTML = "<div class='text-danger'>Erro ao carregar agendamentos de hoje.</div>";
+    });
+}
+
 
   function acaoAgendamento(id, acao) {
-    fetch(`/agendamentos/acao/${id}/`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-CSRFToken": getCsrfToken(),
-        "X-Requested-With": "XMLHttpRequest",
-      },
-      credentials: "same-origin",
-      body: JSON.stringify({ acao })
-    })
+  const row = document.getElementById(`ag-item-${id}`);
+
+  // trava os botões do item enquanto processa
+  if (row) {
+    row.querySelectorAll("button").forEach(b => (b.disabled = true));
+    row.style.opacity = "0.6";
+  }
+
+  fetch(`/agendamentos/acao/${id}/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": getCsrfToken(),
+      "X-Requested-With": "XMLHttpRequest",
+    },
+    credentials: "same-origin",
+    body: JSON.stringify({ acao })
+  })
     .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
     .then(data => {
       if (!data.ok) throw new Error(data.erro || "Falha");
-      carregarHoje();
+
+      // ✅ remove o item com animacao leve
+      if (row) {
+        row.style.transition = "all .18s ease";
+        row.style.transform = "translateX(8px)";
+        row.style.opacity = "0";
+        setTimeout(() => row.remove(), 180);
+      }
+
+      // ✅ atualiza cards e gráficos (sem recarregar a lista toda)
       filtrarDados();
     })
-    .catch(err => alert("Erro: " + err.message));
-  }
+    .catch(err => {
+      // reabilita se falhar
+      if (row) {
+        row.querySelectorAll("button").forEach(b => (b.disabled = false));
+        row.style.opacity = "1";
+        row.style.transform = "";
+      }
+      alert("Erro: " + err.message);
+    });
+}
+
 
   document.addEventListener('DOMContentLoaded', () => {
     const form = document.getElementById('filtroForm');

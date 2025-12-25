@@ -30,3 +30,12 @@ h1{
 .botao:hover{
     background-color: #388E3C;
 }
+
+<style>
+  .ag-row { border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; border: 1px solid rgba(255,255,255,.08); }
+  .ag-status-agendado { background: rgba(47,191,113,.10); border-color: rgba(47,191,113,.25); }
+  .ag-status-pendente { background: rgba(255,193,7,.10); border-color: rgba(255,193,7,.25); }
+  .ag-status-concluido { background: rgba(13,110,253,.10); border-color: rgba(13,110,253,.25); opacity: .9; }
+  .ag-status-cancelado { background: rgba(220,53,69,.10); border-color: rgba(220,53,69,.25); opacity: .9; }
+  .ag-badge { font-size: .75rem; padding: .2rem .5rem; border-radius: 999px; border: 1px solid rgba(255,255,255,.12); }
+</style>

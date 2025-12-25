@@ -11,10 +11,16 @@ from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 from rest_framework import generics
+from django.utils.timezone import localdate
+from financeiro.models import Transacao
+from django.contrib.auth.decorators import login_required
+
 
 from .forms import AgendamentoForm
 from .models import Agendamento, Servico
 from .serializers import AgendamentoSerializer
+from django.shortcuts import get_object_or_404
+import json
 
 logger = logging.getLogger(__name__)
 
@@ -24,11 +30,32 @@ class AgendamentoCreateView(generics.CreateAPIView):
     serializer_class = AgendamentoSerializer
 
 
+from django.shortcuts import redirect, render
+from django.contrib import messages
+
+
 def agendar(request):
     if request.method == "POST":
         form = AgendamentoForm(request.POST)
 
         if form.is_valid():
+            cd = form.cleaned_data
+
+            # ✅ Anti-duplicado (evita 2 POSTs iguais)
+            ja_existe = Agendamento.objects.filter(
+                nome=cd.get("nome"),
+                cliente=cd.get("cliente"),
+                telefone=cd.get("telefone"),
+                servico=cd.get("servico"),
+                data=cd.get("data"),
+                hora=cd.get("hora"),
+            ).exists()
+
+            if ja_existe:
+                messages.warning(request, "Esse agendamento já existe. Duplicado evitado ✅")
+                return redirect("agendamentos:agendamento_sucesso")
+
+            # ✅ Salva só se não existir
             agendamento = form.save()
 
             # ✅ Monta mensagem
@@ -58,13 +85,10 @@ def agendar(request):
                 except Exception as e:
                     logger.exception("Falha ao enviar e-mail do agendamento: %s", e)
 
-            # ✅ Sempre redireciona quando salva
             return redirect("agendamentos:agendamento_sucesso")
 
-        # ❌ Form inválido → cai aqui e re-renderiza com erros
         return render(request, "agendamentos/agendar.html", {"form": form})
 
-    # GET
     form = AgendamentoForm()
     return render(request, "agendamentos/agendar.html", {"form": form})
 
@@ -223,3 +247,75 @@ def criar_agendamento(request):
     )
 
     return JsonResponse({"mensagem": "Agendamento salvo com sucesso!", "id": ag.id}, status=201)
+
+
+@login_required
+def dashboard_hoje(request):
+    hoje = localdate()
+
+    # campo de data é DateField
+    campo_data = "data"  # ajuste se o nome for outro
+
+    qs = (
+        Agendamento.objects
+        .filter(**{campo_data: hoje})
+        .order_by(campo_data)
+    )
+
+    itens = []
+    for a in qs:
+        itens.append(
+            {
+                "id": a.id,
+                "hora": "",  # DateField não tem hora
+                "cliente": getattr(a, "cliente", "") or getattr(a, "tutor", ""),
+                "servico": str(getattr(a, "servico", "")),
+                "nome": getattr(a, "pet", "") or getattr(a, "pet_nome", ""),
+                "status": a.status,
+            }
+        )
+
+    return JsonResponse({"itens": itens})
+
+
+@login_required
+@require_POST
+def acao_agendamento(request, id):
+    ag = get_object_or_404(Agendamento, id=id)
+
+    try:
+        data = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"ok": False, "erro": "JSON inválido"}, status=400)
+
+    acao = data.get("acao")
+
+    if acao == "concluir":
+     ag.status = "concluido"
+    ag.save(update_fields=["status"])
+
+    # 💰 cria lançamento financeiro (somente se ainda não existir)
+    descricao = f"Serviço concluído: {ag.servico} (Agendamento #{ag.id})"
+
+    ja_existe = Transacao.objects.filter(
+        tipo="receita",
+        descricao=descricao,
+    ).exists()
+
+    if not ja_existe:
+        Transacao.objects.create(
+            categoria="Agendamentos",
+            tipo="receita",
+            descricao=descricao,
+            valor=0,          # valor ainda não definido
+            data=localdate(),
+        )
+
+    elif acao == "cancelar":
+        ag.status = "cancelado"
+        ag.save(update_fields=["status"])
+
+    else:
+        return JsonResponse({"ok": False, "erro": "Ação inválida"}, status=400)
+
+    return JsonResponse({"ok": True, "id": ag.id, "status": ag.status})
