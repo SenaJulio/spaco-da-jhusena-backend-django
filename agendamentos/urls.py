@@ -24,4 +24,5 @@ urlpatterns = [
     path("api/agendamentos/", views.AgendamentoCreateView.as_view(), name="agendamento_create"),
     path("dashboard/hoje/", views.dashboard_hoje, name="dashboard_hoje"),
     path("acao/<int:id>/", views.acao_agendamento, name="acao_agendamento"),
+    path("horarios-ocupados/", views.horarios_ocupados, name="horarios_ocupados"),
 ]

@@ -12,7 +12,7 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AddField(
             model_name="agendamento",
-            name="cliente",
+            name="pet_nome",
             field=models.CharField(blank=True, max_length=100, null=True),
         ),
     ]

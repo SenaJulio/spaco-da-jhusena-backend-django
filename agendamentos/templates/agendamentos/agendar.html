@@ -140,7 +140,7 @@
 
       <div>
         <label for="id_cliente" class="form-label">Nome do pet</label>
-        {{ form.cliente }}
+        {{ form.pet_nome }}
       </div>
 
       <div>
@@ -168,7 +168,73 @@
           {{ form.hora }}
         </div>
       </div>
+      <div id="horaHelp" class="small text-danger mt-1 d-none"></div>
+      <div id="horariosOcupados" class="small text-muted mt-1"></div>
+ <script>
+document.addEventListener("DOMContentLoaded", () => {
+  const elData = document.getElementById("id_data");
+  const elHora = document.getElementById("id_hora");
+  const elHelp = document.getElementById("horaHelp");
+  const elLista = document.getElementById("horariosOcupados");
 
+  if (!elData || !elHora) return;
+
+  let ocupados = [];
+
+  async function carregarOcupados(){
+    const data = elData.value;
+    ocupados = [];
+    elLista.textContent = "";
+    elHelp.classList.add("d-none");
+
+    if (!data) return;
+
+    const url = new URL("{% url 'agendamentos:horarios_ocupados' %}", window.location.origin);
+    url.searchParams.set("data", data);
+
+    try{
+      const r = await fetch(url, { headers: { "Accept": "application/json" }});
+      const d = await r.json();
+
+      if (d.ok && Array.isArray(d.ocupados)) {
+        ocupados = d.ocupados;
+
+        if (ocupados.length) {
+          elLista.innerHTML = `Horários ocupados: <strong>${ocupados.join(", ")}</strong>`;
+        } else {
+          elLista.textContent = "Nenhum horário ocupado neste dia 👍";
+        }
+      }
+    }catch(e){
+      console.warn("Falha ao carregar horários ocupados:", e);
+    }
+  }
+
+  function validarHora(){
+    const v = elHora.value;
+    if (!v) return;
+
+    if (ocupados.includes(v)) {
+      elHelp.textContent = "Esse horário já está ocupado. Escolha outro.";
+      elHelp.classList.remove("d-none");
+      elHora.value = "";
+      elHora.focus();
+    } else {
+      elHelp.classList.add("d-none");
+    }
+  }
+
+  elData.addEventListener("change", async () => {
+    await carregarOcupados();
+    validarHora();
+  });
+
+  elHora.addEventListener("change", validarHora);
+
+  // se já tiver data ao carregar
+  carregarOcupados();
+});
+</script>
       <button type="submit" class="btn btn-sj">
         ✅ Confirmar agendamento
       </button>

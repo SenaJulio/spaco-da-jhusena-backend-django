@@ -105,175 +105,208 @@
 <script>
   /* global Chart */
 
+  // -----------------------
+  // Helpers
+  // -----------------------
   function fetchJson(url, options = {}) {
-  return fetch(url, {
-    credentials: "same-origin",
-    ...options,
-    headers: {
-      "X-Requested-With": "XMLHttpRequest",
-      "Accept": "application/json",
-      ...(options.headers || {})
-    }
-  }).then(async (resp) => {
-    const ct = resp.headers.get("content-type") || "";
-    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-    if (!ct.includes("application/json")) {
-      const txt = await resp.text();
-      throw new Error("API não retornou JSON. Recebi: " + txt.slice(0, 120));
-    }
-    return resp.json();
-  });
-}
- 
-  let mesChart = null;
-  let statusChart = null;
+    return fetch(url, {
+      credentials: "same-origin",
+      ...options,
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+        "Accept": "application/json",
+        ...(options.headers || {}),
+      },
+    }).then(async (resp) => {
+      const ct = resp.headers.get("content-type") || "";
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      if (!ct.includes("application/json")) {
+        const txt = await resp.text();
+        throw new Error("API não retornou JSON. Recebi: " + txt.slice(0, 120));
+      }
+      return resp.json();
+    });
+  }
 
   function getCsrfToken() {
     const m = document.cookie.match(/csrftoken=([^;]+)/);
     return m ? m[1] : "";
   }
 
-  function updateChart(evolucao) {
-    const labels = (evolucao || []).map(item => item.mes);
-    const data = (evolucao || []).map(item => Number(item.total) || 0);
+  function percent(val, total) {
+    return total > 0 ? (val / total * 100).toFixed(1) + "%" : "0.0%";
+  }
 
-    const canvas = document.getElementById('mesChart');
+  // -----------------------
+  // Charts (mantém instâncias)
+  // -----------------------
+  let mesChart = null;
+  let statusChart = null;
+
+  function updateChart(evolucao) {
+    const labels = (evolucao || []).map((item) => item.mes);
+    const data = (evolucao || []).map((item) => Number(item.total) || 0);
+
+    const canvas = document.getElementById("mesChart");
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
 
     if (mesChart) {
       mesChart.data.labels = labels;
       mesChart.data.datasets[0].data = data;
-      mesChart.update('none');
+      mesChart.update("none");
       return;
     }
 
     mesChart = new Chart(ctx, {
-      type: 'line',
+      type: "line",
       data: {
         labels,
-        datasets: [{
-          label: 'Agendamentos por Mês',
-          data,
-          borderColor: 'green',
-          backgroundColor: 'rgba(0,128,0,0.1)',
-          fill: true,
-          tension: 0.3
-        }]
+        datasets: [
+          {
+            label: "Agendamentos por Mês",
+            data,
+            borderColor: "green",
+            backgroundColor: "rgba(0,128,0,0.1)",
+            fill: true,
+            tension: 0.3,
+          },
+        ],
       },
       options: {
         animation: false,
         responsive: true,
         maintainAspectRatio: false,
-        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
-      }
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+      },
     });
   }
 
   function updateStatusChart(contagem) {
-    const labels = (contagem || []).map(item => String(item.status || '').toLowerCase());
-    const data = (contagem || []).map(item => Number(item.total) || 0);
+    const labels = (contagem || []).map((item) =>
+      String(item.status || "").toLowerCase()
+    );
+    const data = (contagem || []).map((item) => Number(item.total) || 0);
 
     const cores = {
-      agendado: '#4caf50',
-      pendente: '#ff9800',
-      concluido: '#2196f3',
-      cancelado: '#f44336',
-      outro: '#9e9e9e'
+      agendado: "#4caf50",
+      pendente: "#ff9800",
+      concluido: "#2196f3",
+      cancelado: "#f44336",
+      outro: "#9e9e9e",
     };
 
-    const backgroundColors = labels.map(status => cores[status] || cores.outro);
+    const backgroundColors = labels.map((status) => cores[status] || cores.outro);
 
-    const canvas = document.getElementById('statusChart');
+    const canvas = document.getElementById("statusChart");
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext("2d");
 
     if (statusChart) {
       statusChart.data.labels = labels;
       statusChart.data.datasets[0].data = data;
       statusChart.data.datasets[0].backgroundColor = backgroundColors;
-      statusChart.update('none');
+      statusChart.update("none");
       return;
     }
 
     statusChart = new Chart(ctx, {
-      type: 'doughnut',
+      type: "doughnut",
       data: { labels, datasets: [{ data, backgroundColor: backgroundColors }] },
       options: {
         animation: false,
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: { position: 'bottom' },
-          title: { display: true, text: 'Distribuição de Status' }
-        }
-      }
+          legend: { position: "bottom" },
+          title: { display: true, text: "Distribuição de Status" },
+        },
+      },
     });
   }
 
+  // -----------------------
+  // Dashboard (cards + charts)
+  // -----------------------
   function filtrarDados() {
-    const inicio = document.getElementById('data_inicio')?.value || '';
-    const fim = document.getElementById('data_fim')?.value || '';
+    const inicio = document.getElementById("data_inicio")?.value || "";
+    const fim = document.getElementById("data_fim")?.value || "";
 
-    const url = new URL('/agendamentos/dashboard/dados/', location.origin);
-    if (inicio) url.searchParams.set('data_inicio', inicio);
-    if (fim) url.searchParams.set('data_fim', fim);
+    const url = new URL("/agendamentos/dashboard/dados/", location.origin);
+    if (inicio) url.searchParams.set("data_inicio", inicio);
+    if (fim) url.searchParams.set("data_fim", fim);
 
-    fetch(url, {
-      headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
-      credentials: 'same-origin'
-    })
-      .then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.json(); })
-      .then(data => {
-        let total = 0, concluido = 0, cancelado = 0;
+    fetchJson(url.toString())
+      .then((data) => {
+        let total = 0,
+          concluido = 0,
+          cancelado = 0;
 
-        (data.contagem_status || []).forEach(item => {
-          const st = String(item.status || '').toLowerCase();
+        (data.contagem_status || []).forEach((item) => {
+          const st = String(item.status || "").toLowerCase();
           const qtd = Number(item.total) || 0;
           total += qtd;
-          if (st === 'concluido') concluido = qtd;
-          if (st === 'cancelado') cancelado = qtd;
+          if (st === "concluido") concluido = qtd;
+          if (st === "cancelado") cancelado = qtd;
         });
 
-        const percent = (val) => total > 0 ? (val / total * 100).toFixed(1) + '%' : '0.0%';
+        const elTotal = document.getElementById("total-agendamentos");
+        const elConc = document.getElementById("concluidos-percentual");
+        const elCanc = document.getElementById("cancelados-percentual");
 
-        document.getElementById('total-agendamentos').textContent = String(total);
-        document.getElementById('concluidos-percentual').textContent = percent(concluido);
-        document.getElementById('cancelados-percentual').textContent = percent(cancelado);
+        if (elTotal) elTotal.textContent = String(total);
+        if (elConc) elConc.textContent = percent(concluido, total);
+        if (elCanc) elCanc.textContent = percent(cancelado, total);
 
         updateStatusChart(data.contagem_status || []);
         updateChart(data.evolucao_mensal || []);
       })
-      .catch(err => console.error('Erro ao buscar dados do dashboard:', err));
+      .catch((err) => console.error("Erro ao buscar dados do dashboard:", err));
   }
 
-  function carregarHoje() {
-  const box = document.getElementById("boxHoje");
-  if (box) box.innerHTML = "<div class='text-muted'>Carregando...</div>";
+  // -----------------------
+  // Hoje (render + ações)
+  // -----------------------
+  function renderHoje(itens) {
+    const box = document.getElementById("boxHoje");
+    if (!box) return;
 
-  fetch("/agendamentos/dashboard/hoje/", { credentials: "same-origin" })
-    .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-    .then(data => {
-      const box = document.getElementById("boxHoje");
-      if (!box) return;
+    if (!itens || itens.length === 0) {
+      box.innerHTML = "<div class='text-muted'>Nenhum agendamento para hoje. 🎉</div>";
+      return;
+    }
 
-      const itens = data.itens || [];
-      if (!itens.length) {
-        box.innerHTML = "<div class='text-muted'>Nenhum agendamento para hoje.</div>";
-        return;
-      }
+    const badgeMap = {
+      agendado: "<span class='ag-badge'>Agendado</span>",
+      pendente: "<span class='ag-badge'>Pendente</span>",
+      concluido: "<span class='ag-badge'>Concluído</span>",
+      cancelado: "<span class='ag-badge'>Cancelado</span>",
+    };
 
-      box.innerHTML = itens.map(a => {
+    box.innerHTML = (itens || [])
+      .map((a) => {
         const st = String(a.status || "agendado").toLowerCase();
-
-        const badgeMap = {
-          agendado: "<span class='ag-badge'>Agendado</span>",
-          pendente: "<span class='ag-badge'>Pendente</span>",
-          concluido: "<span class='ag-badge'>Concluído</span>",
-          cancelado: "<span class='ag-badge'>Cancelado</span>",
-        };
-
         const badge = badgeMap[st] || "<span class='ag-badge'>Status</span>";
+
+        const acoes =
+          st === "agendado" || st === "pendente"
+            ? `
+              <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-primary js-acao"
+                        data-id="${a.id}" data-acao="concluir">
+                  Concluir
+                </button>
+                <button class="btn btn-sm btn-outline-danger js-acao"
+                        data-id="${a.id}" data-acao="cancelar">
+                  Cancelar
+                </button>
+              </div>
+            `
+            : `
+              <div class="text-muted small">
+                ${st === "concluido" ? "✔ Finalizado" : "✖ Cancelado"}
+              </div>
+            `;
 
         return `
           <div class="d-flex justify-content-between align-items-center ag-row ag-status-${st}"
@@ -285,89 +318,105 @@
               </div>
 
               <div>
-                ${a.cliente || "(sem pet)"} <span class="text-muted">(${a.servico})</span>
+                ${a.pet_nome || "(sem pet)"} <span class="text-muted">(${a.servico || "-"})</span>
               </div>
 
               <div class="text-muted">Tutor: ${a.nome || "-"}</div>
             </div>
 
-            ${(st === "agendado" || st === "pendente") ? `
-            <div class="d-flex gap-2">
-              <button class="btn btn-sm btn-outline-primary"
-                      onclick="acaoAgendamento(${a.id}, 'concluir')">
-                Concluir
-              </button>
-              <button class="btn btn-sm btn-outline-danger"
-                      onclick="acaoAgendamento(${a.id}, 'cancelar')">
-                Cancelar
-              </button>
-            </div>
-          ` : `
-            <div class="text-muted small">
-              ${st === "concluido" ? "✔ Finalizado" : "✖ Cancelado"}
-            </div>
-          `}
+            ${acoes}
           </div>
         `;
-      }).join("");
-    })
-    .catch(err => {
-      console.error("Erro hoje:", err);
-      const box = document.getElementById("boxHoje");
-      if (box) box.innerHTML = "<div class='text-danger'>Erro ao carregar agendamentos de hoje.</div>";
-    });
-}
-
-
-  function acaoAgendamento(id, acao) {
-  const row = document.getElementById(`ag-item-${id}`);
-
-  // trava os botões do item enquanto processa
-  if (row) {
-    row.querySelectorAll("button").forEach(b => (b.disabled = true));
-    row.style.opacity = "0.6";
+      })
+      .join("");
   }
 
-  fetch(`/agendamentos/acao/${id}/`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "X-CSRFToken": getCsrfToken(),
-      "X-Requested-With": "XMLHttpRequest",
-    },
-    credentials: "same-origin",
-    body: JSON.stringify({ acao })
-  })
-    .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-    .then(data => {
-      if (!data.ok) throw new Error(data.erro || "Falha");
+  function carregarHoje() {
+    const box = document.getElementById("boxHoje");
+    if (box) box.innerHTML = "<div class='text-muted'>Carregando...</div>";
 
-      // ✅ remove o item com animacao leve
-      if (row) {
-        row.style.transition = "all .18s ease";
-        row.style.transform = "translateX(8px)";
-        row.style.opacity = "0";
-        setTimeout(() => row.remove(), 180);
-      }
+    fetchJson("/agendamentos/dashboard/hoje/")
+      .then((data) => {
+        renderHoje(data.itens || []);
+      })
+      .catch((err) => {
+        console.error("Erro hoje:", err);
+        const box2 = document.getElementById("boxHoje");
+        if (box2)
+          box2.innerHTML =
+            "<div class='text-danger'>Erro ao carregar agendamentos de hoje.</div>";
+      });
+  }
 
-      // ✅ atualiza cards e gráficos (sem recarregar a lista toda)
-      filtrarDados();
+  function acaoAgendamento(id, acao) {
+    const row = document.getElementById(`ag-item-${id}`);
+
+    // trava os botões do item enquanto processa
+    if (row) {
+      row.querySelectorAll("button").forEach((b) => (b.disabled = true));
+      row.style.opacity = "0.6";
+    }
+
+    fetchJson(`/agendamentos/acao/${id}/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCsrfToken(),
+      },
+      body: JSON.stringify({ acao }),
     })
-    .catch(err => {
-      // reabilita se falhar
-      if (row) {
-        row.querySelectorAll("button").forEach(b => (b.disabled = false));
-        row.style.opacity = "1";
-        row.style.transform = "";
-      }
-      alert("Erro: " + err.message);
-    });
-}
+      .then((data) => {
+        if (!data.ok) throw new Error(data.erro || "Falha");
 
+        // remove o item com animação leve
+        if (row) {
+          row.style.transition = "all .18s ease";
+          row.style.transform = "translateX(8px)";
+          row.style.opacity = "0";
+          setTimeout(() => {
+            row.remove();
 
-  document.addEventListener('DOMContentLoaded', () => {
-    const form = document.getElementById('filtroForm');
-    if (form) form.addEventListener('submit', (e) => { e.preventDefault(); filtrarDados(); });
+            // se ficou vazio, mostra msg bonita
+            const box = document.getElementById("boxHoje");
+            if (box && box.querySelectorAll("[id^='ag-item-']").length === 0) {
+              box.innerHTML = "<div class='text-muted'>Nenhum agendamento para hoje. 🎉</div>";
+            }
+          }, 180);
+        }
+
+        // atualiza cards e gráficos
+        filtrarDados();
+      })
+      .catch((err) => {
+        if (row) {
+          row.querySelectorAll("button").forEach((b) => (b.disabled = false));
+          row.style.opacity = "1";
+          row.style.transform = "";
+        }
+        alert("Erro: " + err.message);
+      });
+  }
+
+  // Delegação de clique para ações
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest(".js-acao");
+    if (!btn) return;
+    const id = btn.dataset.id;
+    const acao = btn.dataset.acao;
+    if (!id || !acao) return;
+    acaoAgendamento(id, acao);
+  });
+
+  // -----------------------
+  // Boot
+  // -----------------------
+  document.addEventListener("DOMContentLoaded", () => {
+    const form = document.getElementById("filtroForm");
+    if (form)
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        filtrarDados();
+      });
 
     const btn = document.getElementById("btnRecarregarHoje");
     if (btn) btn.addEventListener("click", carregarHoje);
@@ -376,4 +425,5 @@
     filtrarDados();
   });
 </script>
+
 {% endblock %}

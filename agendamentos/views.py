@@ -10,6 +10,7 @@ from django.db.models.functions import TruncMonth
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET
 from rest_framework import generics
 from django.utils.timezone import localdate
 from financeiro.models import Transacao
@@ -44,7 +45,7 @@ def agendar(request):
             # ✅ Anti-duplicado (evita 2 POSTs iguais)
             ja_existe = Agendamento.objects.filter(
                 nome=cd.get("nome"),
-                cliente=cd.get("cliente"),
+                pet_nome=cd.get("pet_nome"),
                 telefone=cd.get("telefone"),
                 servico=cd.get("servico"),
                 data=cd.get("data"),
@@ -63,7 +64,7 @@ def agendar(request):
             mensagem = (
                 f"Olá {agendamento.nome},\n\n"
                 f"Seu agendamento para o serviço {agendamento.servico} foi confirmado!\n"
-                f"Pet: {getattr(agendamento, 'cliente', '-')}\n"
+                f"Pet: {getattr(agendamento, "pet_nome", '-')}\n"
                 f"Data: {agendamento.data.strftime('%d/%m/%Y')}\n"
                 f"Hora: {agendamento.hora.strftime('%H:%M')}\n\n"
                 "Obrigado por confiar no Spaço da Jhuséna 💚🐶\n"
@@ -238,7 +239,7 @@ def criar_agendamento(request):
 
     ag = Agendamento.objects.create(
         nome=data["nomeTutor"],
-        cliente=data["nomePet"],
+        pet_nome =data["nomePet"],
         telefone=data["telefone"],
         email=data["email"],
         servico=servico_obj,
@@ -268,7 +269,7 @@ def dashboard_hoje(request):
             {
                 "id": a.id,
                 "hora": "",  # DateField não tem hora
-                "cliente": getattr(a, "cliente", "") or getattr(a, "tutor", ""),
+                "pet_nome": getattr(a, "pet_nome", "") or getattr(a, "tutor", ""),
                 "servico": str(getattr(a, "servico", "")),
                 "nome": getattr(a, "pet", "") or getattr(a, "pet_nome", ""),
                 "status": a.status,
@@ -291,7 +292,7 @@ def acao_agendamento(request, id):
     acao = data.get("acao")
 
     if acao == "concluir":
-     ag.status = "concluido"
+        ag.status = "concluido"
     ag.save(update_fields=["status"])
 
     # 💰 cria lançamento financeiro (somente se ainda não existir)
@@ -319,3 +320,16 @@ def acao_agendamento(request, id):
         return JsonResponse({"ok": False, "erro": "Ação inválida"}, status=400)
 
     return JsonResponse({"ok": True, "id": ag.id, "status": ag.status})
+
+
+@require_GET
+def horarios_ocupados(request):
+    data = request.GET.get("data")  # "YYYY-MM-DD"
+    if not data:
+        return JsonResponse({"ok": False, "erro": "data obrigatória"}, status=400)
+
+    qs = Agendamento.objects.filter(data=data).values_list("hora", flat=True)
+
+    # retorna "HH:MM"
+    ocupados = [h.strftime("%H:%M") for h in qs if h]
+    return JsonResponse({"ok": True, "ocupados": ocupados})

@@ -12,7 +12,7 @@ admin.site.index_title = "Bem-vindo ao Controle Geral 💚"
 class AgendamentoAdmin(admin.ModelAdmin):
     list_display = (
         "id",
-        "cliente",
+        "pet_nome",
         "servico",
         "data",
         "hora",
@@ -21,7 +21,7 @@ class AgendamentoAdmin(admin.ModelAdmin):
         "telefone",
         "email",
     )
-    search_fields = ("cliente", "nome", "telefone", "email")
+    search_fields = ("pet_nome", "nome", "telefone", "email")
     list_filter = ("status", "data")  # (servico pode ficar aqui também se quiser)
     ordering = ("-id",)
     actions = ("marcar_como_concluido",)
