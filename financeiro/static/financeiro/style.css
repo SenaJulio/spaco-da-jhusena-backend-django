@@ -1,31 +1,30 @@
 /* === Spaço da Jhuséna — Painel Financeiro === */
+/* ✅ CSS consolidado (sem regras duplicadas / sem brigas) */
 
 /* ---------------- Tema base (cores) ---------------- */
-
 :root {
   --sj-bg: #f4fdf5;
   --sj-text: #2e7d32;
   --sj-accent: #2e7d32;
   --sj-accent-dark: #256b28;
-  --sj-card-shadow: 0 2px 6px rgba(0,0,0,.08);
+  --sj-card-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 
-  /* Dark-friendly (usado nas seções de IA) */
+  /* Dark-friendly (IA / seções escuras) */
   --sj-verde-borda: rgba(76, 175, 80, 0.45);
   --sj-verde-fundo: rgba(46, 125, 50, 0.18);
   --sj-ambar-borda: rgba(255, 193, 7, 0.55);
-  --sj-ambar-fundo: rgba(255, 193, 7, 0.20);
+  --sj-ambar-fundo: rgba(255, 193, 7, 0.2);
   --sj-cinza-borda: rgba(255, 255, 255, 0.18);
   --sj-cinza-fundo: rgba(255, 255, 255, 0.08);
 }
 
-/* Tema claro base do painel */
+/* ---------------- Base do tema claro ---------------- */
 html,
 body {
   background: var(--sj-bg) !important;
   color: var(--sj-text) !important;
 }
 
-/* Tipografia geral */
 body {
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   margin: 0;
@@ -49,7 +48,6 @@ h4 {
 }
 
 /* ---------------- Cards gerais ---------------- */
-
 .card {
   border-radius: 12px;
   box-shadow: var(--sj-card-shadow);
@@ -59,10 +57,10 @@ h4 {
 
 .card:hover {
   transform: translateY(-3px);
-  box-shadow: 0 4px 12px rgba(0,0,0,.12);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
 }
 
-/* Cards de totais */
+/* Cards de totais (KPI) */
 .card.border-success {
   border: 1px solid #81c784 !important;
   background: #e8f7ef;
@@ -77,7 +75,6 @@ h4 {
 }
 
 /* ---------------- Botões ---------------- */
-
 .btn {
   border-radius: 8px;
   font-weight: 600;
@@ -100,7 +97,6 @@ h4 {
 }
 
 /* ---------------- Filtros / inputs ---------------- */
-
 .filtro-financeiro label,
 form label {
   font-weight: 700;
@@ -118,8 +114,8 @@ form input[type="date"] {
 
 /* =========================
    GRÁFICOS — PRESET ESTÁVEL
+   (sem quebrar Chart.js)
    ========================= */
-
 .chart-box {
   position: relative;
   aspect-ratio: 16 / 9;
@@ -134,33 +130,28 @@ form input[type="date"] {
   height: 100% !important;
 }
 
-/* Compatibilidade (sem altura fixa) */
 #graficoEvolucao,
 #graficoCategorias {
   display: block;
   width: 100%;
 }
 
-/* Mantém os cards acima de overlays/modais se necessário */
 .card.h-100 {
   z-index: 5;
 }
 
-/* Mensagens vazias */
 .sem-dados {
   font-style: italic;
   color: #666;
   text-align: center;
 }
 
-/* Canvas / Chart.js */
 .chartjs-render-monitor,
 canvas {
   image-rendering: auto;
 }
 
 /* ---------------- Badges de tipo (Resumo / fora do histórico) ---------------- */
-
 .badge-tipo {
   display: inline-flex;
   align-items: center;
@@ -200,14 +191,12 @@ canvas {
 }
 
 /* ================= Bloco Plano IA (30d) ================= */
-
 #analise30dPlano {
   border-radius: 0.8rem !important;
   border-width: 1px !important;
   border-style: solid !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.03),
-    0 0 0 1px rgba(0,0,0,0.12) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 0 0 1px rgba(0, 0, 0, 0.12) !important;
   backdrop-filter: saturate(120%) !important;
   transition: all 0.25s ease;
 }
@@ -230,7 +219,7 @@ canvas {
   color: #d6d6d6 !important;
 }
 
-/* KPIs da análise 30d */
+/* KPIs 30d */
 #analise30dKPIs .border {
   border-radius: 0.6rem !important;
   transition: border-color 0.4s ease, box-shadow 0.4s ease;
@@ -251,7 +240,7 @@ canvas {
   box-shadow: 0 0 4px var(--sj-cinza-borda);
 }
 
-/* Bloco verde (tema escuro suave) */
+/* Bloco verde */
 .card.bg-success-subtle {
   background-color: rgba(46, 125, 50, 0.12) !important;
   border-color: rgba(76, 175, 80, 0.45) !important;
@@ -265,8 +254,6 @@ canvas {
 }
 
 /* ================= HISTÓRICO IA (cards + chips) ================= */
-
-/* Card base do histórico */
 .ia-card {
   background: rgba(0, 0, 0, 0.2);
   border-radius: 0.6rem;
@@ -275,20 +262,19 @@ canvas {
   margin-bottom: 0.75rem;
   padding: 12px 16px;
   transition: all 0.2s ease-in-out;
+  position: relative;
 }
 
 .ia-card:hover {
-  box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
   transform: translateY(-1px);
 }
 
-/* Card recém-adicionado / não lido */
 .ia-card.is-new {
-  border-color: #1b5e20;
-  box-shadow: 0 0 0 1px rgba(27, 94, 32, 0.45);
+  border-color: rgba(0, 200, 83, 0.7);
+  box-shadow: 0 0 18px rgba(0, 200, 83, 0.25);
 }
 
-/* Conteúdo do histórico */
 .ia-card .conteudo,
 .ia-card p,
 .ia-card div {
@@ -296,22 +282,36 @@ canvas {
   line-height: 1.4rem;
 }
 
-/* Data / info */
 .ia-card small.text-muted {
   font-size: 0.8rem;
 }
 
-/* Animação de entrada */
 .ia-card.fade-in {
   animation: fadeIn 0.25s ease-out;
 }
 
-/* Destaque suave para dicas recém-adicionadas */
 .ia-card.just-added {
-  animation: popIn 0.35s ease-out, glow 1.1s ease-out 1;
+  background: linear-gradient(90deg, #e8fce9, #ffffff);
+  border-left: 4px solid #2ecc71;
+  box-shadow: 0 0 10px rgba(46, 204, 113, 0.4);
+  transform: translateY(-1px);
+  transition: all 0.4s ease;
 }
 
-/* Chip / badge dentro do histórico */
+.ia-card.just-added::after {
+  content: "Nova dica adicionada";
+  position: absolute;
+  right: 16px;
+  top: -10px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  border-radius: 999px;
+  background: #28a745;
+  color: #fff;
+  animation: iaBadge 1.8s ease-out forwards;
+  opacity: 0;
+}
+
 .ia-card .chip,
 .ia-card .badge {
   display: inline-flex;
@@ -326,7 +326,6 @@ canvas {
   border: 1px solid transparent;
 }
 
-/* POSITIVA — verde mais suave (histórico) */
 .chip-success,
 .ia-card .badge-positiva,
 .ia-card .badge-success {
@@ -335,7 +334,6 @@ canvas {
   border-color: rgba(34, 197, 94, 0.55);
 }
 
-/* ALERTA — âmbar/laranja (histórico) */
 .chip-warning,
 .ia-card .badge-alerta,
 .ia-card .badge-danger {
@@ -344,7 +342,6 @@ canvas {
   border-color: rgba(245, 158, 11, 0.55);
 }
 
-/* NEUTRA — cinza elegante (histórico) */
 .chip-neutral,
 .ia-card .badge-neutra,
 .ia-card .badge-secondary {
@@ -353,22 +350,18 @@ canvas {
   border-color: rgba(148, 163, 184, 0.55);
 }
 
-/* Texto colorido de acordo com o tipo */
 .ia-card .ia-text-positiva {
   color: #22c55e;
   font-weight: 500;
 }
-
 .ia-card .ia-text-alerta {
   color: #ff9800;
   font-weight: 500;
 }
-
 .ia-card .ia-text-neutra {
   color: #9ca3af;
 }
 
-/* leve animação ao passar o mouse nos badges */
 .ia-card .chip:hover,
 .ia-card .badge:hover {
   transform: translateY(-1px);
@@ -376,7 +369,6 @@ canvas {
 }
 
 /* ================= Animações ================= */
-
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -388,31 +380,24 @@ canvas {
   }
 }
 
-@keyframes popIn {
+@keyframes iaBadge {
   0% {
-    transform: scale(0.98);
     opacity: 0;
+    transform: translateY(-4px);
   }
-  60% {
-    transform: scale(1.02);
+  20% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  70% {
     opacity: 1;
   }
   100% {
-    transform: scale(1);
-  }
-}
-
-@keyframes glow {
-  0% {
-    box-shadow: 0 0 0 rgba(25, 135, 84, 0);
-  }
-  100% {
-    box-shadow: 0 0 18px rgba(25, 135, 84, 0.35);
+    opacity: 0;
   }
 }
 
 /* ================= Impressão ================= */
-
 @page {
   size: A4 landscape;
   margin: 12mm;
@@ -443,7 +428,6 @@ canvas {
 }
 
 /* ================= Responsivo ================= */
-
 @media (max-width: 768px) {
   body {
     padding: 1rem;
@@ -466,21 +450,18 @@ body.sj-dark {
   color: #e5e7eb !important;
 }
 
-/* Cards gerais */
 body.sj-dark .card {
   background: #0b1120;
   border-color: #1f2937;
   color: #e5e7eb;
 }
 
-/* Alerts */
 body.sj-dark .alert {
   background: #020617;
   border-color: #22c55e;
   color: #e5e7eb;
 }
 
-/* Cabeçalhos */
 body.sj-dark h1,
 body.sj-dark h2,
 body.sj-dark h3,
@@ -488,7 +469,6 @@ body.sj-dark h4 {
   color: #bbf7d0;
 }
 
-/* Botões principais */
 body.sj-dark .btn-success {
   background: #16a34a;
   border-color: #15803d;
@@ -498,33 +478,28 @@ body.sj-dark .btn-success:hover {
   border-color: #16a34a;
 }
 
-/* Cards do histórico IA */
 body.sj-dark .ia-card {
   background: #020617;
   border-color: #1f2937;
   color: #e5e7eb;
 }
 
-/* Chips (positiva/alerta/neutra) no dark */
 body.sj-dark .chip-success {
   background: rgba(34, 197, 94, 0.12);
   color: #4ade80;
   border-color: rgba(34, 197, 94, 0.7);
 }
-
 body.sj-dark .chip-warning {
   background: rgba(251, 191, 36, 0.1);
   color: #facc15;
   border-color: rgba(251, 191, 36, 0.8);
 }
-
 body.sj-dark .chip-neutral {
   background: rgba(148, 163, 184, 0.12);
   color: #e2e8f0;
   border-color: rgba(148, 163, 184, 0.7);
 }
 
-/* Texto das frases */
 body.sj-dark .ia-card .ia-text-positiva {
   color: #4ade80;
 }
@@ -535,369 +510,14 @@ body.sj-dark .ia-card .ia-text-neutra {
   color: #e5e7eb;
 }
 
-/* Badges bootstrap dentro do histórico, se ainda aparecerem */
-body.sj-dark .ia-card .badge-success {
-  background: #14532d !important;
-  color: #bbf7d0 !important;
-}
-body.sj-dark .ia-card .badge-danger {
-  background: #7f1d1d !important;
-  color: #fecaca !important;
-}
-body.sj-dark .ia-card .badge-secondary {
-  background: #111827 !important;
-  color: #e5e7eb !important;
-}
-
-/* Gráficos: deixar o fundo neutro escuro */
 body.sj-dark .chart-box {
   background: #020617;
   border-radius: 12px;
 }
 
-
-/* ============================
- * Spaço da Jhuséna – Mini-IA
- * ============================ */
-
-.sj-card-ia {
-  border-radius: 0.75rem;
-  border: 1px solid rgba(46, 125, 50, 0.18);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-  background: radial-gradient(circle at top left, #f4fdf5 0, #ffffff 45%, #f9f9ff 100%);
-}
-
-.sj-badge-beta {
-  background: linear-gradient(135deg, #2e7d32, #4caf50);
-  color: #fff;
-  border-radius: 999px;
-  font-size: 0.7rem;
-  padding: 0.15rem 0.5rem;
-}
-
-/* Texto principal da dica */
-.sj-ia-text {
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: #1b4332;
-}
-
-/* Lista de métricas */
-.sj-ia-metrics {
-  list-style: none;
-  padding-left: 0;
-}
-
-.sj-ia-metrics li {
-  margin-bottom: 0.15rem;
-}
-
-/* Chips de tipo */
-.sj-ia-chip {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0.05rem 0.5rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-.sj-ia-chip-positive,
-.sj-ia-chip-positiva {
-  background-color: rgba(46, 204, 113, 0.12);
-  color: #218838;
-}
-
-.sj-ia-chip-alert,
-.sj-ia-chip-alerta {
-  background-color: rgba(231, 76, 60, 0.12);
-  color: #c0392b;
-}
-
-.sj-ia-chip-neutral,
-.sj-ia-chip-neutra {
-  background-color: rgba(52, 152, 219, 0.12);
-  color: #1d6fa5;
-}
-
-/* Estados do card conforme tipo */
-.sj-ia-card-positive {
-  border-color: rgba(46, 204, 113, 0.7);
-  box-shadow: 0 0 12px rgba(46, 204, 113, 0.35);
-}
-
-.sj-ia-card-alert {
-  border-color: rgba(231, 76, 60, 0.7);
-  box-shadow: 0 0 12px rgba(231, 76, 60, 0.35);
-}
-
-.sj-ia-card-neutral {
-  border-color: rgba(52, 152, 219, 0.7);
-  box-shadow: 0 0 12px rgba(52, 152, 219, 0.35);
-}
-
-/* Fade suave da dica */
-.sj-ia-fade {
-  animation: sjFadeInUp 0.45s ease-out forwards;
-}
-
-@keyframes sjFadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(7px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* Barra de sucesso */
-.sj-ia-success-bar {
-  height: 4px;
-  background: linear-gradient(90deg, #20c997, #2ecc71);
-  border-radius: 999px;
-  animation: sjGrow 0.5s ease-out;
-}
-
-@keyframes sjGrow {
-  from {
-    width: 0%;
-  }
-  to {
-    width: 100%;
-  }
-}
-
-/* Icone da IA girando enquanto processa */
-.sj-ia-spin {
-  display: inline-block;
-  animation: sjSpin 0.6s linear infinite;
-}
-
-@keyframes sjSpin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(180deg);
-  }
-}
-
-/* Container do resultado da IA */
-.sj-ia-result {
-  border-radius: 0.5rem;
-  background: rgba(255, 255, 255, 0.8);
-  padding: 0.75rem 0.9rem;
-  border: 1px dashed rgba(0, 0, 0, 0.06);
-}
-/* === Destaque da nova dica === */
-.sj-new-item-highlight {
-  animation: sjHighlight 1.8s ease-out;
-  background: linear-gradient(90deg, #e8fce9, #ffffff);
-  border-left: 4px solid #2ecc71;
-}
-
-@keyframes sjHighlight {
-  0% { background: #d5f7d8; }
-  50% { background: #e8fce9; }
-  100% { background: #ffffff; }
-}
-
-/* === Badge de nova dica adicionada === */
-.sj-hist-badge-new {
-  position: absolute;
-  right: 12px;
-  top: -10px;
-  padding: 2px 8px;
-  font-size: 0.7rem;
-  border-radius: 999px;
-  background: #28a745;
-  color: #fff;
-  animation: sjFadeBadge 2s ease-out forwards;
-  opacity: 0;
-}
-
-@keyframes sjFadeBadge {
-  0% { opacity: 0; transform: translateY(-5px); }
-  20% { opacity: 1; transform: translateY(0); }
-  70% { opacity: 1; }
-  100% { opacity: 0; }
-}
-
-/* Cards do Histórico IA */
-.ia-card {
-  position: relative;
-  border-radius: 0.75rem;
-  transition:
-    background-color 0.4s ease,
-    box-shadow 0.4s ease,
-    transform 0.2s ease;
-}
-
-/* Efeito geral de entrada suave para os cards carregados */
-.ia-card.fade-in {
-  animation: iaFadeIn 0.25s ease-out;
-}
-
-@keyframes iaFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* 🌟 Destaque da nova dica */
-.ia-card.just-added {
-  background: linear-gradient(90deg, #e8fce9, #ffffff);
-  border-left: 4px solid #2ecc71;
-  box-shadow: 0 0 10px rgba(46, 204, 113, 0.4);
-  transform: translateY(-1px);
-  transition: all 0.4s ease;
-}
-
-.ia-card.just-added::after {
-  content: "Nova dica adicionada";
-  position: absolute;
-  right: 16px;
-  top: -10px;
-  padding: 2px 8px;
-  font-size: 0.7rem;
-  border-radius: 999px;
-  background: #28a745;
-  color: #fff;
-  animation: iaBadge 1.8s ease-out forwards;
-  opacity: 0;
-}
-
-@keyframes iaBadge {
-  0% { opacity: 0; transform: translateY(-4px); }
-  20% { opacity: 1; transform: translateY(0); }
-  70% { opacity: 1; }
-  100% { opacity: 0; }
-}
-
-/* === Card de previsão mensal (bordinha pulsando) === */
-.sj-previsao-card {
-  position: relative;
-  overflow: hidden;
-  border-radius: 10px;
-  border: 1px solid rgba(144, 202, 249, 0.6);
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.7),
-    0 0 12px rgba(144, 202, 249, 0.35);
-  animation: sjBorderPulse 3s ease-out infinite;
-}
-
-.sj-previsao-card .sj-previsao-sub {
-  font-size: 0.78rem;
-  opacity: 0.85;
-}
-
-@keyframes sjBorderPulse {
-  0% {
-    box-shadow:
-      0 0 0 1px rgba(0, 0, 0, 0.7),
-      0 0 4px rgba(144, 202, 249, 0.2);
-  }
-  40% {
-    box-shadow:
-      0 0 0 1px rgba(0, 0, 0, 0.7),
-      0 0 16px rgba(144, 202, 249, 0.55);
-  }
-  100% {
-    box-shadow:
-      0 0 0 1px rgba(0, 0, 0, 0.7),
-      0 0 4px rgba(144, 202, 249, 0.2);
-  }
-}
-
-/* Card grande da previsão da IA */
-.sj-previsao-card {
-  border: 1px solid rgba(0, 255, 140, 0.25) !important;
-  box-shadow:
-    0 0 0 1px rgba(0, 0, 0, 0.35),
-    0 0 16px rgba(0, 255, 140, 0.10);
-  background: radial-gradient(
-      circle at top left,
-      rgba(0, 255, 140, 0.12),
-      transparent 55%
-    ),
-    rgba(7, 26, 17, 0.96);
-}
-
-/* ==== IA — Visual premium do histórico ==== */
-
-.ia-card {
-  position: relative;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  box-shadow: 0 0 0 rgba(0, 0, 0, 0);
-  transition:
-    box-shadow 0.2s ease,
-    transform 0.15s ease,
-    border-color 0.15s ease;
-}
-
-.ia-card:hover {
-  transform: translateY(-1px);
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
-}
-
-.ia-card.is-new {
-  border-color: rgba(0, 200, 83, 0.7);
-  box-shadow: 0 0 18px rgba(0, 200, 83, 0.25);
-}
-
-.badge-ia-new {
-  font-size: 0.7rem;
-  letter-spacing: 0.05em;
-  border-radius: 999px;
-  padding: 0.15rem 0.55rem;
-  background: #00c853;
-  color: #020712;
-}
-
-.badge-ia-turbo {
-  font-size: 0.7rem;
-  letter-spacing: 0.05em;
-  border-radius: 999px;
-  padding: 0.15rem 0.55rem;
-  background: #2962ff;
-  color: #ffffff;
-}
-
-/* reforço leve nas cores dos textos */
-.ia-text-positiva {
-  color: #00e676;
-}
-
-.ia-text-alerta {
-  color: #ffca28;
-}
-
-.ia-text-neutra {
-  color: #e0e0e0;
-}
-
-.badge.bg-secondary {
-  cursor: pointer;
-  transition: background 0.2s ease, transform 0.15s ease;
-}
-
-.badge.bg-secondary:hover {
-  background: #b0bec5 !important;
-  transform: scale(1.05);
-}
-
-/* === Chips Premium dos botões === */
-
+/* =========================
+   CHIPS PREMIUM (botões)
+   ========================= */
 .chip-btn {
   padding: 6px 12px;
   font-size: 0.85rem;
@@ -912,7 +532,6 @@ body.sj-dark .chart-box {
   white-space: nowrap;
 }
 
-/* Verde — Aplicar */
 .chip-success {
   background: #d4f6df;
   color: #0a6c2f;
@@ -921,7 +540,6 @@ body.sj-dark .chart-box {
   background: #c2efcf;
 }
 
-/* Azul — Nova Dica */
 .chip-primary {
   background: #dce9ff;
   color: #0a3c8c;
@@ -930,7 +548,6 @@ body.sj-dark .chart-box {
   background: #c6dbff;
 }
 
-/* Amarelo — Lotes */
 .chip-warning {
   background: #fff3cd;
   color: #8a6d00;
@@ -939,30 +556,16 @@ body.sj-dark .chart-box {
   background: #ffe9a6;
 }
 
-
-.ia-card-lote-critico{
+/* =========================
+   LOTE CRÍTICO (alertas)
+   ========================= */
+.ia-card-lote-critico {
   border: 2px solid #dc3545 !important;
-  box-shadow: 0 0 0 .15rem rgba(220,53,69,.15);
+  box-shadow: 0 0 0 0.15rem rgba(220, 53, 69, 0.15);
 }
 
-.ia-card-lote-critico .card-body{
-  background: rgba(220,53,69,.04);
-}
-
-.lote-critico-red {
-  border: 1px solid rgba(220, 53, 69, 0.5);
-  background: rgba(220, 53, 69, 0.08);
-}
-.lotes-criticos-item:hover {
-  filter: brightness(1.05);
-}
-.lote-critico-red {
-  border: 1px solid #dc3545;
-  background: linear-gradient(
-    90deg,
-    rgba(220, 53, 69, 0.12),
-    rgba(0, 0, 0, 0)
-  );
+.ia-card-lote-critico .card-body {
+  background: rgba(220, 53, 69, 0.04);
 }
 
 .lote-critico-red {
@@ -971,4 +574,79 @@ body.sj-dark .chart-box {
   background: rgba(255, 80, 80, 0.06);
 }
 
+.lotes-criticos-item:hover {
+  filter: brightness(1.05);
+}
+
+/* =========================
+   SISTEMA “SaaS” (SEM QUEBRAR BOOTSTRAP)
+   -> Só aplica se você usar a classe .sj-row no HTML
+   ========================= */
+.sj-row > [class^="col-"],
+.sj-row > [class*=" col-"] {
+  display: flex;
+}
+
+.sj-row .sj-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  height: 100%;
+}
+
+.sj-row .sj-card .card-header {
+  flex: 0 0 auto;
+}
+
+.sj-row .sj-card .card-body {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Área rolável padrão */
+.sj-scroll {
+  overflow-y: auto;
+  min-height: 0;
+  max-height: 260px;
+}
+
+/* tamanhos */
+.sj-sm {
+  min-height: 160px;
+}
+.sj-md {
+  min-height: 320px;
+}
+.sj-lg {
+  min-height: 360px;
+}
+
+.sj-chart {
+  height: 220px;
+}
+.sj-lg .sj-chart {
+  height: 300px;
+}
+
+/* =========================
+   ✅ FIX DEFINITIVO — Últimas transações (SEM INLINE)
+   =========================
+   Requisito: o card precisa ter id="cardUltimasTransacoes"
+*/
+#cardUltimasTransacoes {
+  height: 360px;
+  display: flex;
+  flex-direction: column;
+}
+
+#cardUltimasTransacoes .card-header {
+  flex: 0 0 auto;
+}
+
+#cardUltimasTransacoes .card-body {
+  flex: 1 1 auto;
+  min-height: 0; /* chave do scroll no flex */
+  overflow: auto; /* scroll aqui */
+}
 

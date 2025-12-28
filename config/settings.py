@@ -48,7 +48,8 @@ ENV = os.getenv("ENV", "dev")  # dev / prod
 # =========================
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-key-only")
 
-DEBUG = os.getenv("DEBUG", "False").lower() == "true"
+DEBUG = True
+
 # =========================
 # Hardening (produção)
 # =========================

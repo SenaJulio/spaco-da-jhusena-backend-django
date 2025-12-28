@@ -22,6 +22,11 @@ class AgendamentoForm(forms.ModelForm):
         model = Agendamento
         fields = ["nome", "cliente", "telefone", "email", "servico", "data", "hora"]
         widgets = {
-            "data": forms.DateInput(attrs={"type": "date"}),
-            "hora": forms.TimeInput(attrs={"type": "time"}),
+            "nome": forms.TextInput(attrs={"class": "form-control"}),
+            "cliente": forms.Select(attrs={"class": "form-select"}),
+            "telefone": forms.TextInput(attrs={"class": "form-control"}),
+            "email": forms.EmailInput(attrs={"class": "form-control"}),
+            "servico": forms.Select(attrs={"class": "form-select"}),
+            "data": forms.DateInput(attrs={"type": "date", "class": "form-control"}),
+            "hora": forms.TimeInput(attrs={"type": "time", "class": "form-control"}),
         }

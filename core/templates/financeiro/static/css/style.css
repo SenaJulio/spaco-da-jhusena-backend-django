@@ -1,41 +1,34 @@
 body{
-    background-color: #e8f5e9;
-    font-family: 'Segoe UI', sans-serif;
-    text-align: center;
-    margin: 0;
-    padding: 0;
-}
-.container{
-    padding-top: 50px;
-}
-.logo{
-width: 150px;
-margin-bottom: 20px;
-}
-h1{
-    color: #2e7d32;
-}
-.verde{
-    color: #4CAF50;
-}
-.botao{
-    background-color: #4CAF50;
-    color: white;
-    padding: 15px 25px;
-    margin: 10px;
-    border-radius: 10px;
-    text-decoration: none;
-    font-weight: bold;
-}
-.botao:hover{
-    background-color: #388E3C;
+  background-color: #e8f5e9;
+  font-family: 'Segoe UI', sans-serif;
+  margin: 0;
+  padding: 0;
+  text-align: left;
 }
 
-<style>
-  .ag-row { border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; border: 1px solid rgba(255,255,255,.08); }
-  .ag-status-agendado { background: rgba(47,191,113,.10); border-color: rgba(47,191,113,.25); }
-  .ag-status-pendente { background: rgba(255,193,7,.10); border-color: rgba(255,193,7,.25); }
-  .ag-status-concluido { background: rgba(13,110,253,.10); border-color: rgba(13,110,253,.25); opacity: .9; }
-  .ag-status-cancelado { background: rgba(220,53,69,.10); border-color: rgba(220,53,69,.25); opacity: .9; }
-  .ag-badge { font-size: .75rem; padding: .2rem .5rem; border-radius: 999px; border: 1px solid rgba(255,255,255,.12); }
-</style>
+/* só pra home/landing */
+.home-page{ text-align:center; }
+.home-container{ padding-top:50px; }
+.botao-home{
+  background-color:#4CAF50;
+  color:white;
+  padding:15px 25px;
+  margin:10px;
+  border-radius:10px;
+  text-decoration:none;
+  font-weight:bold;
+}
+.botao-home:hover{ background-color:#388E3C; }
+
+/* agendamentos ok */
+.ag-row { border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; border: 1px solid rgba(255,255,255,.08); }
+.ag-status-agendado { background: rgba(47,191,113,.10); border-color: rgba(47,191,113,.25); }
+.ag-status-pendente { background: rgba(255,193,7,.10); border-color: rgba(255,193,7,.25); }
+.ag-status-concluido { background: rgba(13,110,253,.10); border-color: rgba(13,110,253,.25); opacity: .9; }
+.ag-status-cancelado { background: rgba(220,53,69,.10); border-color: rgba(220,53,69,.25); opacity: .9; }
+.ag-badge { font-size: .75rem; padding: .2rem .5rem; border-radius: 999px; border: 1px solid rgba(255,255,255,.12); }
+
+.card-scroll{
+  overflow-y:auto;
+  max-height:220px;
+}

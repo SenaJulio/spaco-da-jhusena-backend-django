@@ -13,13 +13,15 @@
   {% block stylesheet %}{% endblock %}
 
   <!-- CSS fixo do painel -->
-  <link rel="stylesheet" href="{% static 'financeiro/style.css' %}">
+  <link rel="stylesheet" href="{% static 'financeiro/style.css' %}?v=20251227-1">
+  <link rel="stylesheet" href="{% static 'financeiro/admin_override.css' %}?v=20251227-1">
+
 
   {% block extrahead %}{% endblock %}
 </head>
 
 <body>
-  <main class="container py-3">
+    <main class="container py-3 sj-dashboard">
     {% block content %}{% endblock %}
   </main>
 

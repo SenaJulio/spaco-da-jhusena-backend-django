@@ -5,7 +5,7 @@
 
 {# Aqui o block stylesheet deve retornar APENAS a URL, pois o base_site.html já tem o <link> #}
 {% block stylesheet %}
-  <link rel="stylesheet" href="{% static 'financeiro/admin_override.css' %}">
+  <link rel="stylesheet" href="{% static 'financeiro/admin_override.css' %}?v=20251227">
 {% endblock %}
 
 
@@ -93,6 +93,7 @@
       </div>
     </div>
   </div>
+
   <div class="col-md-4">
     <div class="card border-danger">
       <div class="card-body">
@@ -101,6 +102,7 @@
       </div>
     </div>
   </div>
+
   <div class="col-md-4">
     <div class="card border-primary">
       <div class="card-body">
@@ -119,9 +121,6 @@
       <span class="badge sj-badge-beta">β Mini-IA</span>
     </div>
 
-    
-
-    <!-- BOTÃO OFICIAL PARA GERAR DICA -->
     <button
       id="btnGerarDicaIA"
       type="button"
@@ -133,31 +132,23 @@
   </div>
 
   <div class="card-body">
-    <!-- Status / feedback -->
     <p id="turboStatus" class="text-success small d-none mb-2">
       ✅ Dica gerada, exibida e adicionada ao histórico!
     </p>
 
-    <!-- Barra de sucesso discreta -->
     <div id="iaSuccessBar" class="sj-ia-success-bar d-none mb-2"></div>
 
-    <!-- Resultado da IA -->
     <div id="turboResult" class="sj-ia-result d-none">
-      <!-- Linha com período + tipo -->
       <p id="turboMeta" class="small text-muted mb-1">
         Período: <span id="turboPeriodo">—</span>
         &nbsp;•&nbsp;
         Tipo: <span id="turboTipo" class="sj-ia-chip sj-ia-chip-neutral">—</span>
       </p>
 
-      <!-- Texto da dica -->
       <p id="turboDica" class="sj-ia-text mb-2">—</p>
-
-      <!-- Métricas (lista simples) -->
       <ul id="turboMetrics" class="small mb-0 sj-ia-metrics"></ul>
     </div>
 
-    <!-- Linha de botões -->
     <div class="d-flex justify-content-end gap-2 mt-3">
       <button
         id="btnEnviarDicaTelegram"
@@ -170,17 +161,18 @@
   </div>
 </div>
 
-
 <!-- 🧭 Filtros Superiores -->
 <div class="row g-2 align-items-end mb-2 mt-4">
   <div class="col-sm-3">
     <label class="form-label">Início</label>
     <input type="date" id="filtroInicio" class="form-control" />
   </div>
+
   <div class="col-sm-3">
     <label class="form-label">Fim</label>
     <input type="date" id="filtroFim" class="form-control" />
   </div>
+
   <div class="col-sm-3">
     <label for="filtroCategoria" class="form-label">Categoria</label>
     <select id="filtroCategoria" class="form-select">
@@ -191,92 +183,82 @@
       <option value="Dica">Dica</option>
     </select>
   </div>
-  <div class="col-sm-3 d-flex gap-2">
+
+  <div class="col-sm-3 d-flex gap-2 flex-wrap">
     <button id="btnAplicarFiltros" class="chip-btn chip-success" type="button">Aplicar</button>
-    <button id="btnGerarDicaFiltro" class="chip-btn chip-primary" type="button">
-      IA (Nova dica)
-    </button>
-    <button id="btnAtualizarLotes" class="chip-btn chip-warning">
-  🔁 Atualizar Lotes
-   </button>
+    <button id="btnGerarDicaFiltro" class="chip-btn chip-primary" type="button">IA (Nova dica)</button>
+    <button id="btnAtualizarLotes" class="chip-btn chip-warning" type="button">🔁 Atualizar Lotes</button>
   </div>
 </div>
-
 
 <!-- 🧠 Histórico de Dicas da IA -->
 <div class="card border-success mt-4">
   <div class="card-body">
-    <div class="d-flex align-items-center gap-3">
+    <div class="d-flex align-items-center gap-3 flex-wrap">
       <h4 class="m-0">🧠 Histórico de Dicas da IA</h4>
       <span id="badgeNovasDicas" class="badge bg-success d-none">Novas dicas: 0</span>
 
-      <button id="btnHistoricoIA" class="btn btn-sm btn-outline-success ms-auto me-2" type="button"
-              data-bs-toggle="modal" data-bs-target="#modalHistoricoIA">
+      <button id="btnHistoricoIA"
+              class="btn btn-sm btn-outline-success ms-auto me-2"
+              type="button"
+              data-bs-toggle="modal"
+              data-bs-target="#modalHistoricoIA">
         Ver Histórico
       </button>
 
-      <button id="btnReloadDicas" class="btn btn-sm btn-outline-primary me-2" type="button">Atualizar histórico</button>
+      <button id="btnReloadDicas"
+              class="btn btn-sm btn-outline-primary me-2"
+              type="button">
+        Atualizar histórico
+      </button>
     </div>
   </div>
 </div>
 
-<!-- 🔎 Filtros do Histórico da IA (usando V1) -->
+<!-- 🔎 Filtros do Histórico da IA -->
 <div class="d-flex align-items-center gap-2 flex-wrap mb-3 mt-2">
   <div class="btn-group" role="group" aria-label="Filtros IA">
-    <button
-      id="btnTodas"
-      class="btn btn-outline-secondary active btn-filtro"
-      type="button"
-      data-filtro="todas"
-      data-ia-filtro="todas"
-    >
+    <button id="btnTodas"
+            class="btn btn-outline-secondary active btn-filtro"
+            type="button"
+            data-filtro="todas"
+            data-ia-filtro="todas">
       Todas (<span id="countAll">0</span>)
     </button>
 
-    <button
-      id="btnPositivas"
-      class="btn btn-outline-success btn-filtro"
-      type="button"
-      data-filtro="positiva"
-      data-ia-filtro="positiva"
-    >
+    <button id="btnPositivas"
+            class="btn btn-outline-success btn-filtro"
+            type="button"
+            data-filtro="positiva"
+            data-ia-filtro="positiva">
       Positivas (<span id="countPos">0</span>)
     </button>
 
-    <button
-      id="btnAlertas"
-      class="btn btn-outline-warning btn-filtro"
-      type="button"
-      data-filtro="alerta"
-      data-ia-filtro="alerta"
-    >
+    <button id="btnAlertas"
+            class="btn btn-outline-warning btn-filtro"
+            type="button"
+            data-filtro="alerta"
+            data-ia-filtro="alerta">
       Alertas (<span id="countAlerta">0</span>)
     </button>
 
-    <button
-      id="btnNeutras"
-      class="btn btn-outline-secondary btn-filtro"
-      type="button"
-      data-filtro="neutra"
-      data-ia-filtro="neutra"
-    >
+    <button id="btnNeutras"
+            class="btn btn-outline-secondary btn-filtro"
+            type="button"
+            data-filtro="neutra"
+            data-ia-filtro="neutra">
       Neutras (<span id="countNeutra">0</span>)
     </button>
   </div>
 </div>
 
-<!-- Lista principal do histórico (V1) -->
 <div id="ovlHistorico" class="d-none text-center my-2">Carregando histórico…</div>
 <div id="listaHistorico" data-feed-url="/financeiro/ia/historico/feed/v2/"></div>
 
-<!-- Ações extras -->
-<button id="btnMarcarLidas" class="btn btn-outline-dark ms-1" type="button">
-  Marcar como lidas
-</button>
-<button id="btnExportCsv" class="btn btn-outline-success btn-sm ms-1" type="button">
-  Exportar CSV
-</button>
-
+<div class="d-flex gap-2 flex-wrap mt-2">
+  <button id="btnMarcarLidas" class="btn btn-outline-dark" type="button">Marcar como lidas</button>
+  <button id="btnExportCsv" class="btn btn-outline-success btn-sm" type="button">Exportar CSV</button>
+</div>
 
 <!-- Modal -->
 <div class="modal fade" id="modalHistoricoIA" tabindex="-1" aria-labelledby="modalHistoricoIALabel" aria-hidden="true">
@@ -286,11 +268,15 @@
         <h5 id="modalHistoricoIALabel" class="modal-title">🧠 Histórico de Dicas da IA</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
       </div>
+
       <div class="modal-body">
-        <div id="listaHistoricoModal" class="list-group list-group-flush"
-             data-feed-url="{% url 'financeiro:ia_historico_feed_v2' %}"></div>
-        <button id="btnVerMaisHistoricoModal" class="btn btn-outline-secondary btn-sm mt-2">Ver mais</button>
+        <div id="listaHistoricoModal"
+             class="list-group list-group-flush"
+             data-feed-url="{% url 'financeiro:ia_historico_feed_v2' %}">
+        </div>
+        <button id="btnVerMaisHistoricoModal" class="btn btn-outline-secondary btn-sm mt-2" type="button">Ver mais</button>
       </div>
+
       <div class="modal-footer">
         <button id="btnReloadDicasModal" type="button" class="btn btn-outline-primary">Atualizar</button>
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
@@ -309,76 +295,55 @@
     <span>📊 Painel Mensal da IA</span>
     <small id="painelIaMesLabel" class="text-muted"></small>
   </div>
+
   <div class="card-body">
-    <div class="row">
-      <!-- COLUNA ESQUERDA: gráficos -->
+    <div class="row g-3">
       <div class="col-md-7">
         <h6 class="mb-2">Evolução mensal (receitas, despesas e saldo)</h6>
-        <div style="width: 100%; height: 220px;">
+        <div style="width:100%; height:220px;">
           <canvas id="graficoSerieMensalIa"></canvas>
         </div>
 
-        <!-- 🔮 Mini-card da previsão da IA -->
         <div class="card sj-card sj-previsao-card mt-2" id="cardPrevisaoMensal">
           <div class="card-body p-3">
             <div class="d-flex justify-content-between align-items-center mb-1">
-              <div class="fw-semibold">
-                🔮 Previsão Financeira (IA) — horizonte 3 meses
-              </div>
-              <span class="badge bg-success-subtle text-success border border-success-subtle">
-                Alta confiança
-              </span>
+              <div class="fw-semibold">🔮 Previsão Financeira (IA) — horizonte 3 meses</div>
+              <span class="badge bg-success-subtle text-success border border-success-subtle">Alta confiança</span>
             </div>
-            <div id="sjPrevResumoLinha" class="small mb-1">
-              <!-- preenchido via JS -->
-            </div>
-            <div id="sjPrevInterpLinha" class="small mb-1 text-muted">
-              <!-- preenchido via JS -->
-            </div>
-            <div id="sjPrevFaixaLinha" class="small sj-previsao-sub">
-              <!-- preenchido via JS (faixa de incerteza / risco) -->
-            </div>
+            <div id="sjPrevResumoLinha" class="small mb-1"></div>
+            <div id="sjPrevInterpLinha" class="small mb-1 text-muted"></div>
+            <div id="sjPrevFaixaLinha" class="small sj-previsao-sub"></div>
           </div>
         </div>
 
-        <!-- fim mini-card -->
-
         <h6 class="mt-4 mb-2">Ranking de serviços do mês</h6>
-        <div style="width: 100%; height: 260px;">
+        <div style="width:100%; height:260px;">
           <canvas id="graficoRankingServicosIa"></canvas>
         </div>
       </div>
 
-      <!-- COLUNA DIREITA: textos da IA -->
       <div class="col-md-5">
         <h6 class="mb-2">Insights rápidos</h6>
         <ul class="list-group small" id="listaInsightsIaMensal">
-          <li class="list-group-item text-muted">
-            Carregando análise da IA...
-          </li>
+          <li class="list-group-item text-muted">Carregando análise da IA...</li>
         </ul>
 
         <h6 class="mt-3 mb-2">Alertas de períodos críticos</h6>
         <ul class="list-group small" id="listaAlertasIaMensal">
-          <li class="list-group-item text-muted">
-            Carregando alertas da IA...
-          </li>
+          <li class="list-group-item text-muted">Carregando alertas da IA...</li>
         </ul>
 
         <h6 class="mt-3 mb-2">Comparação mês a mês</h6>
         <ul class="list-group small" id="listaComparacaoIaMensal">
-          <li class="list-group-item text-muted">
-            Carregando comparação da IA...
-          </li>
+          <li class="list-group-item text-muted">Carregando comparação da IA...</li>
         </ul>
       </div>
     </div>
   </div>
 </div>
 
-
 <!-- ⬇️ CARD DO GRÁFICO -->
-<div class="row g-3">
+<div class="row g-3 mt-3">
   <div class="col-md-6">
     <div class="card h-100 p-3">
       <h3 class="h6 mb-2">📈 Evolução diária</h3>
@@ -388,6 +353,7 @@
       <div id="evolucaoEmpty" class="sem-dados" hidden>Sem dados para o período escolhido.</div>
     </div>
   </div>
+
   <div class="col-md-6">
     <div class="card h-100 p-3">
       <h3 class="h6 mb-2">🧩 Por categoria</h3>
@@ -397,31 +363,34 @@
       <div id="categoriasEmpty" class="sem-dados" hidden>Sem dados para o período escolhido.</div>
     </div>
   </div>
+</div>
 
-  <!-- 📈 Gráfico Mensal (Receitas x Despesas x Saldo) -->
+<!-- 📈 Resumo Mensal + Últimas Transações -->
+<div class="row g-3 mt-3 sj-row-eq">
   <div class="col-12 col-lg-6">
     <div class="card sj-card mb-3">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span>📈 Resumo Mensal (Receitas x Despesas x Saldo)</span>
         <small class="text-muted">Analytics Turbo</small>
       </div>
-      <div class="card-body">
-        <div id="msgGraficoMensalIA"
-             class="small mb-2 text-muted"
-             style="display:none"></div>
 
-        <canvas id="graficoMensalIA" height="140"></canvas>
+      <div class="card-body">
+        <div id="msgGraficoMensalIA" class="small mb-2 text-muted" style="display:none"></div>
+        <div class="sj-chart">
+          <canvas id="graficoMensalIA"></canvas>
+        </div>
       </div>
     </div>
   </div>
- <div class="row g-3 mt-2">
-  <div class="col-lg-6">
-    <div class="card shadow-sm">
+
+  <div class="col-12 col-lg-6">
+    <div class="card sj-card sj-md shadow-sm" id="cardUltimasTransacoes">
       <div class="card-header d-flex justify-content-between align-items-center">
         <strong>🧾 Últimas transações</strong>
         <span class="badge bg-secondary">{{ ultimas_transacoes|length }}</span>
       </div>
-      <div class="card-body small">
+
+      <div class="card-body small" style="max-height:240px; overflow:auto;">
         {% if ultimas_transacoes %}
           <ul class="list-group list-group-flush">
             {% for t in ultimas_transacoes %}
@@ -440,23 +409,34 @@
       </div>
     </div>
   </div>
+</div>
 
-  <div class="col-lg-6">
-    <div class="card shadow-sm border-warning">
+<!-- ⚠️ Pendências + Rankings -->
+<div class="row g-3 mt-2 sj-row-eq">
+  <div class="col-12 col-lg-6">
+    <div class="card shadow-sm border-warning sj-card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <strong>⚠️ Receitas pendentes de valor</strong>
         <span class="badge bg-warning text-dark">{{ qtd_pendentes_valor }}</span>
       </div>
-      <div class="card-body small">
+
+      <div class="card-body small sj-scroll">
         {% if pendentes_valor %}
           <ul class="list-group list-group-flush">
             {% for t in pendentes_valor %}
               <li class="list-group-item">
                 <div class="fw-semibold">{{ t.descricao }}</div>
                 <div class="text-muted">{{ t.data }} • Categoria: {{ t.categoria|default:"-" }}</div>
+
+                <a class="btn btn-sm btn-outline-warning mt-2"
+                   href="/admin/financeiro/transacao/{{ t.id }}/change/"
+                   target="_blank">
+                  Definir valor
+                </a>
               </li>
             {% endfor %}
           </ul>
+
           <div class="text-muted mt-2">
             Dica: defina preço do serviço depois para lançar valor automático.
           </div>
@@ -466,9 +446,7 @@
       </div>
     </div>
   </div>
-</div>
 
-  <!-- 🏆 Ranking de Categorias (Mensal) -->
   <div class="col-12 col-lg-6">
     <div class="card sj-card mb-3">
       <div class="card-header d-flex justify-content-between align-items-center">
@@ -476,20 +454,15 @@
         <small class="text-muted">Mensal</small>
       </div>
       <div class="card-body">
-
-        <div id="rankingCategoriasMsg"
-             class="small text-muted mb-2"
-             style="display:none"></div>
-
-        <ul id="rankingCategoriasLista"
-            class="list-group small">
-        </ul>
-
+        <div id="rankingCategoriasMsg" class="small text-muted mb-2" style="display:none"></div>
+        <ul id="rankingCategoriasLista" class="list-group small"></ul>
       </div>
     </div>
   </div>
+</div>
 
-  <!-- 🏅 Ranking de Serviços (Mensal) -->
+
+<div class="row g-3 mt-2 sj-row-eq">
   <div class="col-12 col-lg-6">
     <div class="card sj-card mb-3">
       <div class="card-header d-flex justify-content-between align-items-center">
@@ -497,20 +470,13 @@
         <small class="text-muted">Mensal</small>
       </div>
       <div class="card-body">
-
-        <div id="rankingServicosMsg"
-             class="small text-muted mb-2"
-             style="display:none"></div>
-
-        <ul id="rankingServicosLista"
-            class="list-group small">
-        </ul>
-
+        <div id="rankingServicosMsg" class="small text-muted mb-2" style="display:none"></div>
+        <ul id="rankingServicosLista" class="list-group small"></ul>
       </div>
     </div>
   </div>
+  
 
-  <!-- 📈 Categoria que mais cresceu -->
   <div class="col-12 col-lg-6">
     <div class="card sj-card mb-3">
       <div class="card-header d-flex justify-content-between align-items-center">
@@ -518,32 +484,24 @@
         <small class="text-muted">Mensal</small>
       </div>
       <div class="card-body">
-
-        <div id="crescimentoCategoriaMsg"
-             class="small text-muted mb-2"
-             style="display:none"></div>
-
+        <div id="crescimentoCategoriaMsg" class="small text-muted mb-2" style="display:none"></div>
         <p class="fw-semibold" id="crescimentoCategoriaTitulo">—</p>
         <p id="crescimentoCategoriaDetalhe" class="small">—</p>
-
       </div>
     </div>
   </div>
+</div>
 
-  <!-- 🧩 Despesas Fixas vs Variáveis -->
-<div class="row g-3">
-  <!-- ESQUERDA: já existe -->
+<div class="row g-3 mt-2 sj-row-eq">
   <div class="col-12 col-lg-6">
     <div class="card sj-card mb-3">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span>🧩 Despesas Fixas vs Variáveis</span>
         <small class="text-muted">Mensal</small>
       </div>
-      <div class="card-body">
 
-        <div id="fixasVarMsg"
-             class="small text-muted mb-2"
-             style="display:none"></div>
+      <div class="card-body">
+        <div id="fixasVarMsg" class="small text-muted mb-2" style="display:none"></div>
 
         <p class="mb-1">
           <span class="fw-semibold">Fixas:</span>
@@ -558,29 +516,26 @@
         </p>
 
         <p class="mb-0 small" id="fixasVarResumo">—</p>
-
       </div>
     </div>
   </div>
- <!-- DIREITA: card de lotes críticos -->
-<div class="col-lg-6">
-  <div class="card" id="cardLotesCriticos">
-    <div class="card-header d-flex align-items-center justify-content-between">
-      <div class="fw-semibold">📦 Lotes críticos</div>
-      <button id="btnAtualizarLotesCriticos" class="btn btn-sm btn-outline-secondary" type="button">
-        Atualizar
-      </button>
-    </div>
 
-    <div class="card-body">
-      <div id="lotesCriticosBox" class="small text-muted">Carregando…</div>
-      <div id="lotesCriticosFooter" class="small mt-2"></div>
+  <div class="col-12 col-lg-6">
+    <div class="card sj-card" id="cardLotesCriticos">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <div class="fw-semibold">📦 Lotes críticos</div>
+        <button id="btnAtualizarLotesCriticos" class="btn btn-sm btn-outline-secondary" type="button">
+          Atualizar
+        </button>
+      </div>
+
+      <div class="card-body">
+        <div id="lotesCriticosBox" class="small text-muted">Carregando…</div>
+        <div id="lotesCriticosFooter" class="small mt-2"></div>
+      </div>
     </div>
   </div>
-</div>
 
-
-  <!-- 💡 Análise Mensal IA -->
   <div class="col-12">
     <div class="card sj-card mb-3">
       <div class="card-header d-flex justify-content-between align-items-center">
@@ -589,7 +544,6 @@
       </div>
       <div class="card-body">
         <div id="iaAnaliseMensalMsg" class="small text-muted mb-2" style="display:none"></div>
-
         <p class="mb-1 fw-semibold" id="iaAnaliseMensalResumo">—</p>
         <p class="mb-1 small" id="iaAnaliseMensalDetalhe">—</p>
         <p class="mb-0 small text-success" id="iaAnaliseMensalRecomendacao">—</p>
@@ -597,7 +551,6 @@
     </div>
   </div>
 </div>
-
 
 <!-- 📊 Análise 30D — Beta Avançado -->
 <div class="card shadow-sm mb-3" id="cardAnalise30d">
@@ -607,13 +560,12 @@
       <strong>📊 Análise dos Últimos 30 Dias</strong>
       <span id="a30_tipo_badge" class="ms-2" style="display:none"></span>
     </div>
-    <button class="btn btn-outline-success btn-sm" id="btnReloadAnalise30d">Atualizar</button>
+    <button class="btn btn-outline-success btn-sm" id="btnReloadAnalise30d" type="button">Atualizar</button>
   </div>
 
   <div class="card-body">
     <div id="analise30dStatus" class="text-muted small mb-2">Carregando análise…</div>
 
-    <!-- KPIs -->
     <div class="row g-3" id="analise30dKPIs" style="display:none">
       <div class="col-6 col-md-3">
         <div class="border rounded p-2 h-100">
@@ -621,30 +573,35 @@
           <div class="fs-5 fw-semibold" id="a30_receitas">—</div>
         </div>
       </div>
+
       <div class="col-6 col-md-3">
         <div class="border rounded p-2 h-100">
           <div class="text-muted small">Despesas (30d)</div>
           <div class="fs-5 fw-semibold" id="a30_despesas">—</div>
         </div>
       </div>
+
       <div class="col-6 col-md-3">
         <div class="border rounded p-2 h-100">
           <div class="text-muted small">Saldo (30d)</div>
           <div class="fs-5 fw-semibold" id="a30_saldo">—</div>
         </div>
       </div>
+
       <div class="col-6 col-md-3">
         <div class="border rounded p-2 h-100">
           <div class="text-muted small">Margem</div>
           <div class="fs-5 fw-semibold" id="a30_margem">—</div>
         </div>
       </div>
+
       <div class="col-6 col-md-3">
         <div class="border rounded p-2 h-100">
           <div class="text-muted small">Var. Receitas</div>
           <div class="fs-6" id="a30_var_rec">—</div>
         </div>
       </div>
+
       <div class="col-6 col-md-3">
         <div class="border rounded p-2 h-100">
           <div class="text-muted small">Var. Despesas</div>
@@ -653,13 +610,14 @@
       </div>
     </div>
 
-    <!-- Plano de ação -->
     <div class="mt-3" id="analise30dPlanoWrap" style="display:none">
       <div id="analise30dPlano" class="p-3 rounded-3 border"></div>
     </div>
+
     <small class="text-muted" id="analise30dPeriodo">Período: —</small>
   </div>
 </div>
+
 
 <style>
   .loading-overlay{position:absolute;inset:0;z-index:10;background:rgba(255,255,255,.6);display:flex;align-items:center;justify-content:center}
