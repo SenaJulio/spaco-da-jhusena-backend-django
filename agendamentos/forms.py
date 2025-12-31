@@ -18,12 +18,8 @@ class AgendamentoForm(forms.ModelForm):
 
     class Meta:
         model = Agendamento
-<<<<<<< HEAD
-        fields = ["nome", "cliente", "telefone", "email", "servico", "data", "hora"]
-=======
         # ✅ pet_nome é texto digitável (precisa existir no model)
         fields = ["nome", "pet_nome", "telefone", "email", "servico", "data", "hora"]
->>>>>>> origin/main
         widgets = {
             "nome": forms.TextInput(attrs={"class": "form-control"}),
             "pet_nome": forms.TextInput(attrs={"class": "form-control"}),

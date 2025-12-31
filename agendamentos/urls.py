@@ -22,12 +22,7 @@ urlpatterns = [
     path("dashboard/dados/", views.dashboard_dados_ajax, name="dashboard_dados_ajax"),
     path("api/agendar/", views.criar_agendamento, name="criar_agendamento"),
     path("api/agendamentos/", views.AgendamentoCreateView.as_view(), name="agendamento_create"),
-<<<<<<< HEAD
-    path("dashboard/hoje/", views.agendamentos_hoje_ajax, name="agendamentos_hoje_ajax"),
-    path("acao/<int:id>/", views.acao_agendamento, name="acao_agendamento"),
-=======
     path("dashboard/hoje/", views.dashboard_hoje, name="dashboard_hoje"),
     path("acao/<int:id>/", views.acao_agendamento, name="acao_agendamento"),
     path("horarios-ocupados/", views.horarios_ocupados, name="horarios_ocupados"),
->>>>>>> origin/main
 ]

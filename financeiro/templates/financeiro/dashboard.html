@@ -1,84 +1,16 @@
-<<<<<<< HEAD
-{% extends "base_site.html" %}
-=======
 {% extends "base.html" %}
->>>>>>> origin/main
 {% load static moeda humanize %}
 
 {% block title %}📊 Painel Financeiro — TESTE{% endblock %}
 
-{# Aqui o block stylesheet deve retornar APENAS a URL, pois o base_site.html já tem o <link> #}
-{% block stylesheet %}
-<<<<<<< HEAD
-  <link rel="stylesheet" href="{% static 'financeiro/admin_override.css' %}">
-{% endblock %}
-
-=======
-  <link rel="stylesheet" href="{% static 'financeiro/admin_override.css' %}?v=20251227">
-{% endblock %}
-
-
->>>>>>> origin/main
 {% block extrahead %}
   {{ block.super }}
   <meta name="csrf-token" content="{{ csrf_token }}"/>
 {% endblock %}
 
 {% block content %}
-<!-- todo o painel aqui -->
-<<<<<<< HEAD
+  <!-- todo o painel aqui -->
 
-
-
-  {% if debug %}
-    <div class="alert alert-success mb-3">
-      Template OK ✔ — Bootstrap + <code>financeiro/style.css</code> carregados.
-    </div>
-
-    <button class="btn btn-success">Botão Bootstrap</button>
-
-    <div class="mt-3 p-3 border rounded" style="background:#f4fdf5;">
-      <strong>Teste de CSS do painel:</strong>
-      <div class="badge-tipo badge-positiva mt-2">
-        <span class="badge-dot"></span> Positiva
-      </div>
-    </div>
-
-    <p class="mt-3" style="opacity:.6">
-      DEBUG: {{ total_receitas }} | {{ total_despesas }} | {{ saldo }}
-    </p>
-
-    <!-- 🐶 Badge Dev Spaço da Jhuséna -->
-    <div id="devBadge"
-         class="alert alert-success py-1 px-2 mb-2 d-inline-flex align-items-center"
-         style="font-size:.9rem; display:none;">
-      <strong class="me-2">Dev mode</strong>
-      <span id="devBadgeText">inicializando…</span>
-    </div>
-  {% endif %}
-
-  <h2 class="mb-3">📊 Painel Financeiro Inteligente</h2>
-
-  <a href="{% url 'core:home' %}" class="btn btn-outline-secondary btn-sm mb-3">
-    ⬅ Voltar ao início
-  </a>
-
-  <div class="alert alert-success">
-    Se você está vendo esta mensagem, o template carregou certinho. 🤝
-  </div>
-
-  <div class="d-flex justify-content-end mb-3">
-    <button id="btnToggleTema" class="btn btn-outline-dark btn-sm" type="button">
-      🌙 Modo escuro
-    </button>
-  </div>
-
-  <div id="boxResumoMensal" class="alert alert-info d-none"></div>
-
-
-
-=======
- 
 
 <div class="d-flex justify-content-between align-items-center mb-3">
   <a href="{% url 'core:home' %}" class="btn btn-sm btn-outline-success">
@@ -93,7 +25,6 @@
     🌙 Modo escuro
   </button>
 </div>
->>>>>>> origin/main
 
 
 <script>
@@ -183,10 +114,6 @@
       <span class="badge sj-badge-beta">β Mini-IA</span>
     </div>
 
-<<<<<<< HEAD
-    <!-- BOTÃO OFICIAL PARA GERAR DICA -->
-=======
->>>>>>> origin/main
     <button
       id="btnGerarDicaIA"
       type="button"
@@ -198,47 +125,23 @@
   </div>
 
   <div class="card-body">
-<<<<<<< HEAD
-    <!-- Status / feedback -->
-=======
->>>>>>> origin/main
     <p id="turboStatus" class="text-success small d-none mb-2">
       ✅ Dica gerada, exibida e adicionada ao histórico!
     </p>
 
-<<<<<<< HEAD
-    <!-- Barra de sucesso discreta -->
-    <div id="iaSuccessBar" class="sj-ia-success-bar d-none mb-2"></div>
-
-    <!-- Resultado da IA -->
-    <div id="turboResult" class="sj-ia-result d-none">
-      <!-- Linha com período + tipo -->
-=======
     <div id="iaSuccessBar" class="sj-ia-success-bar d-none mb-2"></div>
 
     <div id="turboResult" class="sj-ia-result d-none">
->>>>>>> origin/main
       <p id="turboMeta" class="small text-muted mb-1">
         Período: <span id="turboPeriodo">—</span>
         &nbsp;•&nbsp;
         Tipo: <span id="turboTipo" class="sj-ia-chip sj-ia-chip-neutral">—</span>
       </p>
 
-<<<<<<< HEAD
-      <!-- Texto da dica -->
-      <p id="turboDica" class="sj-ia-text mb-2">—</p>
-
-      <!-- Métricas (lista simples) -->
-      <ul id="turboMetrics" class="small mb-0 sj-ia-metrics"></ul>
-    </div>
-
-    <!-- Linha de botões -->
-=======
       <p id="turboDica" class="sj-ia-text mb-2">—</p>
       <ul id="turboMetrics" class="small mb-0 sj-ia-metrics"></ul>
     </div>
 
->>>>>>> origin/main
     <div class="d-flex justify-content-end gap-2 mt-3">
       <button
         id="btnEnviarDicaTelegram"
@@ -274,22 +177,11 @@
       <option value="Dica">Dica</option>
     </select>
   </div>
-<<<<<<< HEAD
-  <div class="col-sm-3 d-flex gap-2">
-    <button id="btnAplicarFiltros" class="chip-btn chip-success" type="button">Aplicar</button>
-    <button id="btnGerarDicaFiltro" class="chip-btn chip-primary" type="button">
-      IA (Nova dica)
-    </button>
-    <button id="btnAtualizarLotes" class="chip-btn chip-warning">
-  🔁 Atualizar Lotes
-   </button>
-=======
 
   <div class="col-sm-3 d-flex gap-2 flex-wrap">
     <button id="btnAplicarFiltros" class="chip-btn chip-success" type="button">Aplicar</button>
     <button id="btnGerarDicaFiltro" class="chip-btn chip-primary" type="button">IA (Nova dica)</button>
     <button id="btnAtualizarLotes" class="chip-btn chip-warning" type="button">🔁 Atualizar Lotes</button>
->>>>>>> origin/main
   </div>
 </div>
 
@@ -306,61 +198,15 @@
         Ver Histórico
       </button>
 
-<<<<<<< HEAD
-      <button id="btnReloadDicas" class="btn btn-sm btn-outline-primary me-2" type="button">Atualizar histórico</button>
-=======
       <button id="btnReloadDicas"
               class="btn btn-sm btn-outline-primary me-2"
               type="button">
         Atualizar histórico
       </button>
->>>>>>> origin/main
     </div>
   </div>
 </div>
 
-<<<<<<< HEAD
-<!-- 🔎 Filtros do Histórico da IA (usando V1) -->
-<div class="d-flex align-items-center gap-2 flex-wrap mb-3 mt-2">
-  <div class="btn-group" role="group" aria-label="Filtros IA">
-    <button
-      id="btnTodas"
-      class="btn btn-outline-secondary active btn-filtro"
-      type="button"
-      data-filtro="todas"
-      data-ia-filtro="todas"
-    >
-      Todas (<span id="countAll">0</span>)
-    </button>
-
-    <button
-      id="btnPositivas"
-      class="btn btn-outline-success btn-filtro"
-      type="button"
-      data-filtro="positiva"
-      data-ia-filtro="positiva"
-    >
-      Positivas (<span id="countPos">0</span>)
-    </button>
-
-    <button
-      id="btnAlertas"
-      class="btn btn-outline-warning btn-filtro"
-      type="button"
-      data-filtro="alerta"
-      data-ia-filtro="alerta"
-    >
-      Alertas (<span id="countAlerta">0</span>)
-    </button>
-
-    <button
-      id="btnNeutras"
-      class="btn btn-outline-secondary btn-filtro"
-      type="button"
-      data-filtro="neutra"
-      data-ia-filtro="neutra"
-    >
-=======
 <!-- 🔎 Filtros do Histórico da IA -->
 <div class="d-flex align-items-center gap-2 flex-wrap mb-3 mt-2">
   <div class="btn-group" role="group" aria-label="Filtros IA">
@@ -393,26 +239,11 @@
             type="button"
             data-filtro="neutra"
             data-ia-filtro="neutra">
->>>>>>> origin/main
       Neutras (<span id="countNeutra">0</span>)
     </button>
   </div>
 </div>
 
-<<<<<<< HEAD
-<!-- Lista principal do histórico (V1) -->
-<div id="ovlHistorico" class="d-none text-center my-2">Carregando histórico…</div>
-<div id="listaHistorico" data-feed-url="/financeiro/ia/historico/feed/v2/"></div>
-
-<!-- Ações extras -->
-<button id="btnMarcarLidas" class="btn btn-outline-dark ms-1" type="button">
-  Marcar como lidas
-</button>
-<button id="btnExportCsv" class="btn btn-outline-success btn-sm ms-1" type="button">
-  Exportar CSV
-</button>
-
-=======
 <div id="ovlHistorico" class="d-none text-center my-2">Carregando histórico…</div>
 <div id="listaHistorico" data-feed-url="/financeiro/ia/historico/feed/v2/"></div>
 
@@ -420,7 +251,6 @@
   <button id="btnMarcarLidas" class="btn btn-outline-dark" type="button">Marcar como lidas</button>
   <button id="btnExportCsv" class="btn btn-outline-success btn-sm" type="button">Exportar CSV</button>
 </div>
->>>>>>> origin/main
 
 <!-- Modal -->
 <div class="modal fade" id="modalHistoricoIA" tabindex="-1" aria-labelledby="modalHistoricoIALabel" aria-hidden="true">
@@ -430,12 +260,6 @@
         <h5 id="modalHistoricoIALabel" class="modal-title">🧠 Histórico de Dicas da IA</h5>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fechar"></button>
       </div>
-<<<<<<< HEAD
-      <div class="modal-body">
-        <div id="listaHistoricoModal" class="list-group list-group-flush"
-             data-feed-url="{% url 'financeiro:ia_historico_feed_v2' %}"></div>
-        <button id="btnVerMaisHistoricoModal" class="btn btn-outline-secondary btn-sm mt-2">Ver mais</button>
-=======
 
       <div class="modal-body">
         <div id="listaHistoricoModal"
@@ -443,7 +267,6 @@
              data-feed-url="{% url 'financeiro:ia_historico_feed_v2' %}">
         </div>
         <button id="btnVerMaisHistoricoModal" class="btn btn-outline-secondary btn-sm mt-2" type="button">Ver mais</button>
->>>>>>> origin/main
       </div>
 
       <div class="modal-footer">
@@ -471,296 +294,6 @@
   <div class="card-header d-flex justify-content-between align-items-center">
     <span>📊 Painel Mensal da IA</span>
     <small id="painelIaMesLabel" class="text-muted"></small>
-<<<<<<< HEAD
-  </div>
-  <div class="card-body">
-    <div class="row">
-      <!-- COLUNA ESQUERDA: gráficos -->
-      <div class="col-md-7">
-        <h6 class="mb-2">Evolução mensal (receitas, despesas e saldo)</h6>
-        <div style="width: 100%; height: 220px;">
-          <canvas id="graficoSerieMensalIa"></canvas>
-        </div>
-
-        <!-- 🔮 Mini-card da previsão da IA -->
-        <div class="card sj-card sj-previsao-card mt-2" id="cardPrevisaoMensal">
-          <div class="card-body p-3">
-            <div class="d-flex justify-content-between align-items-center mb-1">
-              <div class="fw-semibold">
-                🔮 Previsão Financeira (IA) — horizonte 3 meses
-              </div>
-              <span class="badge bg-success-subtle text-success border border-success-subtle">
-                Alta confiança
-              </span>
-            </div>
-            <div id="sjPrevResumoLinha" class="small mb-1">
-              <!-- preenchido via JS -->
-            </div>
-            <div id="sjPrevInterpLinha" class="small mb-1 text-muted">
-              <!-- preenchido via JS -->
-            </div>
-            <div id="sjPrevFaixaLinha" class="small sj-previsao-sub">
-              <!-- preenchido via JS (faixa de incerteza / risco) -->
-            </div>
-          </div>
-        </div>
-
-        <!-- fim mini-card -->
-
-        <h6 class="mt-4 mb-2">Ranking de serviços do mês</h6>
-        <div style="width: 100%; height: 260px;">
-          <canvas id="graficoRankingServicosIa"></canvas>
-        </div>
-      </div>
-
-      <!-- COLUNA DIREITA: textos da IA -->
-      <div class="col-md-5">
-        <h6 class="mb-2">Insights rápidos</h6>
-        <ul class="list-group small" id="listaInsightsIaMensal">
-          <li class="list-group-item text-muted">
-            Carregando análise da IA...
-          </li>
-        </ul>
-
-        <h6 class="mt-3 mb-2">Alertas de períodos críticos</h6>
-        <ul class="list-group small" id="listaAlertasIaMensal">
-          <li class="list-group-item text-muted">
-            Carregando alertas da IA...
-          </li>
-        </ul>
-
-        <h6 class="mt-3 mb-2">Comparação mês a mês</h6>
-        <ul class="list-group small" id="listaComparacaoIaMensal">
-          <li class="list-group-item text-muted">
-            Carregando comparação da IA...
-          </li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</div>
-
-
-<!-- ⬇️ CARD DO GRÁFICO -->
-<div class="row g-3">
-  <div class="col-md-6">
-    <div class="card h-100 p-3">
-      <h3 class="h6 mb-2">📈 Evolução diária</h3>
-      <div class="chart-box">
-        <canvas id="graficoEvolucao"></canvas>
-      </div>
-      <div id="evolucaoEmpty" class="sem-dados" hidden>Sem dados para o período escolhido.</div>
-    </div>
-  </div>
-  <div class="col-md-6">
-    <div class="card h-100 p-3">
-      <h3 class="h6 mb-2">🧩 Por categoria</h3>
-      <div class="chart-box">
-        <canvas id="graficoCategorias"></canvas>
-      </div>
-      <div id="categoriasEmpty" class="sem-dados" hidden>Sem dados para o período escolhido.</div>
-    </div>
-  </div>
-
-  <!-- 📈 Gráfico Mensal (Receitas x Despesas x Saldo) -->
-  <div class="col-12 col-lg-6">
-    <div class="card sj-card mb-3">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <span>📈 Resumo Mensal (Receitas x Despesas x Saldo)</span>
-        <small class="text-muted">Analytics Turbo</small>
-      </div>
-      <div class="card-body">
-        <div id="msgGraficoMensalIA"
-             class="small mb-2 text-muted"
-             style="display:none"></div>
-
-        <canvas id="graficoMensalIA" height="140"></canvas>
-      </div>
-    </div>
-  </div>
-
-  <!-- 🏆 Ranking de Categorias (Mensal) -->
-  <div class="col-12 col-lg-6">
-    <div class="card sj-card mb-3">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <span>🏆 Ranking de Categorias</span>
-        <small class="text-muted">Mensal</small>
-      </div>
-      <div class="card-body">
-
-        <div id="rankingCategoriasMsg"
-             class="small text-muted mb-2"
-             style="display:none"></div>
-
-        <ul id="rankingCategoriasLista"
-            class="list-group small">
-        </ul>
-
-      </div>
-    </div>
-  </div>
-
-  <!-- 🏅 Ranking de Serviços (Mensal) -->
-  <div class="col-12 col-lg-6">
-    <div class="card sj-card mb-3">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <span>🧼 Ranking de Serviços / Produtos</span>
-        <small class="text-muted">Mensal</small>
-      </div>
-      <div class="card-body">
-
-        <div id="rankingServicosMsg"
-             class="small text-muted mb-2"
-             style="display:none"></div>
-
-        <ul id="rankingServicosLista"
-            class="list-group small">
-        </ul>
-
-      </div>
-    </div>
-  </div>
-
-  <!-- 📈 Categoria que mais cresceu -->
-  <div class="col-12 col-lg-6">
-    <div class="card sj-card mb-3">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <span>📈 Categoria que mais cresceu</span>
-        <small class="text-muted">Mensal</small>
-      </div>
-      <div class="card-body">
-
-        <div id="crescimentoCategoriaMsg"
-             class="small text-muted mb-2"
-             style="display:none"></div>
-
-        <p class="fw-semibold" id="crescimentoCategoriaTitulo">—</p>
-        <p id="crescimentoCategoriaDetalhe" class="small">—</p>
-
-      </div>
-    </div>
-  </div>
-
-  <!-- 🧩 Despesas Fixas vs Variáveis -->
-<div class="row g-3">
-  <!-- ESQUERDA: já existe -->
-  <div class="col-12 col-lg-6">
-    <div class="card sj-card mb-3">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <span>🧩 Despesas Fixas vs Variáveis</span>
-        <small class="text-muted">Mensal</small>
-      </div>
-      <div class="card-body">
-
-        <div id="fixasVarMsg"
-             class="small text-muted mb-2"
-             style="display:none"></div>
-
-        <p class="mb-1">
-          <span class="fw-semibold">Fixas:</span>
-          <span id="fixasValor">R$ 0,00</span>
-          <span class="small text-muted" id="fixasPct">(0%)</span>
-        </p>
-
-        <p class="mb-1">
-          <span class="fw-semibold">Variáveis:</span>
-          <span id="variaveisValor">R$ 0,00</span>
-          <span class="small text-muted" id="variaveisPct">(0%)</span>
-        </p>
-
-        <p class="mb-0 small" id="fixasVarResumo">—</p>
-
-      </div>
-    </div>
-  </div>
- <!-- DIREITA: card de lotes críticos -->
-<div class="col-lg-6">
-  <div class="card" id="cardLotesCriticos">
-    <div class="card-header d-flex align-items-center justify-content-between">
-      <div class="fw-semibold">📦 Lotes críticos</div>
-      <button id="btnAtualizarLotesCriticos" class="btn btn-sm btn-outline-secondary" type="button">
-        Atualizar
-      </button>
-    </div>
-
-    <div class="card-body">
-      <div id="lotesCriticosBox" class="small text-muted">Carregando…</div>
-      <div id="lotesCriticosFooter" class="small mt-2"></div>
-    </div>
-  </div>
-</div>
-
-
-  <!-- 💡 Análise Mensal IA -->
-  <div class="col-12">
-    <div class="card sj-card mb-3">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <span>💡 Análise Mensal (IA)</span>
-        <small class="text-muted">Modo Analytics Turbo</small>
-      </div>
-      <div class="card-body">
-        <div id="iaAnaliseMensalMsg" class="small text-muted mb-2" style="display:none"></div>
-
-        <p class="mb-1 fw-semibold" id="iaAnaliseMensalResumo">—</p>
-        <p class="mb-1 small" id="iaAnaliseMensalDetalhe">—</p>
-        <p class="mb-0 small text-success" id="iaAnaliseMensalRecomendacao">—</p>
-      </div>
-    </div>
-  </div>
-</div>
-
-
-<!-- 📊 Análise 30D — Beta Avançado -->
-<div class="card shadow-sm mb-3" id="cardAnalise30d">
-  <div class="card-header d-flex align-items-center justify-content-between">
-    <div class="d-flex align-items-center gap-2">
-      <span class="badge bg-success-subtle text-success border border-success-subtle">IA Avançada</span>
-      <strong>📊 Análise dos Últimos 30 Dias</strong>
-      <span id="a30_tipo_badge" class="ms-2" style="display:none"></span>
-    </div>
-    <button class="btn btn-outline-success btn-sm" id="btnReloadAnalise30d">Atualizar</button>
-  </div>
-
-  <div class="card-body">
-    <div id="analise30dStatus" class="text-muted small mb-2">Carregando análise…</div>
-
-    <!-- KPIs -->
-    <div class="row g-3" id="analise30dKPIs" style="display:none">
-      <div class="col-6 col-md-3">
-        <div class="border rounded p-2 h-100">
-          <div class="text-muted small">Receitas (30d)</div>
-          <div class="fs-5 fw-semibold" id="a30_receitas">—</div>
-        </div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="border rounded p-2 h-100">
-          <div class="text-muted small">Despesas (30d)</div>
-          <div class="fs-5 fw-semibold" id="a30_despesas">—</div>
-        </div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="border rounded p-2 h-100">
-          <div class="text-muted small">Saldo (30d)</div>
-          <div class="fs-5 fw-semibold" id="a30_saldo">—</div>
-        </div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="border rounded p-2 h-100">
-          <div class="text-muted small">Margem</div>
-          <div class="fs-5 fw-semibold" id="a30_margem">—</div>
-        </div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="border rounded p-2 h-100">
-          <div class="text-muted small">Var. Receitas</div>
-          <div class="fs-6" id="a30_var_rec">—</div>
-        </div>
-      </div>
-      <div class="col-6 col-md-3">
-        <div class="border rounded p-2 h-100">
-          <div class="text-muted small">Var. Despesas</div>
-          <div class="fs-6" id="a30_var_des">—</div>
-=======
   </div>
 
   <div class="card-body">
@@ -769,7 +302,6 @@
         <h6 class="mb-2">Evolução mensal (receitas, despesas e saldo)</h6>
         <div style="width:100%; height:220px;">
           <canvas id="graficoSerieMensalIa"></canvas>
->>>>>>> origin/main
         </div>
 
         <div class="card sj-card sj-previsao-card mt-2" id="cardPrevisaoMensal">

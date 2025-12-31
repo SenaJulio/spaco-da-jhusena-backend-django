@@ -1,4 +1,6 @@
 # financeiro/services/ia.py
+from typing import Optional
+from django.contrib.auth.models import User
 
 from datetime import timedelta
 import re
@@ -9,13 +11,6 @@ from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
 from django.apps import apps
-<<<<<<< HEAD
-
-from django.contrib.auth.models import User
-from financeiro.models import RecomendacaoIA
-from financeiro.services.ia_utils import _map_tipo
-=======
->>>>>>> origin/main
 
 
 # ---------- util interno: resolve o modelo só quando precisar ----------
@@ -252,7 +247,8 @@ def generate_tip_last_30d(Transacao, usuario=None, auto_save=True):
     return dica, metrics, saved_id
 
 
-def salvar_recomendacao_ia(usuario: User, texto: str, tipo_ia: str | None = None):
+def salvar_recomendacao_ia(usuario: User, texto: str, tipo_ia: Optional[str] = None):
+
     """
     Centraliza a criação da RecomendacaoIA.
 

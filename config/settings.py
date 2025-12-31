@@ -171,15 +171,10 @@ import dj_database_url
 DATABASE_URL = os.getenv("DATABASE_URL")
 
 if DATABASE_URL:
-    # Produção (Render / Postgres)
     DATABASES = {
-        "default": dj_database_url.parse(
-            DATABASE_URL,
-            conn_max_age=600,
-        )
+        "default": dj_database_url.parse(DATABASE_URL, conn_max_age=0)
     }
 else:
-    # Local (SQLite)
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",

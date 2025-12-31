@@ -54,12 +54,8 @@ class Produto(models.Model):
         ordering = ["nome"]
 
     def __str__(self):
-<<<<<<< HEAD
-        return self.nome 
-=======
         return self.nome
 
->>>>>>> origin/main
 
 class LoteProduto(models.Model):
     """

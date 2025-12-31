@@ -11,15 +11,6 @@ from django.shortcuts import render
 from django.utils import timezone
 
 from .models import MovimentoEstoque, Produto, LoteProduto
-<<<<<<< HEAD
-from .services_ia import gerar_alertas_validade_lotes
-
-from django.views.decorators.http import require_GET
-
-from .services_lotes import gerar_textos_alerta_lotes
-
-
-=======
 from .services_lotes import gerar_textos_alerta_lotes
 
 
@@ -28,21 +19,11 @@ from django.views.decorators.http import require_GET
 from .services_lotes import gerar_textos_alerta_lotes
 
 
->>>>>>> origin/main
 # ==============================
 # 1) DASHBOARD DE ESTOQUE (HTML)
 # ==============================
 
 
-<<<<<<< HEAD
-@login_required
-def dashboard_estoque(request):
-    """
-    Renderiza a página do dashboard de estoque.
-    Os gráficos buscam dados via AJAX em /estoque/dashboard/dados/
-    """
-    return render(request, "estoque/dashboard_estoque.html")
-=======
 def dashboard_estoque(request):
     """
     Dashboard simples de estoque:
@@ -117,7 +98,6 @@ def dashboard_estoque(request):
         "periodo_dias": 30,
     }
     return render(request, "estoque/dashboard_estoque.html", context)
->>>>>>> origin/main
 
 
 # =============================================
@@ -212,13 +192,9 @@ def ia_lotes_validade_view(request):
     except ValueError:
         dias = 15
 
-<<<<<<< HEAD
-    total = gerar_alertas_validade_lotes(request.user, dias_aviso=dias)
-=======
     msgs = gerar_textos_alerta_lotes(dias_aviso=dias)
     total = len(msgs)
 
->>>>>>> origin/main
 
     return JsonResponse(
         {
@@ -270,8 +246,4 @@ def api_lotes_prestes_vencer(request):
         "count": len(msgs),
         "items": msgs,
     }
-<<<<<<< HEAD
     return JsonResponse(data, json_dumps_params={"ensure_ascii": False})
-=======
-    return JsonResponse(data, json_dumps_params={"ensure_ascii": False})
->>>>>>> origin/main

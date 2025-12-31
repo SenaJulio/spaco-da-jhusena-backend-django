@@ -75,30 +75,6 @@ class RecomendacaoIA(models.Model):
     def __str__(self):
         return f"{self.tipo.upper()} - {self.texto[:50]}..."
 
-<<<<<<< HEAD
-    def save(self, *args, **kwargs):
-        """
-        Se ninguém informar o tipo, usamos 'economia' como padrão
-        para não ficar vazio ('-' no admin).
-        """
-        if not self.tipo:
-            self.tipo = "economia"
-        super().save(*args, **kwargs)
-
-    def tipo_display(self):
-        """
-        Mostra o rótulo bonitinho no admin (Economia, Alerta, etc.).
-        Se o valor estiver estranho, mostra o próprio valor.
-        """
-        if not self.tipo:
-            return ""
-        mapa = dict(self.TIPO_OPCOES)
-        return mapa.get(self.tipo, self.tipo)
-
-    tipo_display.short_description = "Tipo"
-
-=======
->>>>>>> origin/main
 
 class HistoricoIA(models.Model):
     TIPOS = [

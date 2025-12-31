@@ -4,7 +4,7 @@ from .models import Insight, RecomendacaoIA, Transacao
 from financeiro.services.ia_utils import _map_tipo
 
 
-from financeiro.services.ia_utils import _map_tipo
+
 
 
 admin.site.register(Transacao)
@@ -18,15 +18,12 @@ class InsightAdmin(admin.ModelAdmin):
     ordering = ("-created_at",)
 
 
-from django.contrib import admin
-
-from .models import RecomendacaoIA
 
 
 @admin.register(RecomendacaoIA)
 class RecomendacaoIAAdmin(admin.ModelAdmin):
     # Campos EXISTENTES no seu model
-    list_display = ("criado_em", "tipo_display", "usuario", "preview_texto")
+    list_display = ("criado_em",  "usuario", "preview_texto")
     list_filter = ("tipo", "criado_em", "usuario")
     search_fields = ("texto", "usuario__username", "usuario__first_name", "usuario__last_name")
     ordering = ("-criado_em",)
@@ -36,4 +33,4 @@ class RecomendacaoIAAdmin(admin.ModelAdmin):
 
     preview_texto.short_description = "Texto (prévia)"
 
-from financeiro.services.ia_utils import _map_tipo
+

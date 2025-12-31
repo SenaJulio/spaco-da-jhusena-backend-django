@@ -141,10 +141,6 @@ urlpatterns = [
         name="ia_resumo_mensal_series",
     ),
     path("whatsapp/enviar/", api_enviar_whatsapp, name="api_enviar_whatsapp"),
-<<<<<<< HEAD
-=======
-
->>>>>>> origin/main
     # 🔥 Estoque baixo (usa gerar_alertas_estoque_baixo)
     path(
         "ia/estoque-baixo/",
@@ -157,8 +153,4 @@ urlpatterns = [
         views.ia_alertas_lotes,
         name="ia_alertas_lotes",
     ),
-<<<<<<< HEAD
-=======
-
->>>>>>> origin/main
 ]

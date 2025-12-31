@@ -27,12 +27,8 @@ urlpatterns = [
     path("agendamentos/", include(("agendamentos.urls", "agendamentos"), namespace="agendamentos")),
     path("estoque/", include(("estoque.urls", "estoque"), namespace="estoque")),
     path("financeiro/", include(("financeiro.urls", "financeiro"), namespace="financeiro")),
-<<<<<<< HEAD
-    path("estoque/", include("estoque.urls")),
-=======
     # Core (raiz) por ÚLTIMO, senão engole tudo
-    path("", include(("core.urls", "core"), namespace="core")),
->>>>>>> origin/main
+   
 ]
 
 from django.conf import settings
