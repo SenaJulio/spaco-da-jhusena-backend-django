@@ -1,0 +1,160 @@
+
+console.log("🔥 JHUSENA ESTOQUE JS: 20251224_99 (arquivo certo)");
+
+
+
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Dashboard de Estoque{% endblock %}
+
+{% block content %}
+<style>
+  .sj-wrap{
+    padding: 18px 10px 28px;
+  }
+  .sj-topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom: 10px;
+  }
+  .sj-title{
+    font-weight: 800;
+    font-size: clamp(28px, 3vw, 44px);
+    color: #7CFF9E;
+    letter-spacing: .2px;
+    margin: 6px 0 0;
+    text-shadow: 0 0 18px rgba(124,255,158,.15);
+  }
+  .sj-btn{
+    border-radius: 12px;
+    font-weight: 800;
+  }
+  .sj-card{
+    background: rgba(0,0,0,.35);
+    border: 1px solid rgba(255,255,255,.06);
+    border-radius: 14px;
+    box-shadow: 0 10px 28px rgba(0,0,0,.35);
+    overflow: hidden;
+  }
+  .sj-card-header{
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    color: #eaf2ff;
+    font-weight: 700;
+  }
+  .sj-card-body{
+    padding: 14px 16px 18px;
+  }
+  .sj-chartBox{
+    height: 320px;
+  }
+  .sj-alerts{
+    margin: 0;
+    padding-left: 18px;
+  }
+  .sj-alerts li{
+    margin: 8px 0;
+    font-weight: 700;
+    color: #ff4d4d;
+    text-shadow: 0 0 14px rgba(255,77,77,.10);
+  }
+  .sj-muted{
+    color: rgba(255,255,255,.65);
+    font-weight: 500;
+  }
+</style>
+<!-- ✅ Topo vendável (título + botão) -->
+ 
+
+<div class="sj-wrap">  
+  <div class="sj-topbar">
+    <div class="sj-title">Dashboard de Estoque</div>
+
+    <a href="{% url 'core:home' %}" class="btn btn-sm btn-outline-light sj-btn">
+      ⬅ Início
+    </a>
+  </div>
+
+  <div class="row g-3">
+    <!-- Card 1 -->
+    <div class="col-lg-6">
+      <div class="sj-card">
+        <div class="sj-card-header">Top produtos (por vendas)</div>
+        <div class="sj-card-body">
+          <div class="sj-chartBox">
+            <canvas id="chartTopProdutos"></canvas>
+          </div>
+          <div class="sj-muted small mt-2">Saldo atual x Quantidade vendida</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Card 2 -->
+    <div class="col-lg-6">
+      <div class="sj-card">
+        <div class="sj-card-header">Entradas x Saídas (mensal)</div>
+        <div class="sj-card-body">
+          <div class="sj-chartBox">
+            <canvas id="chartEntradasSaidas"></canvas>
+          </div>
+          <div class="sj-muted small mt-2">Visão por mês (movimentos de estoque)</div>
+        </div>
+      </div>
+    </div>
+                <!-- Card 3: Insights (mini-IA) -->
+    <div class="col-12">
+      <div class="sj-card">
+        <div class="sj-card-header">🧠 Insights do Estoque</div>
+            <div class="sj-card-body">
+              <div id="estoqueInsights" class="sj-muted"></div>
+              </div>
+        </div>
+      </div>
+
+    <!-- Card 4: Alertas -->
+    <div class="col-12">
+      <div class="sj-card">
+        <div class="sj-card-header">Alertas de lotes vencidos / a vencer</div>
+        <div class="sj-card-body">
+          {% if alertas_lotes and alertas_lotes|length %}
+            <ul class="sj-alerts">
+              {% for msg in alertas_lotes %}
+                <li>
+                  {% if msg.texto %}{{ msg.texto }}{% else %}{{ msg }}{% endif %}
+                </li>
+              {% endfor %}
+            </ul>
+          {% else %}
+            <div class="sj-muted">Nenhum alerta de lote no momento. ✅</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Dados vindos do Django (JSON seguro) -->
+{{ labels_produtos|json_script:"sj_labels_produtos" }}
+{{ dados_saldo|json_script:"sj_dados_saldo" }}
+{{ dados_vendidos|json_script:"sj_dados_vendidos" }}
+{{ labels_meses|json_script:"sj_labels_meses" }}
+{{ dados_entradas|json_script:"sj_dados_entradas" }}
+{{ dados_saidas|json_script:"sj_dados_saidas" }}
+{{ periodo_dias|json_script:"sj_periodo_dias" }}
+
+<div style="opacity:.5;font-size:12px">
+  JS URL: {% static 'estoque/dashboard_estoque.js' %}
+</div>
+{% endblock %}
+
+
+{% block extrabody %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="{% static 'estoque/dashboard_estoque.js' %}?v=20251224_99"></script>
+{% endblock %}
+
+
+

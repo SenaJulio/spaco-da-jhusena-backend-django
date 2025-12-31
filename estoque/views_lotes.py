@@ -51,3 +51,31 @@ def lotes_criticos(request):
         )
 
     return JsonResponse({"ok": True, "itens": itens, "total": len(itens)})
+
+
+from django.contrib.auth.decorators import login_required
+from django.http import JsonResponse
+
+
+@login_required
+def dashboard_estoque_dados(request):
+    """
+    Dados agregados do dashboard de estoque (stub).
+    """
+    return JsonResponse({"ok": True, "source": "dashboard_estoque_dados"})
+
+
+@login_required
+def ia_lotes_validade_view(request):
+    """
+    Endpoint da IA para análise de validade de lotes (stub).
+    """
+    return JsonResponse({"ok": True, "source": "ia_lotes_validade_view"})
+
+
+@login_required
+def api_lotes_prestes_vencer(request):
+    """
+    API de lotes prestes a vencer (stub).
+    """
+    return JsonResponse({"ok": True, "source": "api_lotes_prestes_vencer"})

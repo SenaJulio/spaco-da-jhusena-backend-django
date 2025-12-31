@@ -75,6 +75,7 @@ class RecomendacaoIA(models.Model):
     def __str__(self):
         return f"{self.tipo.upper()} - {self.texto[:50]}..."
 
+<<<<<<< HEAD
     def save(self, *args, **kwargs):
         """
         Se ninguém informar o tipo, usamos 'economia' como padrão
@@ -96,6 +97,8 @@ class RecomendacaoIA(models.Model):
 
     tipo_display.short_description = "Tipo"
 
+=======
+>>>>>>> origin/main
 
 class HistoricoIA(models.Model):
     TIPOS = [

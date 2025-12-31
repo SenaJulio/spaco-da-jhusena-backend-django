@@ -1,6 +1,8 @@
 from django.contrib import admin
 
 from .models import Insight, RecomendacaoIA, Transacao
+from financeiro.services.ia_utils import _map_tipo
+
 
 from financeiro.services.ia_utils import _map_tipo
 
@@ -33,3 +35,5 @@ class RecomendacaoIAAdmin(admin.ModelAdmin):
         return (obj.texto[:80] + "…") if len(obj.texto) > 80 else obj.texto
 
     preview_texto.short_description = "Texto (prévia)"
+
+from financeiro.services.ia_utils import _map_tipo

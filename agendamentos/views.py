@@ -1,6 +1,8 @@
 import json
-from datetime import datetime, date
+import logging
+from datetime import datetime
 
+from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.mail import send_mail
@@ -8,52 +10,88 @@ from django.db.models import Count
 from django.db.models.functions import TruncMonth
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
-from django.views.decorators.csrf import csrf_protect
 from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_GET
 from rest_framework import generics
-from django.conf import settings
-from django.shortcuts import render
+from django.utils.timezone import localdate
+from financeiro.models import Transacao
+from django.contrib.auth.decorators import login_required
+
 
 from .forms import AgendamentoForm
 from .models import Agendamento, Servico
 from .serializers import AgendamentoSerializer
-from django.utils.timezone import localdate
-from financeiro.models import Transacao
+from django.shortcuts import get_object_or_404
+import json
+
+logger = logging.getLogger(__name__)
+
 
 class AgendamentoCreateView(generics.CreateAPIView):
     queryset = Agendamento.objects.all()
     serializer_class = AgendamentoSerializer
 
 
+from django.shortcuts import redirect, render
+from django.contrib import messages
+
+
 def agendar(request):
     if request.method == "POST":
         form = AgendamentoForm(request.POST)
+
         if form.is_valid():
+            cd = form.cleaned_data
+
+            # ✅ Anti-duplicado (evita 2 POSTs iguais)
+            ja_existe = Agendamento.objects.filter(
+                nome=cd.get("nome"),
+                pet_nome=cd.get("pet_nome"),
+                telefone=cd.get("telefone"),
+                servico=cd.get("servico"),
+                data=cd.get("data"),
+                hora=cd.get("hora"),
+            ).exists()
+
+            if ja_existe:
+                messages.warning(request, "Esse agendamento já existe. Duplicado evitado ✅")
+                return redirect("agendamentos:agendamento_sucesso")
+
+            # ✅ Salva só se não existir
             agendamento = form.save()
 
+            # ✅ Monta mensagem
             assunto = "Confirmação de Agendamento - Spaço da Jhuséna"
             mensagem = (
                 f"Olá {agendamento.nome},\n\n"
                 f"Seu agendamento para o serviço {agendamento.servico} foi confirmado!\n"
+                f"Pet: {getattr(agendamento, "pet_nome", '-')}\n"
                 f"Data: {agendamento.data.strftime('%d/%m/%Y')}\n"
                 f"Hora: {agendamento.hora.strftime('%H:%M')}\n\n"
                 "Obrigado por confiar no Spaço da Jhuséna 💚🐶\n"
             )
 
-            # ⚠️ Em produção, use DEFAULT_FROM_EMAIL e configure certinho.
-            remetente = "seuemail@gmail.com"
+            remetente = getattr(settings, "DEFAULT_FROM_EMAIL", "no-reply@spaco.local")
             destinatario = [agendamento.email]
 
-            # Se der pau no SMTP, não queremos quebrar o agendamento:
-            try:
-                send_mail(assunto, mensagem, remetente, destinatario)
-            except Exception:
-                pass
+            # ✅ E-mail é opcional (não derruba o agendamento)
+            if getattr(settings, "ENABLE_EMAIL", False):
+                try:
+                    send_mail(
+                        assunto,
+                        mensagem,
+                        remetente,
+                        destinatario,
+                        fail_silently=False,
+                    )
+                except Exception as e:
+                    logger.exception("Falha ao enviar e-mail do agendamento: %s", e)
 
             return redirect("agendamentos:agendamento_sucesso")
-    else:
-        form = AgendamentoForm()
 
+        return render(request, "agendamentos/agendar.html", {"form": form})
+
+    form = AgendamentoForm()
     return render(request, "agendamentos/agendar.html", {"form": form})
 
 
@@ -177,7 +215,12 @@ def dashboard_dados_ajax(request):
     for item in evolucao_mensal:
         item["mes"] = item["mes"].strftime("%Y-%m")
 
-    return JsonResponse({"contagem_status": contagem_status, "evolucao_mensal": evolucao_mensal})
+    return JsonResponse(
+        {
+            "contagem_status": contagem_status,
+            "evolucao_mensal": evolucao_mensal,
+        }
+    )
 
 
 @require_POST
@@ -204,7 +247,7 @@ def criar_agendamento(request):
 
     ag = Agendamento.objects.create(
         nome=data["nomeTutor"],
-        cliente=data["nomePet"],
+        pet_nome =data["nomePet"],
         telefone=data["telefone"],
         email=data["email"],
         servico=servico_obj,
@@ -217,64 +260,85 @@ def criar_agendamento(request):
 
 
 @login_required
-def agendamentos_hoje_ajax(request):
-    hoje = date.today()
-    qs = Agendamento.objects.filter(data=hoje).order_by("hora")
+def dashboard_hoje(request):
+    hoje = localdate()
+
+    # campo de data é DateField
+    campo_data = "data"  # ajuste se o nome for outro
+
+    qs = (
+        Agendamento.objects
+        .filter(**{campo_data: hoje})
+        .order_by(campo_data)
+    )
 
     itens = []
     for a in qs:
         itens.append(
             {
                 "id": a.id,
-                "hora": a.hora.strftime("%H:%M") if a.hora else "",
-                "cliente": a.cliente or "",
-                "nome": a.nome or "",
-                "servico": str(a.servico) if a.servico else "",
-                "status": a.status or "",
+                "hora": "",  # DateField não tem hora
+                "pet_nome": getattr(a, "pet_nome", "") or getattr(a, "tutor", ""),
+                "servico": str(getattr(a, "servico", "")),
+                "nome": getattr(a, "pet", "") or getattr(a, "pet_nome", ""),
+                "status": a.status,
             }
         )
 
-    return JsonResponse({"ok": True, "hoje": hoje.strftime("%Y-%m-%d"), "itens": itens})
+    return JsonResponse({"itens": itens})
 
 
-@require_POST
-@csrf_protect
 @login_required
+@require_POST
 def acao_agendamento(request, id):
     ag = get_object_or_404(Agendamento, id=id)
 
-    # ✅ Lê ação tanto de JSON (fetch) quanto de POST normal (form)
-    payload = {}
-    if request.body:
-        try:
-            payload = json.loads(request.body.decode("utf-8"))
-        except json.JSONDecodeError:
-            payload = {}
+    try:
+        data = json.loads(request.body or "{}")
+    except json.JSONDecodeError:
+        return JsonResponse({"ok": False, "erro": "JSON inválido"}, status=400)
 
-    acao = (payload.get("acao") or request.POST.get("acao") or "").strip().lower()
+    acao = data.get("acao")
 
     if acao == "concluir":
         ag.status = "concluido"
-        ag.save(update_fields=["status"])
+    ag.save(update_fields=["status"])
 
-        # 💰 cria lançamento financeiro (somente se ainda não existir)
-        descricao = f"Serviço concluído: {ag.servico} (Agendamento #{ag.id})"
+    # 💰 cria lançamento financeiro (somente se ainda não existir)
+    descricao = f"Serviço concluído: {ag.servico} (Agendamento #{ag.id})"
 
-        Transacao.objects.get_or_create(
+    ja_existe = Transacao.objects.filter(
+        tipo="receita",
+        descricao=descricao,
+    ).exists()
+
+    if not ja_existe:
+        Transacao.objects.create(
+            categoria="Agendamentos",
             tipo="receita",
             descricao=descricao,
-            defaults={
-                "categoria": "Agendamentos",
-                "valor": 0,          # valor ainda não definido (Caminho A / pendente)
-                "data": localdate(),
-            },
+            valor=0,          # valor ainda não definido
+            data=localdate(),
         )
-
-        return JsonResponse({"ok": True, "id": ag.id, "status": ag.status})
 
     elif acao == "cancelar":
         ag.status = "cancelado"
         ag.save(update_fields=["status"])
-        return JsonResponse({"ok": True, "id": ag.id, "status": ag.status})
 
-    return JsonResponse({"ok": False, "erro": "Ação inválida"}, status=400)
+    else:
+        return JsonResponse({"ok": False, "erro": "Ação inválida"}, status=400)
+
+    return JsonResponse({"ok": True, "id": ag.id, "status": ag.status})
+
+
+@require_GET
+def horarios_ocupados(request):
+    data = request.GET.get("data")  # "YYYY-MM-DD"
+    if not data:
+        return JsonResponse({"ok": False, "erro": "data obrigatória"}, status=400)
+
+    qs = Agendamento.objects.filter(data=data).values_list("hora", flat=True)
+
+    # retorna "HH:MM"
+    ocupados = [h.strftime("%H:%M") for h in qs if h]
+    return JsonResponse({"ok": True, "ocupados": ocupados})

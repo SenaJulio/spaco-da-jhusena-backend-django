@@ -7,8 +7,6 @@ from django.db import transaction
 
 from .models import Transacao, HistoricoIA
 from ia.services.analysis import analisar_30d_dict
-from financeiro.ia_estoque_bridge import registrar_alertas_lote_no_historico
-
 
 User = get_user_model()
 
@@ -18,12 +16,12 @@ def gerar_dica_30d_auto(origem="auto", user=None):
     Gera uma nova dica automática usando o modelo 30d,
     SALVA no HistoricoIA e devolve um dicionário amigável.
     """
+    # roda a análise 30d usando o modelo de Transacao
     analise = analisar_30d_dict(Transacao, user)
 
     texto = analise.get("plano_acao") or analise.get("resumo") or "Sem conteúdo gerado."
 
     with transaction.atomic():
-        # 1) Cria o card principal da IA
         hist = HistoricoIA.objects.create(
             texto=texto,
             tipo=analise.get("tipo", "neutra") or "neutra",
@@ -31,14 +29,6 @@ def gerar_dica_30d_auto(origem="auto", user=None):
             usuario=user if isinstance(user, User) else None,
         )
 
-        # 2) CRIA TAMBÉM OS ALERTAS DE LOTE VENCIDO / A VENCER
-        registrar_alertas_lote_no_historico(
-            usuario=user if isinstance(user, User) else None,
-            dias_aviso=30,
-            max_itens=5,
-        )
-
-    # retorno original
     return {
         "ok": True,
         "tipo": hist.tipo,

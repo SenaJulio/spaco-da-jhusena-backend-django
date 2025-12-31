@@ -15,3 +15,5 @@ teste_api.http
 *.http
 NUL
 /NUL
+.env.backup
+backups/

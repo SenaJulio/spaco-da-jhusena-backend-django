@@ -30,7 +30,6 @@ function normalizeTipoIA(rawTipo) {
   return "neutra";
 }
 
-// ======================================================
 // historico_ia.js — Histórico IA v1 (com chips coloridas)
 // ======================================================
 (() => {
@@ -141,193 +140,138 @@ function normalizeTipoIA(rawTipo) {
   }
 
   function buildCard(it) {
-    const tipo = String(it.tipo || it.kind || "neutra").toLowerCase();
-    const raw = it.criado_em || it.created_at || it.created_at_br || "";
-    let quando = raw;
+  const tipo = String(it.tipo || it.kind || "neutra").toLowerCase();
+  const raw = it.criado_em || it.created_at || it.created_at_br || "";
+  let quando = raw;
 
-    if (typeof formatarDataBR === "function") {
-      quando = formatarDataBR(raw);
-    } else if (typeof fmtDate === "function") {
-      quando = fmtDate(raw);
-    }
+  if (typeof formatarDataBR === "function") {
+    quando = formatarDataBR(raw);
+  } else if (typeof fmtDate === "function") {
+    quando = fmtDate(raw);
+  }
 
-  let titulo = String(it.title || "Dica da IA").trim();
-
+  const titulo = String(it.title || "Dica da IA").trim();
   const texto = String(
     it.text || it.texto || it.dica || "Sem conteúdo disponível."
   ).trim();
 
-  // 🔎 Detecta alerta de LOTE
-  const lowerText = texto.toLowerCase();
+  const categoriaLabel = (it.categoria || "ECONOMIA").toString();
+  const categoriaSlug = (it.categoria_slug || "economia").toString();
 
-  const isLoteAlert =
-    (it.origem && String(it.origem).toLowerCase() === "lote") ||
-    lowerText.includes("validade") ||
-    lowerText.includes("lote ") ||
-    lowerText.includes(" vence ");
+  const card = document.createElement("div");
+  card.className = `card ia-card${it.isNew ? " is-new" : ""}`;
+  if (it.id != null) card.dataset.id = String(it.id);
+  card.dataset.kind = tipo;
+  card.dataset.categoria = categoriaSlug;
 
-  const isVencido =
-    (it.status && String(it.status).toLowerCase() === "vencido") ||
-    (typeof it.dias_restantes === "number" && it.dias_restantes < 0) ||
-    lowerText.includes(" está vencido") ||
-    lowerText.includes(" está vencida") ||
-    lowerText.includes(" vencido desde ");
+  const body = document.createElement("div");
+  body.className = "card-body";
 
-  const saldoLote =
-    it.saldo_lote != null
-      ? Number(it.saldo_lote)
-      : it.saldoLote != null
-        ? Number(it.saldoLote)
-        : null;
+  const header = document.createElement("div");
+  header.className = "d-flex align-items-center justify-content-between";
 
-  // 🔴 condição exata que você pediu
-  const devePintarCritico =
-    isLoteAlert && isVencido && saldoLote != null && saldoLote > 0;
+  // título à esquerda
+  const titleEl = document.createElement("div");
+  titleEl.className = "fw-semibold";
+  titleEl.appendChild(textNode(titulo));
+  header.appendChild(titleEl);
 
-  // ✅ agora sim pode usar
-  if (devePintarCritico) {
-    const acaoSpan = document.createElement("span");
-    acaoSpan.className = "badge bg-danger";
-    acaoSpan.textContent = "AÇÃO IMEDIATA";
-    metaBox.appendChild(acaoSpan);
+  // meta (categoria + chips) à direita
+  const metaBox = document.createElement("div");
+  metaBox.className = "d-flex align-items-center gap-2";
+
+  // badge NOVA
+  if (it.isNew) {
+    const newSpan = document.createElement("span");
+    newSpan.className = "badge-ia-new";
+    newSpan.textContent = "NOVA";
+    metaBox.appendChild(newSpan);
   }
 
+  // badge IA TURBO / PREVISÃO (origem)
+  if (it.isTurbo) {
+    const turboSpan = document.createElement("span");
+    turboSpan.className = "badge-ia-turbo";
+    turboSpan.textContent = "IA TURBO";
+    metaBox.appendChild(turboSpan);
+  }
 
+  // badge de categoria (clicável para filtro)
+  const catSpan = document.createElement("span");
+  catSpan.className = "badge bg-secondary";
+  catSpan.appendChild(textNode(categoriaLabel));
 
-    const categoriaLabel = (it.categoria || "ECONOMIA").toString();
-    const categoriaSlug = (it.categoria_slug || "economia").toString();
+  // 🔥 clique na categoria → filtra
+  catSpan.style.cursor = "pointer";
+  catSpan.title = "Clique para filtrar por esta categoria";
 
-    const card = document.createElement("div");
-    card.className = `card ia-card${it.isNew ? " is-new" : ""}`;
-    if (it.id != null) card.dataset.id = String(it.id);
-    card.dataset.kind = tipo;
-    card.dataset.categoria = categoriaSlug;
-    if (devePintarCritico) {
-      card.classList.add("ia-card-lote-critico");
-    }
+  catSpan.addEventListener("click", (ev) => {
+    if (!ev.isTrusted) return;
 
-    const body = document.createElement("div");
-    body.className = "card-body";
-
-    const header = document.createElement("div");
-    header.className = "d-flex align-items-center justify-content-between";
-
-    // título à esquerda
-    const titleEl = document.createElement("div");
-    titleEl.className = "fw-semibold";
-    titleEl.appendChild(textNode(titulo));
-    header.appendChild(titleEl);
-
-    // meta (categoria + chips) à direita
-    const metaBox = document.createElement("div");
-    metaBox.className = "d-flex align-items-center gap-2";
-
-    // badge NOVA
-    if (it.isNew) {
-      const newSpan = document.createElement("span");
-      newSpan.className = "badge-ia-new";
-      newSpan.textContent = "NOVA";
-      metaBox.appendChild(newSpan);
-    }
-
-    // badge IA TURBO / PREVISÃO (origem)
-    if (it.isTurbo) {
-      const turboSpan = document.createElement("span");
-      turboSpan.className = "badge-ia-turbo";
-      turboSpan.textContent = "IA TURBO";
-      metaBox.appendChild(turboSpan);
-    }
-
-    // badge de categoria (clicável para filtro)
-    const catSpan = document.createElement("span");
-    catSpan.className = "badge bg-secondary";
-    catSpan.appendChild(textNode(categoriaLabel));
-
-    // 🔥 clique na categoria → filtra
-    catSpan.style.cursor = "pointer";
-    catSpan.title = "Clique para filtrar por esta categoria";
-
-    catSpan.addEventListener("click", (ev) => {
-      if (!ev.isTrusted) return;
-
-      // mapeia categoria_slug para filtro lógico
-      let filtroTipo = "";
-      if (categoriaSlug === "alerta") {
-        filtroTipo = "alerta";
-      } else if (categoriaSlug === "meta") {
-        filtroTipo = "neutra"; // ou "positiva", se preferir
-      } else {
-        // economia / oportunidade / outros = positivas
-        filtroTipo = "positiva";
-      }
-
-      // ativa barra de filtros usando a API já existente
-      _allowFilteredUntil = (performance?.now?.() ?? 0) + FILTER_GRACE_MS;
-      globalThis.__HistoricoIA?.filtrar?.(filtroTipo);
-
-      // visual: marca o botão correspondente se existir
-      const mapBtnId = {
-        positiva: "btnPositivas",
-        alerta: "btnAlertas",
-        neutra: "btnNeutras",
-      };
-      const btnId = mapBtnId[filtroTipo];
-      if (btnId) {
-        for (const b of document.querySelectorAll(
-          "[data-ia-filtro],[data-filter]"
-        )) {
-          b.classList.remove("active");
-        }
-        const tgt = document.getElementById(btnId);
-        if (tgt) tgt.classList.add("active");
-      }
-    });
-
-    metaBox.appendChild(catSpan);
-
-    // chip de humor (Positiva / Alerta / Neutra)
-    metaBox.appendChild(createChip(tipo));   
-
-    if (isLoteAlert) {
-      const loteSpan = document.createElement("span");
-      loteSpan.className = "badge bg-warning text-dark";
-      loteSpan.textContent = "LOTE";
-      metaBox.appendChild(loteSpan);
-    }
-
-    header.appendChild(metaBox);
-
-    const p = document.createElement("p");
-    p.className = "mt-2 mb-2";
-    p.style.whiteSpace = "pre-wrap";
-
-    if (tipo === "positiva") {
-      p.classList.add("ia-text-positiva");
-    } else if (tipo === "alerta") {
-      p.classList.add("ia-text-alerta");
+    // mapeia categoria_slug para filtro lógico
+    let filtroTipo = "";
+    if (categoriaSlug === "alerta") {
+      filtroTipo = "alerta";
+    } else if (categoriaSlug === "meta") {
+      filtroTipo = "neutra"; // ou "positiva", se preferir
     } else {
-      p.classList.add("ia-text-neutra");
+      // economia / oportunidade / outros = positivas
+      filtroTipo = "positiva";
     }
 
-    p.appendChild(textNode(texto));
-    
-    if (isLoteAlert && saldoLote != null) {
-      const saldoEl = document.createElement("div");
-      saldoEl.className = "text-warning small mt-1";
-      saldoEl.textContent = `Saldo do lote: ${saldoLote} unidade(s)`;
-      body.appendChild(saldoEl);
+    // ativa barra de filtros usando a API já existente
+    _allowFilteredUntil = (performance?.now?.() ?? 0) + FILTER_GRACE_MS;
+    globalThis.__HistoricoIA?.filtrar?.(filtroTipo);
+
+    // visual: marca o botão correspondente se existir
+    const mapBtnId = {
+      positiva: "btnPositivas",
+      alerta: "btnAlertas",
+      neutra: "btnNeutras",
+    };
+    const btnId = mapBtnId[filtroTipo];
+    if (btnId) {
+      for (const b of document.querySelectorAll(
+        "[data-ia-filtro],[data-filter]"
+      )) {
+        b.classList.remove("active");
+      }
+      const tgt = document.getElementById(btnId);
+      if (tgt) tgt.classList.add("active");
     }
+  });
 
-    const foot = document.createElement("div");
-    foot.className = "text-muted small";
-    foot.appendChild(textNode(`Criada em: ${quando}`));
+  metaBox.appendChild(catSpan);
 
-    body.appendChild(header);
-    body.appendChild(p);
-    body.appendChild(foot);
-    card.appendChild(body);
-    return card;
+  // chip de humor (Positiva / Alerta / Neutra)
+  metaBox.appendChild(createChip(tipo));
+  header.appendChild(metaBox);
+
+  const p = document.createElement("p");
+  p.className = "mt-2 mb-2";
+  p.style.whiteSpace = "pre-wrap";
+
+  if (tipo === "positiva") {
+    p.classList.add("ia-text-positiva");
+  } else if (tipo === "alerta") {
+    p.classList.add("ia-text-alerta");
+  } else {
+    p.classList.add("ia-text-neutra");
   }
+
+  p.appendChild(textNode(texto));
+
+  const foot = document.createElement("div");
+  foot.className = "text-muted small";
+  foot.appendChild(textNode(`Criada em: ${quando}`));
+
+  body.appendChild(header);
+  body.appendChild(p);
+  body.appendChild(foot);
+  card.appendChild(body);
+  return card;
+}
+
 
   function renderListaSafe(container, items) {
     const frag = document.createDocumentFragment();
@@ -463,34 +407,18 @@ function normalizeTipoIA(rawTipo) {
 
   function normalizeItems(jsonArr) {
     const arr = Array.isArray(jsonArr) ? jsonArr : [];
-
-    const CAT_SLUGS = ["economia", "alerta", "oportunidade", "meta"];
-    const CAT_LABEL = {
-      economia: "ECONOMIA",
-      alerta: "ALERTA",
-      oportunidade: "OPORTUNIDADE",
-      meta: "META",
-    };
-
-    const lastSeenISO = lastSeenAt || null;
-    const lastSeenTS = lastSeenISO ? new Date(lastSeenISO).getTime() : 0;
-
     const out = arr.map((x) => {
       const criadoRaw =
         x.criado_em || x.created_at || x.created_at_br || x.data || "";
       const stamp = parseStamp(criadoRaw)?.getTime() || 0;
 
-      // tipo bruto vindo do backend (pode ser 'economia', 'alerta', etc.)
-      const rawTipo = (x.tipo || "").toString().toLowerCase().trim();
-
-      // categorias auxiliares (categoria_dominante, kind, etc.)
-      const kCategoria = (x.categoria || x.categoria_dominante || x.kind || "")
-        .toString()
-        .toLowerCase()
-        .trim();
-
-      // origem da dica (manual / auto / turbo / previsao etc.)
-      const origem = (x.origem || x.source || "")
+      const k = (
+        x.tipo ||
+        x.categoria ||
+        x.categoria_dominante ||
+        x.kind ||
+        "geral"
+      )
         .toString()
         .toLowerCase()
         .trim();
@@ -510,46 +438,14 @@ function normalizeTipoIA(rawTipo) {
         }
       }
 
-      // 1) HUMOR lógico: positiva | alerta | neutra
-      let tipo = normalizeTipoIA(rawTipo);
-      if (!tipo) tipo = normalizeTipoIA(kCategoria);
-      if (!tipo) tipo = "neutra";
-
-      // 2) CATEGORIA REAL (slug) vinda do backend, se existir
-      let catSlug = "";
-      if (CAT_SLUGS.includes(rawTipo)) {
-        catSlug = rawTipo;
-      } else if (CAT_SLUGS.includes(kCategoria)) {
-        catSlug = kCategoria;
-      } else if (tipo === "alerta") {
-        catSlug = "alerta";
-      } else {
-        catSlug = "economia";
-      }
-
-      const categoriaLabel =
-        CAT_LABEL[catSlug] || (catSlug ? catSlug.toUpperCase() : "ECONOMIA");
-
-      // 3) se é "nova" (criada depois do lastSeenAt)
-      const isNew = lastSeenTS > 0 ? stamp > lastSeenTS : false;
-
-      // 4) flag de IA turbo/previsão (origem)
-      const isTurbo =
-        origem === "turbo" ||
-        origem === "ia_turbo" ||
-        origem === "previsao" ||
-        origem === "forecast";
+      const tipo =
+        k === "alerta" || k === "positiva" || k === "neutra" ? k : "neutra";
 
       return {
         id: x.id,
         criado_em: criadoRaw,
         _stamp: stamp,
-        tipo, // positiva | alerta | neutra
-        categoria: categoriaLabel,
-        categoria_slug: catSlug,
-        origem,
-        isNew,
-        isTurbo,
+        tipo,
         title,
         text: txt || "Sem conteúdo disponível.",
         criado_em_fmt: x.criado_em_fmt || "",

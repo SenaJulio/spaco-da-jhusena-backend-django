@@ -12,7 +12,15 @@
 
 {% block content %}
 <div class="container py-4">
-  <h2 class="text-success mb-4">📊 Dashboard de Agendamentos 💚🐶</h2>
+
+  <!-- ✅ Topbar vendável (título + botão início) -->
+  <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
+    <h2 class="text-success m-0">📊 Dashboard de Agendamentos 💚🐶</h2>
+
+    <a href="{% url 'core:home' %}" class="btn btn-sm btn-outline-success">
+      ⬅ Início
+    </a>
+  </div>
 
   <a href="{% url 'core:home' %}" class="btn btn-outline-secondary btn-sm mb-3">
   ⬅ Voltar ao início
@@ -50,6 +58,7 @@
   </div>
 
   <!-- Agendamentos de hoje -->
+<<<<<<< HEAD
   <div class="card shadow-sm mb-4">
     <div class="card-body">
       <div class="d-flex justify-content-between align-items-center">
@@ -59,6 +68,25 @@
       <div id="boxHoje" class="mt-3 small text-muted">Carregando...</div>
     </div>
   </div>
+=======
+      <div class="card shadow-sm mb-4">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                  📅 Agendamentos de hoje
+                  <span id="badgeHojeCount" class="badge bg-success-subtle text-success border border-success-subtle ms-2">0</span>
+            </h5>
+            <div class="btn-group btn-group-sm mt-2" id="filtrosHoje">
+              <button class="btn btn-outline-success active" data-filtro="todos">Todos</button>
+              <button class="btn btn-outline-warning" data-filtro="pendentes">Pendentes</button>
+              <button class="btn btn-outline-primary" data-filtro="finalizados">Finalizados</button>
+            </div>
+            <button id="btnRecarregarHoje" class="btn btn-sm btn-outline-success">Atualizar</button>
+          </div>
+          <div id="boxHoje" class="mt-3 small text-muted">Carregando...</div>
+        </div>
+      </div>
+>>>>>>> origin/main
 
   <!-- Gráfico de status -->
   <div class="mb-4">
@@ -95,12 +123,18 @@
 </div>
 {% endblock %}
 
+<<<<<<< HEAD
 {% block scripts %}
+=======
+{% block extrabody %}
+
+>>>>>>> origin/main
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 
 <script>
   /* global Chart */
 
+<<<<<<< HEAD
   let mesChart = null;
   let statusChart = null;
 
@@ -141,10 +175,34 @@
         responsive: true,
         maintainAspectRatio: false,
         scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+=======
+  // -----------------------
+  // Helpers
+  // -----------------------
+  let filtroHojeAtivo = "todos";
+
+  function fetchJson(url, options = {}) {
+    return fetch(url, {
+      credentials: "same-origin",
+      ...options,
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+        "Accept": "application/json",
+        ...(options.headers || {}),
+      },
+    }).then(async (resp) => {
+      const ct = resp.headers.get("content-type") || "";
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      if (!ct.includes("application/json")) {
+        const txt = await resp.text();
+        throw new Error("API não retornou JSON. Recebi: " + txt.slice(0, 120));
+>>>>>>> origin/main
       }
+      return resp.json();
     });
   }
 
+<<<<<<< HEAD
   function updateStatusChart(contagem) {
     const labels = (contagem || []).map(item => String(item.status || '').toLowerCase());
     const data = (contagem || []).map(item => Number(item.total) || 0);
@@ -156,9 +214,18 @@
       cancelado: '#f44336',
       outro: '#9e9e9e'
     };
+=======
+  function getCsrfToken() {
+    const m = document.cookie.match(/csrftoken=([^;]+)/);
+    return m ? m[1] : "";
+  }
+>>>>>>> origin/main
 
-    const backgroundColors = labels.map(status => cores[status] || cores.outro);
+  function percent(val, total) {
+    return total > 0 ? (val / total * 100).toFixed(1) + "%" : "0.0%";
+  }
 
+<<<<<<< HEAD
     const canvas = document.getElementById('statusChart');
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
@@ -174,9 +241,49 @@
     statusChart = new Chart(ctx, {
       type: 'doughnut',
       data: { labels, datasets: [{ data, backgroundColor: backgroundColors }] },
+=======
+  // -----------------------
+  // Charts (mantém instâncias)
+  // -----------------------
+  let mesChart = null;
+  let statusChart = null;
+
+  function updateChart(evolucao) {
+    const labels = (evolucao || []).map((item) => item.mes);
+    const data = (evolucao || []).map((item) => Number(item.total) || 0);
+
+    const canvas = document.getElementById("mesChart");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+
+    if (mesChart) {
+      mesChart.data.labels = labels;
+      mesChart.data.datasets[0].data = data;
+      mesChart.update("none");
+      return;
+    }
+
+    mesChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Agendamentos por Mês",
+            data,
+            borderColor: "green",
+            backgroundColor: "rgba(0,128,0,0.1)",
+            fill: true,
+            tension: 0.3,
+          },
+        ],
+      },
+>>>>>>> origin/main
       options: {
+        animation: false,
         responsive: true,
         maintainAspectRatio: false,
+<<<<<<< HEAD
         plugins: {
           legend: { position: 'bottom' },
           title: { display: true, text: 'Distribuição de Status' }
@@ -214,17 +321,217 @@
         document.getElementById('total-agendamentos').textContent = String(total);
         document.getElementById('concluidos-percentual').textContent = percent(concluido);
         document.getElementById('cancelados-percentual').textContent = percent(cancelado);
+=======
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+      },
+    });
+  }
+
+  function updateStatusChart(contagem) {
+    const labels = (contagem || []).map((item) =>
+      String(item.status || "").toLowerCase()
+    );
+    const data = (contagem || []).map((item) => Number(item.total) || 0);
+
+    const cores = {
+      agendado: "#4caf50",
+      pendente: "#ff9800",
+      concluido: "#2196f3",
+      cancelado: "#f44336",
+      outro: "#9e9e9e",
+    };
+
+    const backgroundColors = labels.map((status) => cores[status] || cores.outro);
+
+    const canvas = document.getElementById("statusChart");
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+
+    if (statusChart) {
+      statusChart.data.labels = labels;
+      statusChart.data.datasets[0].data = data;
+      statusChart.data.datasets[0].backgroundColor = backgroundColors;
+      statusChart.update("none");
+      return;
+    }
+
+    statusChart = new Chart(ctx, {
+      type: "doughnut",
+      data: { labels, datasets: [{ data, backgroundColor: backgroundColors }] },
+      options: {
+        animation: false,
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: "bottom" },
+          title: { display: true, text: "Distribuição de Status" },
+        },
+      },
+    });
+  }
+
+  // -----------------------
+  // Dashboard (cards + charts)
+  // -----------------------
+  function filtrarDados() {
+    const inicio = document.getElementById("data_inicio")?.value || "";
+    const fim = document.getElementById("data_fim")?.value || "";
+
+    const url = new URL("/agendamentos/dashboard/dados/", location.origin);
+    if (inicio) url.searchParams.set("data_inicio", inicio);
+    if (fim) url.searchParams.set("data_fim", fim);
+
+    fetchJson(url.toString())
+      .then((data) => {
+        let total = 0,
+          concluido = 0,
+          cancelado = 0;
+
+        (data.contagem_status || []).forEach((item) => {
+          const st = String(item.status || "").toLowerCase();
+          const qtd = Number(item.total) || 0;
+          total += qtd;
+          if (st === "concluido") concluido = qtd;
+          if (st === "cancelado") cancelado = qtd;
+        });
+
+        const elTotal = document.getElementById("total-agendamentos");
+        const elConc = document.getElementById("concluidos-percentual");
+        const elCanc = document.getElementById("cancelados-percentual");
+
+        if (elTotal) elTotal.textContent = String(total);
+        if (elConc) elConc.textContent = percent(concluido, total);
+        if (elCanc) elCanc.textContent = percent(cancelado, total);
+>>>>>>> origin/main
 
         updateStatusChart(data.contagem_status || []);
         updateChart(data.evolucao_mensal || []);
       })
+<<<<<<< HEAD
       .catch(err => console.error('Erro ao buscar dados do dashboard:', err));
   }
 
+=======
+      .catch((err) => console.error("Erro ao buscar dados do dashboard:", err));
+  }
+
+  // -----------------------
+  // Hoje (render + ações)
+  // -----------------------
+  function renderHoje(itens) {
+  const box = document.getElementById("boxHoje");
+  if (!box) return;
+
+  const badgeCount = document.getElementById("badgeHojeCount");
+  const arr = Array.isArray(itens) ? itens : [];
+  const totalHoje = arr.length;
+
+  const pendentesHoje = arr.filter(a => {
+    const st = String(a.status || "agendado").toLowerCase();
+    return (st === "agendado" || st === "pendente");
+  }).length;
+
+  if (badgeCount) {
+    badgeCount.textContent = `${totalHoje} (${pendentesHoje} pend.)`;
+  }
+
+  if (!arr.length) {
+    box.innerHTML = "<div class='text-muted'>Nenhum agendamento para hoje. 🎉</div>";
+    return;
+  }
+
+  // ✅ Ordena por hora (HH:MM)
+  const ordenados = [...arr].sort((a, b) =>
+    String(a.hora || "").localeCompare(String(b.hora || ""))
+  );
+
+  // ✅ aplica filtro (mantendo item finalizado/cancelado se escolhido)
+  let filtrados = ordenados;
+
+  if (filtroHojeAtivo === "pendentes") {
+    filtrados = ordenados.filter(a => {
+      const st = String(a.status || "agendado").toLowerCase();
+      return st === "agendado" || st === "pendente";
+    });
+  } else if (filtroHojeAtivo === "finalizados") {
+    filtrados = ordenados.filter(a => {
+      const st = String(a.status || "agendado").toLowerCase();
+      return st === "concluido" || st === "cancelado";
+    });
+  }
+
+  // se o filtro deixar vazio, mostra mensagem (mas mantém contador do dia lá em cima)
+  if (!filtrados.length) {
+    const msg =
+      filtroHojeAtivo === "pendentes"
+        ? "Nenhum agendamento pendente hoje. 🎉"
+        : "Nenhum agendamento finalizado hoje ainda.";
+    box.innerHTML = `<div class='text-muted'>${msg}</div>`;
+    return;
+  }
+
+  // ✅ Badges com ícone + cor
+  const badgeMap = {
+    agendado: `<span class="badge bg-success-subtle text-success border border-success-subtle">🟢 Agendado</span>`,
+    pendente: `<span class="badge bg-warning-subtle text-warning border border-warning-subtle">🟠 Pendente</span>`,
+    concluido: `<span class="badge bg-primary-subtle text-primary border border-primary-subtle">🔵 Concluído</span>`,
+    cancelado: `<span class="badge bg-danger-subtle text-danger border border-danger-subtle">🔴 Cancelado</span>`,
+  };
+
+  box.innerHTML = filtrados.map((a) => {
+    const st = String(a.status || "agendado").toLowerCase();
+    const badge = badgeMap[st] || `<span class="badge bg-secondary-subtle text-secondary border">⚪ Status</span>`;
+
+    const acoes =
+      st === "agendado" || st === "pendente"
+        ? `
+          <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-primary js-acao"
+                    data-id="${a.id}" data-acao="concluir">
+              Concluir
+            </button>
+            <button class="btn btn-sm btn-outline-danger js-acao"
+                    data-id="${a.id}" data-acao="cancelar">
+              Cancelar
+            </button>
+          </div>
+        `
+        : `
+          <div class="text-muted small">
+            ${st === "concluido" ? "✔ Finalizado" : "✖ Cancelado"}
+          </div>
+        `;
+
+    return `
+      <div class="d-flex justify-content-between align-items-center ag-row ag-status-${st}"
+           id="ag-item-${a.id}">
+        <div>
+          <div class="d-flex align-items-center gap-2">
+            <strong>${a.hora || "--:--"}</strong>
+            ${badge}
+          </div>
+
+          <div>
+            ${a.pet_nome || "(sem pet)"} <span class="text-muted">(${a.servico || "-"})</span>
+          </div>
+
+          <div class="text-muted">Tutor: ${a.nome || "-"}</div>
+        </div>
+
+        ${acoes}
+      </div>
+    `;
+  }).join("");
+}
+
+
+
+>>>>>>> origin/main
   function carregarHoje() {
     const box = document.getElementById("boxHoje");
     if (box) box.innerHTML = "<div class='text-muted'>Carregando...</div>";
 
+<<<<<<< HEAD
     fetch("/agendamentos/dashboard/hoje/", { credentials: "same-origin" })
       .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
       .then(data => {
@@ -254,15 +561,45 @@
         console.error("Erro hoje:", err);
         const box = document.getElementById("boxHoje");
         if (box) box.innerHTML = "<div class='text-danger'>Erro ao carregar agendamentos de hoje.</div>";
+=======
+    fetchJson("/agendamentos/dashboard/hoje/")
+      .then((data) => {
+        renderHoje(data.itens || []);
+      })
+      .catch((err) => {
+        console.error("Erro hoje:", err);
+        const box2 = document.getElementById("boxHoje");
+        if (box2)
+          box2.innerHTML =
+            "<div class='text-danger'>Erro ao carregar agendamentos de hoje.</div>";
+>>>>>>> origin/main
       });
   }
 
   function acaoAgendamento(id, acao) {
+<<<<<<< HEAD
     fetch(`/agendamentos/acao/${id}/`, {
+=======
+    // ✅ CONFIRMAÇÃO SOMENTE PARA CANCELAR
+      if (acao === "cancelar") {
+        const ok = confirm("Tem certeza que deseja cancelar este agendamento?");
+        if (!ok) return; // se clicar em Cancelar, não faz nada
+      }
+    const row = document.getElementById(`ag-item-${id}`);
+
+    // trava os botões do item enquanto processa
+    if (row) {
+      row.querySelectorAll("button").forEach((b) => (b.disabled = true));
+      row.style.opacity = "0.6";
+    }
+
+    fetchJson(`/agendamentos/acao/${id}/`, {
+>>>>>>> origin/main
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "X-CSRFToken": getCsrfToken(),
+<<<<<<< HEAD
         "X-Requested-With": "XMLHttpRequest",
       },
       credentials: "same-origin",
@@ -286,6 +623,81 @@
 
     carregarHoje();
     filtrarDados();
+=======
+      },
+      body: JSON.stringify({ acao }),
+    })
+      .then((data) => {
+        if (!data.ok) throw new Error(data.erro || "Falha");
+
+        // remove o item com animação leve
+        if (row) {
+          row.style.transition = "all .18s ease";
+          row.style.transform = "translateX(8px)";
+          row.style.opacity = "0";
+          setTimeout(() => {
+            row.remove();
+
+            // se ficou vazio, mostra msg bonita
+            const box = document.getElementById("boxHoje");
+            if (box && box.querySelectorAll("[id^='ag-item-']").length === 0) {
+              box.innerHTML = "<div class='text-muted'>Nenhum agendamento para hoje. 🎉</div>";
+            }
+          }, 180);
+        }
+
+        // atualiza cards e gráficos
+        filtrarDados();
+      })
+      .catch((err) => {
+        if (row) {
+          row.querySelectorAll("button").forEach((b) => (b.disabled = false));
+          row.style.opacity = "1";
+          row.style.transform = "";
+        }
+        alert("Erro: " + err.message);
+      });
+  }
+
+  // Delegação de clique para ações
+  document.addEventListener("click", (e) => {
+    const btn = e.target.closest(".js-acao");
+    if (!btn) return;
+    const id = btn.dataset.id;
+    const acao = btn.dataset.acao;
+    if (!id || !acao) return;
+    acaoAgendamento(id, acao);
+>>>>>>> origin/main
   });
+
+  // -----------------------
+  // Boot
+  // -----------------------
+  document.addEventListener("DOMContentLoaded", () => {
+    const form = document.getElementById("filtroForm");
+    if (form)
+      form.addEventListener("submit", (e) => {
+        e.preventDefault();
+        filtrarDados();
+      });
+
+    const btn = document.getElementById("btnRecarregarHoje");
+    if (btn) btn.addEventListener("click", carregarHoje);
+
+    carregarHoje();
+    filtrarDados();
+    document.querySelectorAll("#filtrosHoje button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("#filtrosHoje button").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    filtroHojeAtivo = btn.dataset.filtro || "todos";
+    carregarHoje(); // recarrega respeitando o filtro
+  });
+});
+});
 </script>
+<<<<<<< HEAD
+=======
+
+>>>>>>> origin/main
 {% endblock %}

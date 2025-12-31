@@ -11,10 +11,8 @@ from estoque.models import MovimentoEstoque, LoteProduto
 
 def _baixar_estoque_fifo(produto, quantidade, venda):
     """
-    Baixa a quantidade informada usando o lote mais antigo primeiro
-    (ordenado por validade, depois por criado_em).
-    Cria movimentos de saída, cada um ligado a um lote.
-    BLOQUEIA venda se encontrar lote vencido com saldo.
+    Baixa a quantidade informada usando FIFO (lote mais antigo primeiro).
+    Bloqueia venda se houver lote vencido com saldo.
     """
     restante = Decimal(str(quantidade))
 
@@ -25,20 +23,17 @@ def _baixar_estoque_fifo(produto, quantidade, venda):
         if saldo_lote <= 0:
             continue
 
-        # ✅ BLOQUEIO: lote vencido + saldo > 0
         if lote.validade and lote.validade < venda.data.date():
-            raise ValidationError([f"Lote vencido ({lote.validade}). Venda bloqueada."]) 
-        # ⚠️ AVISO: lote próximo do vencimento (ex.: 30 dias)
+            raise ValidationError([f"Lote vencido ({lote.validade}). Venda bloqueada."])
+
         dias_alerta = 30
         limite = venda.data.date() + timedelta(days=dias_alerta)
 
         if lote.validade and venda.data.date() <= lote.validade <= limite:
-            # mensagem de aviso (não bloqueia)
             avisos = getattr(venda, "_avisos_lote", [])
             avisos.append(f"⚠️ Lote próximo do vencimento ({lote.validade}).")
             venda._avisos_lote = avisos
 
-         
         usar = min(saldo_lote, restante)
 
         MovimentoEstoque.objects.create(
@@ -56,10 +51,8 @@ def _baixar_estoque_fifo(produto, quantidade, venda):
     if restante > 0:
         raise ValidationError(
             [
-                (
-                    f"Estoque insuficiente para {produto.nome}. "
-                    f"Faltam {restante} unidade(s) para concluir a venda #{venda.id}."
-                )
+                f"Estoque insuficiente para {produto.nome}. "
+                f"Faltam {restante} unidade(s) para concluir a venda #{venda.id}."
             ]
         )
 
@@ -83,21 +76,16 @@ class VendaAdmin(admin.ModelAdmin):
         try:
             super().save_model(request, obj, form, change)
         except ValidationError as e:
-            msgs = e.messages if hasattr(e, "messages") else [str(e)]
-            msg = msgs[0] if msgs else "Erro ao salvar."
+            msg = e.messages[0] if hasattr(e, "messages") else str(e)
             self.message_user(request, msg, level=messages.ERROR)
             form.add_error(None, msg)
-            return
 
     def save_related(self, request, form, formsets, change):
         """
-        Depois de salvar os itens:
-        - recalcula o total da venda
+        Após salvar os itens:
+        - recalcula total
         - baixa estoque via FIFO
-        Se der ValidationError:
-          - rollback total
-          - mostra mensagem no admin
-          - sem tela vermelha
+        - rollback completo em erro
         """
         try:
             with transaction.atomic():
@@ -114,20 +102,16 @@ class VendaAdmin(admin.ModelAdmin):
                             quantidade=item.quantidade,
                             venda=venda,
                         )
-                # exibe avisos (se existirem) — sem bloquear
-            avisos = list(dict.fromkeys(getattr(venda, "_avisos_lote", [])))
-            if avisos:
-                self.message_user(request, avisos[0], level=messages.WARNING)
+
+                avisos = list(dict.fromkeys(getattr(venda, "_avisos_lote", [])))
+                if avisos:
+                    self.message_user(request, avisos[0], level=messages.WARNING)
 
         except ValidationError as e:
             transaction.set_rollback(True)
-
-            msgs = e.messages if hasattr(e, "messages") else [str(e)]
-            msg = msgs[0] if msgs else "Erro ao salvar a venda."
-
+            msg = e.messages[0] if hasattr(e, "messages") else str(e)
             self.message_user(request, msg, level=messages.ERROR)
             form.add_error(None, msg)
-            return
 
 
 @admin.register(ItemVenda)

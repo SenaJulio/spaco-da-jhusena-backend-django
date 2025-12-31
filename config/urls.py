@@ -15,7 +15,7 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
-# config/urls.py
+
 # config/urls.py
 from django.contrib import admin
 from django.urls import include, path
@@ -23,9 +23,19 @@ from django.urls import include, path
 urlpatterns = [
     path("", include("core.urls")),  # HOME
     path("admin/", admin.site.urls),
-    path("", include(("core.urls", "core"), namespace="core")),  # raiz controlada pelo app core
+    # Módulos primeiro
     path("agendamentos/", include(("agendamentos.urls", "agendamentos"), namespace="agendamentos")),
     path("estoque/", include(("estoque.urls", "estoque"), namespace="estoque")),
     path("financeiro/", include(("financeiro.urls", "financeiro"), namespace="financeiro")),
+<<<<<<< HEAD
     path("estoque/", include("estoque.urls")),
+=======
+    # Core (raiz) por ÚLTIMO, senão engole tudo
+    path("", include(("core.urls", "core"), namespace="core")),
+>>>>>>> origin/main
 ]
+
+from django.conf import settings
+from django.contrib.staticfiles.urls import staticfiles_urlpatterns
+
+urlpatterns += staticfiles_urlpatterns()

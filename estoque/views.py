@@ -11,6 +11,7 @@ from django.shortcuts import render
 from django.utils import timezone
 
 from .models import MovimentoEstoque, Produto, LoteProduto
+<<<<<<< HEAD
 from .services_ia import gerar_alertas_validade_lotes
 
 from django.views.decorators.http import require_GET
@@ -18,11 +19,22 @@ from django.views.decorators.http import require_GET
 from .services_lotes import gerar_textos_alerta_lotes
 
 
+=======
+from .services_lotes import gerar_textos_alerta_lotes
+
+
+from django.views.decorators.http import require_GET
+
+from .services_lotes import gerar_textos_alerta_lotes
+
+
+>>>>>>> origin/main
 # ==============================
 # 1) DASHBOARD DE ESTOQUE (HTML)
 # ==============================
 
 
+<<<<<<< HEAD
 @login_required
 def dashboard_estoque(request):
     """
@@ -30,6 +42,82 @@ def dashboard_estoque(request):
     Os gráficos buscam dados via AJAX em /estoque/dashboard/dados/
     """
     return render(request, "estoque/dashboard_estoque.html")
+=======
+def dashboard_estoque(request):
+    """
+    Dashboard simples de estoque:
+    - Ranking dos produtos por saldo
+    - Série mensal de entradas x saídas
+    """
+
+    # 1) Produtos com saldo e vendidos
+    produtos_qs = Produto.objects.filter(controla_estoque=True, ativo=True).annotate(
+        saldo=Sum(
+            Case(
+                When(movimentos__tipo="E", then=F("movimentos__quantidade")),
+                When(movimentos__tipo="S", then=-F("movimentos__quantidade")),
+                default=0,
+                output_field=DecimalField(),
+            )
+        ),
+        vendidos=Sum(
+            Case(
+                When(movimentos__tipo="S", then=F("movimentos__quantidade")),
+                default=0,
+                output_field=DecimalField(),
+            )
+        ),
+    )
+
+    # ordena pelos mais vendidos
+    produtos_rank = sorted(
+        produtos_qs,
+        key=lambda p: p.vendidos or Decimal("0"),
+        reverse=True,
+    )[:10]
+
+    labels_produtos = [p.nome for p in produtos_rank]
+    dados_saldo = [float(p.saldo or 0) for p in produtos_rank]
+    dados_vendidos = [float(p.vendidos or 0) for p in produtos_rank]
+    # saídas → positivo
+
+    # 2) Série mensal entradas x saídas
+    mov_qs = (
+        MovimentoEstoque.objects.all()
+        .annotate(mes=TruncMonth("data"))
+        .values("mes", "tipo")
+        .annotate(total=Sum("quantidade"))
+        .order_by("mes", "tipo")
+    )
+
+    meses = {}
+    for item in mov_qs:
+        mes_label = item["mes"].strftime("%m/%Y") if item["mes"] else "N/D"
+        if mes_label not in meses:
+            meses[mes_label] = {"E": 0, "S": 0}
+        if item["tipo"] == "E":
+            meses[mes_label]["E"] += float(item["total"] or 0)
+        else:
+            meses[mes_label]["S"] += float(abs(item["total"] or 0))
+
+    labels_meses = list(meses.keys())
+    dados_entradas = [meses[m]["E"] for m in labels_meses]
+    dados_saidas = [meses[m]["S"] for m in labels_meses]
+
+    alertas_lotes = gerar_textos_alerta_lotes(dias_aviso=30)
+
+    context = {
+        "labels_produtos": labels_produtos,
+        "dados_saldo": dados_saldo,
+        "dados_vendidos": dados_vendidos,
+        "labels_meses": labels_meses,
+        "dados_entradas": dados_entradas,
+        "dados_saidas": dados_saidas,
+        "alertas_lotes": alertas_lotes,
+        "periodo_dias": 30,
+    }
+    return render(request, "estoque/dashboard_estoque.html", context)
+>>>>>>> origin/main
 
 
 # =============================================
@@ -124,7 +212,13 @@ def ia_lotes_validade_view(request):
     except ValueError:
         dias = 15
 
+<<<<<<< HEAD
     total = gerar_alertas_validade_lotes(request.user, dias_aviso=dias)
+=======
+    msgs = gerar_textos_alerta_lotes(dias_aviso=dias)
+    total = len(msgs)
+
+>>>>>>> origin/main
 
     return JsonResponse(
         {
@@ -176,4 +270,8 @@ def api_lotes_prestes_vencer(request):
         "count": len(msgs),
         "items": msgs,
     }
+<<<<<<< HEAD
     return JsonResponse(data, json_dumps_params={"ensure_ascii": False})
+=======
+    return JsonResponse(data, json_dumps_params={"ensure_ascii": False})
+>>>>>>> origin/main

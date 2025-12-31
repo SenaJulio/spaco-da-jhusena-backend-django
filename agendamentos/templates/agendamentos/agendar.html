@@ -1,78 +1,283 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8" />
-    <title>Agendamento no Spaço da Jhuséna 💚🐾</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #e6f2e6;
-            color: #2d5a2d;
-            padding: 20px;
-            max-width: 500px;
-            margin: 30px auto;
-            border-radius: 12px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        h1 {
-            text-align: center;
-            margin-bottom: 24px;
-        }
-        label {
-            display: block;
-            margin-top: 15px;
-            font-weight: bold;
-        }
-        input, select {
-            width: 100%;
-            padding: 10px;
-            margin-top: 5px;
-            border-radius: 8px;
-            border: 1.5px solid #4CAF50;
-            font-size: 1rem;
-        }
-        input[type="submit"] {
-            background-color: #4CAF50;
-            color: white;
-            border: none;
-            margin-top: 25px;
-            cursor: pointer;
-            font-weight: bold;
-            transition: background-color 0.3s ease;
-        }
-        input[type="submit"]:hover {
-            background-color: #3e8e41;
-        }
-    </style>
-</head>
-<body>
-    <h1>Agendamento no Spaço da Jhuséna 💚🐾</h1>
-    <form method="post">
-  {% csrf_token %}
+{% extends "base.html" %}
+{% load static %}
 
+{% block content %}
+<style>
+  body{
+    background:#0b1220;
+    color:#e8f0ff;
+  }
+
+  .sj-card{
+    max-width:560px;
+    margin:28px auto;
+    border-radius:16px;
+    border:1px solid rgba(47,191,113,.25);
+    box-shadow:0 10px 28px rgba(0,0,0,.35);
+    overflow:hidden;
+    background:rgba(10,16,28,.85);
+  }
+
+  .sj-header{
+    background:linear-gradient(135deg,#1f7a3a,#2fbf71);
+    color:#fff;
+    padding:16px 18px;
+  }
+  .sj-header h1{
+    font-size:1.2rem;
+    margin:0;
+    font-weight:800;
+    letter-spacing:.2px;
+  }
+  .sj-sub{
+    opacity:.9;
+    font-size:.9rem;
+    margin-top:3px;
+  }
+
+  .sj-body{ padding:18px; }
+
+  .sj-card label{
+    font-weight:700;
+    color:#bff3d4;
+  }
+
+  /* Base de campos (pega form-control/form-select e também inputs “sem classe”) */
+  .sj-card .form-control,
+  .sj-card .form-select,
+  .sj-card input,
+  .sj-card select,
+  .sj-card textarea{
+    width:100% !important;
+    max-width:100% !important;
+    display:block;
+    box-sizing:border-box;
+
+    border-radius:12px;
+    border:1.5px solid rgba(47,191,113,.55);
+    background:rgba(0,0,0,.25);
+    color:#e8f0ff;
+    padding:.375rem .75rem;
+  }
+
+  .sj-card .form-control:focus,
+  .sj-card .form-select:focus,
+  .sj-card input:focus,
+  .sj-card select:focus,
+  .sj-card textarea:focus{
+    border-color:#2fbf71;
+    box-shadow:0 0 0 .2rem rgba(47,191,113,.25);
+    background:rgba(0,0,0,.28);
+    color:#fff;
+    outline:0;
+  }
+
+  /* Ajuste de colunas do Bootstrap pra não travar largura */
+  .sj-card .row > *{ min-width:0; }
+
+  /* Ícone do date/time visível no dark (Chrome/Edge) */
+  .sj-card input[type="date"]::-webkit-calendar-picker-indicator,
+  .sj-card input[type="time"]::-webkit-calendar-picker-indicator{
+    filter: invert(1);
+  }
+
+  .btn-sj{
+    width:100%;
+    background:#2fbf71;
+    border:none;
+    border-radius:12px;
+    font-weight:800;
+    padding:10px 14px;
+  }
+  .btn-sj:hover{ filter:brightness(.95); }
+
+  .btn-back{
+    border-radius:12px;
+    font-weight:700;
+  }
+
+  .alert-danger{
+    border-radius:12px;
+    background:rgba(220,53,69,.15);
+    border:1px solid rgba(220,53,69,.35);
+    color:#ffe7ea;
+  }
+</style>
+
+<div class="sj-card">
+  <div class="sj-header d-flex align-items-center justify-content-between gap-2">
+    <div>
+      <h1>Agendamento 💚🐾</h1>
+      <div class="sj-sub">Spaço da Jhuséna — escolha o serviço e horário</div>
+    </div>
+
+    <a href="{% url 'core:home' %}" class="btn btn-sm btn-outline-light btn-back">
+      ⬅ Início
+    </a>
+  </div>
+
+  <div class="sj-body">
+    <form method="post" action="" class="vstack gap-3" id="agForm">
+      {% csrf_token %}
+
+      {% if form.errors %}
+        <div class="alert alert-danger" role="alert">
+          <strong>Ops! Corrige isso aqui:</strong>
+          <ul class="mb-0">
+            {% for field, errors in form.errors.items %}
+              {% for error in errors %}
+                <li><b>{{ field }}:</b> {{ error }}</li>
+              {% endfor %}
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+
+      <div>
+        <label for="id_nome" class="form-label">Nome do tutor</label>
+        {{ form.nome }}
+      </div>
+
+      <div>
+        <label for="id_cliente" class="form-label">Nome do pet</label>
+        {{ form.pet_nome }}
+      </div>
+
+      <div>
+        <label for="id_telefone" class="form-label">Telefone</label>
+        {{ form.telefone }}
+      </div>
+
+      <div>
+        <label for="id_email" class="form-label">E-mail</label>
+        {{ form.email }}
+      </div>
+
+      <div>
+        <label for="id_servico" class="form-label">Serviço</label>
+        {{ form.servico }}
+      </div>
+
+      <div class="row g-2">
+        <div class="col-md-6">
+          <label for="id_data" class="form-label">Data</label>
+          {{ form.data }}
+        </div>
+        <div class="col-md-6">
+          <label for="id_hora" class="form-label">Hora</label>
+          {{ form.hora }}
+        </div>
+      </div>
+      <div id="horaHelp" class="small text-danger mt-1 d-none"></div>
+      <div id="horariosOcupados" class="small text-muted mt-1"></div>
+ <script>
+document.addEventListener("DOMContentLoaded", () => {
+  const elData = document.getElementById("id_data");
+  const elHora = document.getElementById("id_hora");
+  const elHelp = document.getElementById("horaHelp");
+  const elLista = document.getElementById("horariosOcupados");
+
+  if (!elData || !elHora) return;
+
+  let ocupados = [];
+
+  async function carregarOcupados(){
+    const data = elData.value;
+    ocupados = [];
+    elLista.textContent = "";
+    elHelp.classList.add("d-none");
+
+    if (!data) return;
+
+    const url = new URL("{% url 'agendamentos:horarios_ocupados' %}", window.location.origin);
+    url.searchParams.set("data", data);
+
+    try{
+      const r = await fetch(url, { headers: { "Accept": "application/json" }});
+      const d = await r.json();
+
+      if (d.ok && Array.isArray(d.ocupados)) {
+        ocupados = d.ocupados;
+
+        if (ocupados.length) {
+          elLista.innerHTML = `Horários ocupados: <strong>${ocupados.join(", ")}</strong>`;
+        } else {
+          elLista.textContent = "Nenhum horário ocupado neste dia 👍";
+        }
+      }
+    }catch(e){
+      console.warn("Falha ao carregar horários ocupados:", e);
+    }
+  }
+
+<<<<<<< HEAD
   <label for="id_nome">Nome:</label>
   {{ form.nome }}
   
   <label for="id_cliente">Nome do Pet:</label>
   {{ form.cliente }}
+=======
+  function validarHora(){
+    const v = elHora.value;
+    if (!v) return;
+>>>>>>> origin/main
 
-  <label for="id_telefone">Telefone:</label>
-  {{ form.telefone }}
+    if (ocupados.includes(v)) {
+      elHelp.textContent = "Esse horário já está ocupado. Escolha outro.";
+      elHelp.classList.remove("d-none");
+      elHora.value = "";
+      elHora.focus();
+    } else {
+      elHelp.classList.add("d-none");
+    }
+  }
 
-  <label for="id_email">E-mail:</label>
-  {{ form.email }}
+  elData.addEventListener("change", async () => {
+    await carregarOcupados();
+    validarHora();
+  });
 
-  <label for="id_servico">Serviço:</label>
-  {{ form.servico }}
+  elHora.addEventListener("change", validarHora);
 
-  <label for="id_data">Data:</label>
-  {{ form.data }}
+  // se já tiver data ao carregar
+  carregarOcupados();
+});
+</script>
+      <button type="submit" class="btn btn-sj">
+        ✅ Confirmar agendamento
+      </button>
 
-  <label for="id_hora">Hora:</label>
-  {{ form.hora }}
+      <div class="text-center small text-muted">
+        Ao confirmar, você registra o agendamento no sistema.
+      </div>
+    </form>
+  </div>
+</div>
 
-  <button type="submit">Agendar</button>
-</form>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.getElementById("agForm");
+  if (!form) return;
 
-</body>
-</html>
+  let enviando = false;
+
+  form.addEventListener("submit", (e) => {
+    if (enviando) {
+      e.preventDefault();
+      return;
+    }
+    enviando = true;
+
+    const btn = form.querySelector("button[type='submit'], input[type='submit']");
+    if (btn) {
+      btn.disabled = true;
+      const old = btn.tagName === "BUTTON" ? btn.textContent : btn.value;
+      btn.dataset.oldText = old || "";
+      if (btn.tagName === "BUTTON") btn.textContent = "Salvando...";
+      else btn.value = "Salvando...";
+    }
+  });
+});
+</script>
+
+{% endblock %}

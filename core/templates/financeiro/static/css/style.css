@@ -1,32 +1,61 @@
 body{
-    background-color: #e8f5e9;
-    font-family: 'Segoe UI', sans-serif;
-    text-align: center;
-    margin: 0;
-    padding: 0;
+  background-color: #e8f5e9;
+  font-family: 'Segoe UI', sans-serif;
+  margin: 0;
+  padding: 0;
+  text-align: left;
 }
-.container{
-    padding-top: 50px;
+
+/* só pra home/landing */
+.home-page{ text-align:center; }
+.home-container{ padding-top:50px; }
+.botao-home{
+  background-color:#4CAF50;
+  color:white;
+  padding:15px 25px;
+  margin:10px;
+  border-radius:10px;
+  text-decoration:none;
+  font-weight:bold;
 }
-.logo{
-width: 150px;
-margin-bottom: 20px;
+.botao-home:hover{ background-color:#388E3C; }
+
+/* agendamentos ok */
+/* Base do item */
+.ag-row{
+  padding:12px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.08);
+  background: rgba(0,0,0,.18);
+  margin-bottom:10px;
 }
-h1{
-    color: #2e7d32;
+
+/* Status: cor + borda */
+.ag-status-agendado{
+  border-color: rgba(76,175,80,.35);
+  background: rgba(76,175,80,.08);
 }
-.verde{
-    color: #4CAF50;
+.ag-status-pendente{
+  border-color: rgba(255,152,0,.35);
+  background: rgba(255,152,0,.08);
 }
-.botao{
-    background-color: #4CAF50;
-    color: white;
-    padding: 15px 25px;
-    margin: 10px;
-    border-radius: 10px;
-    text-decoration: none;
-    font-weight: bold;
+.ag-status-concluido{
+  border-color: rgba(33,150,243,.35);
+  background: rgba(33,150,243,.08);
 }
-.botao:hover{
-    background-color: #388E3C;
+.ag-status-cancelado{
+  border-color: rgba(244,67,54,.35);
+  background: rgba(244,67,54,.08);
+}
+
+
+.card-scroll{
+  overflow-y:auto;
+  max-height:220px;
+}
+
+#badgeHojeCount{
+  font-weight:700;
+  font-size:.78rem;
+  padding:.35rem .5rem;
 }

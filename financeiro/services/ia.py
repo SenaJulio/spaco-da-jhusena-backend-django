@@ -9,10 +9,13 @@ from django.db import transaction
 from django.db.models import Sum
 from django.utils import timezone
 from django.apps import apps
+<<<<<<< HEAD
 
 from django.contrib.auth.models import User
 from financeiro.models import RecomendacaoIA
 from financeiro.services.ia_utils import _map_tipo
+=======
+>>>>>>> origin/main
 
 
 # ---------- util interno: resolve o modelo só quando precisar ----------

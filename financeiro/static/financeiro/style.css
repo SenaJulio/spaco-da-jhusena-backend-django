@@ -1,12 +1,19 @@
 /* === Spaço da Jhuséna — Painel Financeiro === */
+<<<<<<< HEAD
 
 /* ---------------- Tema base (cores) ---------------- */
 
+=======
+/* ✅ CSS consolidado (sem regras duplicadas / sem brigas) */
+
+/* ---------------- Tema base (cores) ---------------- */
+>>>>>>> origin/main
 :root {
   --sj-bg: #f4fdf5;
   --sj-text: #2e7d32;
   --sj-accent: #2e7d32;
   --sj-accent-dark: #256b28;
+<<<<<<< HEAD
   --sj-card-shadow: 0 2px 6px rgba(0,0,0,.08);
 
   /* Dark-friendly (usado nas seções de IA) */
@@ -14,18 +21,34 @@
   --sj-verde-fundo: rgba(46, 125, 50, 0.18);
   --sj-ambar-borda: rgba(255, 193, 7, 0.55);
   --sj-ambar-fundo: rgba(255, 193, 7, 0.20);
+=======
+  --sj-card-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+
+  /* Dark-friendly (IA / seções escuras) */
+  --sj-verde-borda: rgba(76, 175, 80, 0.45);
+  --sj-verde-fundo: rgba(46, 125, 50, 0.18);
+  --sj-ambar-borda: rgba(255, 193, 7, 0.55);
+  --sj-ambar-fundo: rgba(255, 193, 7, 0.2);
+>>>>>>> origin/main
   --sj-cinza-borda: rgba(255, 255, 255, 0.18);
   --sj-cinza-fundo: rgba(255, 255, 255, 0.08);
 }
 
+<<<<<<< HEAD
 /* Tema claro base do painel */
+=======
+/* ---------------- Base do tema claro ---------------- */
+>>>>>>> origin/main
 html,
 body {
   background: var(--sj-bg) !important;
   color: var(--sj-text) !important;
 }
 
+<<<<<<< HEAD
 /* Tipografia geral */
+=======
+>>>>>>> origin/main
 body {
   font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
   margin: 0;
@@ -49,7 +72,10 @@ h4 {
 }
 
 /* ---------------- Cards gerais ---------------- */
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/main
 .card {
   border-radius: 12px;
   box-shadow: var(--sj-card-shadow);
@@ -59,10 +85,17 @@ h4 {
 
 .card:hover {
   transform: translateY(-3px);
+<<<<<<< HEAD
   box-shadow: 0 4px 12px rgba(0,0,0,.12);
 }
 
 /* Cards de totais */
+=======
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+}
+
+/* Cards de totais (KPI) */
+>>>>>>> origin/main
 .card.border-success {
   border: 1px solid #81c784 !important;
   background: #e8f7ef;
@@ -77,7 +110,10 @@ h4 {
 }
 
 /* ---------------- Botões ---------------- */
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/main
 .btn {
   border-radius: 8px;
   font-weight: 600;
@@ -100,7 +136,10 @@ h4 {
 }
 
 /* ---------------- Filtros / inputs ---------------- */
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/main
 .filtro-financeiro label,
 form label {
   font-weight: 700;
@@ -118,8 +157,13 @@ form input[type="date"] {
 
 /* =========================
    GRÁFICOS — PRESET ESTÁVEL
+<<<<<<< HEAD
    ========================= */
 
+=======
+   (sem quebrar Chart.js)
+   ========================= */
+>>>>>>> origin/main
 .chart-box {
   position: relative;
   aspect-ratio: 16 / 9;
@@ -134,33 +178,48 @@ form input[type="date"] {
   height: 100% !important;
 }
 
+<<<<<<< HEAD
 /* Compatibilidade (sem altura fixa) */
+=======
+>>>>>>> origin/main
 #graficoEvolucao,
 #graficoCategorias {
   display: block;
   width: 100%;
 }
 
+<<<<<<< HEAD
 /* Mantém os cards acima de overlays/modais se necessário */
+=======
+>>>>>>> origin/main
 .card.h-100 {
   z-index: 5;
 }
 
+<<<<<<< HEAD
 /* Mensagens vazias */
+=======
+>>>>>>> origin/main
 .sem-dados {
   font-style: italic;
   color: #666;
   text-align: center;
 }
 
+<<<<<<< HEAD
 /* Canvas / Chart.js */
+=======
+>>>>>>> origin/main
 .chartjs-render-monitor,
 canvas {
   image-rendering: auto;
 }
 
 /* ---------------- Badges de tipo (Resumo / fora do histórico) ---------------- */
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/main
 .badge-tipo {
   display: inline-flex;
   align-items: center;
@@ -200,14 +259,22 @@ canvas {
 }
 
 /* ================= Bloco Plano IA (30d) ================= */
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/main
 #analise30dPlano {
   border-radius: 0.8rem !important;
   border-width: 1px !important;
   border-style: solid !important;
+<<<<<<< HEAD
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.03),
     0 0 0 1px rgba(0,0,0,0.12) !important;
+=======
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    0 0 0 1px rgba(0, 0, 0, 0.12) !important;
+>>>>>>> origin/main
   backdrop-filter: saturate(120%) !important;
   transition: all 0.25s ease;
 }
@@ -230,7 +297,11 @@ canvas {
   color: #d6d6d6 !important;
 }
 
+<<<<<<< HEAD
 /* KPIs da análise 30d */
+=======
+/* KPIs 30d */
+>>>>>>> origin/main
 #analise30dKPIs .border {
   border-radius: 0.6rem !important;
   transition: border-color 0.4s ease, box-shadow 0.4s ease;
@@ -251,7 +322,11 @@ canvas {
   box-shadow: 0 0 4px var(--sj-cinza-borda);
 }
 
+<<<<<<< HEAD
 /* Bloco verde (tema escuro suave) */
+=======
+/* Bloco verde */
+>>>>>>> origin/main
 .card.bg-success-subtle {
   background-color: rgba(46, 125, 50, 0.12) !important;
   border-color: rgba(76, 175, 80, 0.45) !important;
@@ -265,8 +340,11 @@ canvas {
 }
 
 /* ================= HISTÓRICO IA (cards + chips) ================= */
+<<<<<<< HEAD
 
 /* Card base do histórico */
+=======
+>>>>>>> origin/main
 .ia-card {
   background: rgba(0, 0, 0, 0.2);
   border-radius: 0.6rem;
@@ -275,6 +353,7 @@ canvas {
   margin-bottom: 0.75rem;
   padding: 12px 16px;
   transition: all 0.2s ease-in-out;
+<<<<<<< HEAD
 }
 
 .ia-card:hover {
@@ -289,6 +368,21 @@ canvas {
 }
 
 /* Conteúdo do histórico */
+=======
+  position: relative;
+}
+
+.ia-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  transform: translateY(-1px);
+}
+
+.ia-card.is-new {
+  border-color: rgba(0, 200, 83, 0.7);
+  box-shadow: 0 0 18px rgba(0, 200, 83, 0.25);
+}
+
+>>>>>>> origin/main
 .ia-card .conteudo,
 .ia-card p,
 .ia-card div {
@@ -296,22 +390,53 @@ canvas {
   line-height: 1.4rem;
 }
 
+<<<<<<< HEAD
 /* Data / info */
+=======
+>>>>>>> origin/main
 .ia-card small.text-muted {
   font-size: 0.8rem;
 }
 
+<<<<<<< HEAD
 /* Animação de entrada */
+=======
+>>>>>>> origin/main
 .ia-card.fade-in {
   animation: fadeIn 0.25s ease-out;
 }
 
+<<<<<<< HEAD
 /* Destaque suave para dicas recém-adicionadas */
 .ia-card.just-added {
   animation: popIn 0.35s ease-out, glow 1.1s ease-out 1;
 }
 
 /* Chip / badge dentro do histórico */
+=======
+.ia-card.just-added {
+  background: linear-gradient(90deg, #e8fce9, #ffffff);
+  border-left: 4px solid #2ecc71;
+  box-shadow: 0 0 10px rgba(46, 204, 113, 0.4);
+  transform: translateY(-1px);
+  transition: all 0.4s ease;
+}
+
+.ia-card.just-added::after {
+  content: "Nova dica adicionada";
+  position: absolute;
+  right: 16px;
+  top: -10px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  border-radius: 999px;
+  background: #28a745;
+  color: #fff;
+  animation: iaBadge 1.8s ease-out forwards;
+  opacity: 0;
+}
+
+>>>>>>> origin/main
 .ia-card .chip,
 .ia-card .badge {
   display: inline-flex;
@@ -326,7 +451,10 @@ canvas {
   border: 1px solid transparent;
 }
 
+<<<<<<< HEAD
 /* POSITIVA — verde mais suave (histórico) */
+=======
+>>>>>>> origin/main
 .chip-success,
 .ia-card .badge-positiva,
 .ia-card .badge-success {
@@ -335,7 +463,10 @@ canvas {
   border-color: rgba(34, 197, 94, 0.55);
 }
 
+<<<<<<< HEAD
 /* ALERTA — âmbar/laranja (histórico) */
+=======
+>>>>>>> origin/main
 .chip-warning,
 .ia-card .badge-alerta,
 .ia-card .badge-danger {
@@ -344,7 +475,10 @@ canvas {
   border-color: rgba(245, 158, 11, 0.55);
 }
 
+<<<<<<< HEAD
 /* NEUTRA — cinza elegante (histórico) */
+=======
+>>>>>>> origin/main
 .chip-neutral,
 .ia-card .badge-neutra,
 .ia-card .badge-secondary {
@@ -353,22 +487,34 @@ canvas {
   border-color: rgba(148, 163, 184, 0.55);
 }
 
+<<<<<<< HEAD
 /* Texto colorido de acordo com o tipo */
+=======
+>>>>>>> origin/main
 .ia-card .ia-text-positiva {
   color: #22c55e;
   font-weight: 500;
 }
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/main
 .ia-card .ia-text-alerta {
   color: #ff9800;
   font-weight: 500;
 }
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/main
 .ia-card .ia-text-neutra {
   color: #9ca3af;
 }
 
+<<<<<<< HEAD
 /* leve animação ao passar o mouse nos badges */
+=======
+>>>>>>> origin/main
 .ia-card .chip:hover,
 .ia-card .badge:hover {
   transform: translateY(-1px);
@@ -376,7 +522,10 @@ canvas {
 }
 
 /* ================= Animações ================= */
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/main
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -388,6 +537,7 @@ canvas {
   }
 }
 
+<<<<<<< HEAD
 @keyframes popIn {
   0% {
     transform: scale(0.98);
@@ -408,11 +558,30 @@ canvas {
   }
   100% {
     box-shadow: 0 0 18px rgba(25, 135, 84, 0.35);
+=======
+@keyframes iaBadge {
+  0% {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  20% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+>>>>>>> origin/main
   }
 }
 
 /* ================= Impressão ================= */
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/main
 @page {
   size: A4 landscape;
   margin: 12mm;
@@ -443,13 +612,17 @@ canvas {
 }
 
 /* ================= Responsivo ================= */
+<<<<<<< HEAD
 
+=======
+>>>>>>> origin/main
 @media (max-width: 768px) {
   body {
     padding: 1rem;
   }
 
   .btn {
+<<<<<<< HEAD
     width: 100%;
   }
 
@@ -666,10 +839,17 @@ body.sj-dark .chart-box {
     width: 0%;
   }
   to {
+=======
+>>>>>>> origin/main
     width: 100%;
+  }
+
+  .chart-box {
+    min-height: 260px;
   }
 }
 
+<<<<<<< HEAD
 /* Icone da IA girando enquanto processa */
 .sj-ia-spin {
   display: inline-block;
@@ -899,6 +1079,84 @@ body.sj-dark .chart-box {
 
 /* === Chips Premium dos botões === */
 
+=======
+/* =========================
+   MODO ESCURO PROFISSIONAL
+   ========================= */
+body.sj-dark {
+  background: #050816 !important;
+  color: #e5e7eb !important;
+}
+
+body.sj-dark .card {
+  background: #0b1120;
+  border-color: #1f2937;
+  color: #e5e7eb;
+}
+
+body.sj-dark .alert {
+  background: #020617;
+  border-color: #22c55e;
+  color: #e5e7eb;
+}
+
+body.sj-dark h1,
+body.sj-dark h2,
+body.sj-dark h3,
+body.sj-dark h4 {
+  color: #bbf7d0;
+}
+
+body.sj-dark .btn-success {
+  background: #16a34a;
+  border-color: #15803d;
+}
+body.sj-dark .btn-success:hover {
+  background: #22c55e;
+  border-color: #16a34a;
+}
+
+body.sj-dark .ia-card {
+  background: #020617;
+  border-color: #1f2937;
+  color: #e5e7eb;
+}
+
+body.sj-dark .chip-success {
+  background: rgba(34, 197, 94, 0.12);
+  color: #4ade80;
+  border-color: rgba(34, 197, 94, 0.7);
+}
+body.sj-dark .chip-warning {
+  background: rgba(251, 191, 36, 0.1);
+  color: #facc15;
+  border-color: rgba(251, 191, 36, 0.8);
+}
+body.sj-dark .chip-neutral {
+  background: rgba(148, 163, 184, 0.12);
+  color: #e2e8f0;
+  border-color: rgba(148, 163, 184, 0.7);
+}
+
+body.sj-dark .ia-card .ia-text-positiva {
+  color: #4ade80;
+}
+body.sj-dark .ia-card .ia-text-alerta {
+  color: #fdba74;
+}
+body.sj-dark .ia-card .ia-text-neutra {
+  color: #e5e7eb;
+}
+
+body.sj-dark .chart-box {
+  background: #020617;
+  border-radius: 12px;
+}
+
+/* =========================
+   CHIPS PREMIUM (botões)
+   ========================= */
+>>>>>>> origin/main
 .chip-btn {
   padding: 6px 12px;
   font-size: 0.85rem;
@@ -911,6 +1169,7 @@ body.sj-dark .chart-box {
   cursor: pointer;
   transition: 0.15s ease-in-out;
   white-space: nowrap;
+<<<<<<< HEAD
 }
 
 /* Verde — Aplicar */
@@ -969,4 +1228,125 @@ body.sj-dark .chart-box {
   border: 1px solid rgba(255, 80, 80, 0.65) !important;
   box-shadow: 0 0 0 1px rgba(255, 80, 80, 0.15) inset;
   background: rgba(255, 80, 80, 0.06);
+=======
+>>>>>>> origin/main
 }
+
+.chip-success {
+  background: #d4f6df;
+  color: #0a6c2f;
+}
+.chip-success:hover {
+  background: #c2efcf;
+}
+
+.chip-primary {
+  background: #dce9ff;
+  color: #0a3c8c;
+}
+.chip-primary:hover {
+  background: #c6dbff;
+}
+
+.chip-warning {
+  background: #fff3cd;
+  color: #8a6d00;
+}
+.chip-warning:hover {
+  background: #ffe9a6;
+}
+
+/* =========================
+   LOTE CRÍTICO (alertas)
+   ========================= */
+.ia-card-lote-critico {
+  border: 2px solid #dc3545 !important;
+  box-shadow: 0 0 0 0.15rem rgba(220, 53, 69, 0.15);
+}
+
+.ia-card-lote-critico .card-body {
+  background: rgba(220, 53, 69, 0.04);
+}
+
+.lote-critico-red {
+  border: 1px solid rgba(255, 80, 80, 0.65) !important;
+  box-shadow: 0 0 0 1px rgba(255, 80, 80, 0.15) inset;
+  background: rgba(255, 80, 80, 0.06);
+}
+
+.lotes-criticos-item:hover {
+  filter: brightness(1.05);
+}
+
+/* =========================
+   SISTEMA “SaaS” (SEM QUEBRAR BOOTSTRAP)
+   -> Só aplica se você usar a classe .sj-row no HTML
+   ========================= */
+.sj-row > [class^="col-"],
+.sj-row > [class*=" col-"] {
+  display: flex;
+}
+
+.sj-row .sj-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  border-radius: 14px;
+  height: 100%;
+}
+
+.sj-row .sj-card .card-header {
+  flex: 0 0 auto;
+}
+
+.sj-row .sj-card .card-body {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* Área rolável padrão */
+.sj-scroll {
+  overflow-y: auto;
+  min-height: 0;
+  max-height: 260px;
+}
+
+/* tamanhos */
+.sj-sm {
+  min-height: 160px;
+}
+.sj-md {
+  min-height: 320px;
+}
+.sj-lg {
+  min-height: 360px;
+}
+
+.sj-chart {
+  height: 220px;
+}
+.sj-lg .sj-chart {
+  height: 300px;
+}
+
+/* =========================
+   ✅ FIX DEFINITIVO — Últimas transações (SEM INLINE)
+   =========================
+   Requisito: o card precisa ter id="cardUltimasTransacoes"
+*/
+#cardUltimasTransacoes {
+  height: 360px;
+  display: flex;
+  flex-direction: column;
+}
+
+#cardUltimasTransacoes .card-header {
+  flex: 0 0 auto;
+}
+
+#cardUltimasTransacoes .card-body {
+  flex: 1 1 auto;
+  min-height: 0; /* chave do scroll no flex */
+  overflow: auto; /* scroll aqui */
+}
+
