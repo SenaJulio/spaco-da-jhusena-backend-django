@@ -17,7 +17,8 @@ from django.shortcuts import render
 from .forms import AgendamentoForm
 from .models import Agendamento, Servico
 from .serializers import AgendamentoSerializer
-
+from django.utils.timezone import localdate
+from financeiro.models import Transacao
 
 class AgendamentoCreateView(generics.CreateAPIView):
     queryset = Agendamento.objects.all()
@@ -240,44 +241,40 @@ def agendamentos_hoje_ajax(request):
 @csrf_protect
 @login_required
 def acao_agendamento(request, id):
-    """
-    Ação rápida via dashboard:
-    - concluir -> status=concluido (+ gera receita no financeiro)
-    - cancelar -> status=cancelado
-    """
     ag = get_object_or_404(Agendamento, id=id)
 
-    try:
-        payload = json.loads(request.body or "{}")
-    except json.JSONDecodeError:
-        payload = {}
-
-    acao = (payload.get("acao") or "").lower().strip()
-    if acao not in ("concluir", "cancelar"):
-        return JsonResponse({"ok": False, "erro": "Ação inválida."}, status=400)
-
-    novo_status = "concluido" if acao == "concluir" else "cancelado"
-    ag.status = novo_status
-    ag.save()
-
-    # ✅ Integração com financeiro ao concluir
-    if acao == "concluir":
+    # ✅ Lê ação tanto de JSON (fetch) quanto de POST normal (form)
+    payload = {}
+    if request.body:
         try:
-            from financeiro.models import Transacao
+            payload = json.loads(request.body.decode("utf-8"))
+        except json.JSONDecodeError:
+            payload = {}
 
-            # ⚠️ ajuste o campo do preço se for outro nome
-            valor = getattr(ag.servico, "preco", 0) or 0
+    acao = (payload.get("acao") or request.POST.get("acao") or "").strip().lower()
 
-            Transacao.objects.create(
-                tipo="R",
-                valor=valor,
-                data=ag.data,
-                descricao=f"Serviço concluído: {ag.servico} — {ag.cliente or ''}".strip(),
-            )
-        except Exception as e:
-            return JsonResponse(
-                {"ok": False, "erro": f"Falha ao gerar financeiro: {e}"},
-                status=500,
-            )
+    if acao == "concluir":
+        ag.status = "concluido"
+        ag.save(update_fields=["status"])
 
-    return JsonResponse({"ok": True, "id": ag.id, "status": ag.status})
+        # 💰 cria lançamento financeiro (somente se ainda não existir)
+        descricao = f"Serviço concluído: {ag.servico} (Agendamento #{ag.id})"
+
+        Transacao.objects.get_or_create(
+            tipo="receita",
+            descricao=descricao,
+            defaults={
+                "categoria": "Agendamentos",
+                "valor": 0,          # valor ainda não definido (Caminho A / pendente)
+                "data": localdate(),
+            },
+        )
+
+        return JsonResponse({"ok": True, "id": ag.id, "status": ag.status})
+
+    elif acao == "cancelar":
+        ag.status = "cancelado"
+        ag.save(update_fields=["status"])
+        return JsonResponse({"ok": True, "id": ag.id, "status": ag.status})
+
+    return JsonResponse({"ok": False, "erro": "Ação inválida"}, status=400)
