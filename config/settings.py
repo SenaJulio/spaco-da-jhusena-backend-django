@@ -118,9 +118,8 @@ INSTALLED_APPS = [
     # terceiros
     "colorfield",
     "corsheaders",
-    "rest_framework",
-    "django.contrib.humanize",
-    "notificacoes.apps.NotificacoesConfig",
+    "rest_framework",    
+    
 ]
 
 
