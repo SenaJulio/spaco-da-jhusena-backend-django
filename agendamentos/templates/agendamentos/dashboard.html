@@ -108,7 +108,8 @@
 
 {% block extrabody %}
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
+
 
 <script>
   /* global Chart */
@@ -452,7 +453,32 @@
           row.style.opacity = "1";
           row.style.transform = "";
         }
-        alert("Erro: " + err.message);
+        // tenta extrair mensagem do backend (JSON) quando for HTTP 400/403/500 etc
+(async () => {
+  try {
+    // se fetchJson lançou "HTTP 400", buscamos a resposta real pra pegar o erro
+    const resp = await fetch(`/agendamentos/acao/${id}/`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": getCsrfToken(),
+      },
+      body: JSON.stringify({ acao }),
+      credentials: "same-origin",
+    });
+
+    let msg = err.message || "Falha";
+    try {
+      const j = await resp.json();
+      if (j && j.erro) msg = j.erro;
+    } catch (_) {}
+
+    alert("Erro: " + msg);
+  } catch (_) {
+    alert("Erro: " + (err.message || "Falha"));
+  }
+})();
+
       });
   }
 

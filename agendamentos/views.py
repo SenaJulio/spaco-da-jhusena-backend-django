@@ -289,28 +289,38 @@ def acao_agendamento(request, id):
     except json.JSONDecodeError:
         return JsonResponse({"ok": False, "erro": "JSON inválido"}, status=400)
 
-    acao = data.get("acao")
+    acao = (data.get("acao") or "").lower().strip()
 
     if acao == "concluir":
         ag.status = "concluido"
-    ag.save(update_fields=["status"])
+        ag.save(update_fields=["status"])
 
-    # 💰 cria lançamento financeiro (somente se ainda não existir)
-    descricao = f"Serviço concluído: {ag.servico} (Agendamento #{ag.id})"
+        # 💰 cria lançamento financeiro (somente se ainda não existir)
+        descricao = f"Serviço concluído: {ag.servico} (Agendamento #{ag.id})"
+        preco = 0
+        if ag.servico and getattr(ag.servico, "preco", None) is not None:
+            preco = float(ag.servico.preco)
 
-    ja_existe = Transacao.objects.filter(
-        tipo="receita",
-        descricao=descricao,
-    ).exists()
+        if preco <= 0:
+            return JsonResponse(
+                {"ok": False, "erro": "Serviço sem preço. Defina o preço antes de concluir."},
+                status=400,
+            )
 
-    if not ja_existe:
-        Transacao.objects.create(
-            categoria="Agendamentos",
+
+        ja_existe = Transacao.objects.filter(
             tipo="receita",
             descricao=descricao,
-            valor=0,          # valor ainda não definido
-            data=localdate(),
-        )
+        ).exists()
+
+        if not ja_existe:
+            Transacao.objects.create(
+                categoria="Agendamentos",
+                tipo="receita",
+                descricao=descricao,
+                valor=preco,
+                data=localdate(),
+            )
 
     elif acao == "cancelar":
         ag.status = "cancelado"
@@ -320,6 +330,8 @@ def acao_agendamento(request, id):
         return JsonResponse({"ok": False, "erro": "Ação inválida"}, status=400)
 
     return JsonResponse({"ok": True, "id": ag.id, "status": ag.status})
+
+
 
 
 @require_GET
