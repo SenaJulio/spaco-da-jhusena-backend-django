@@ -112,28 +112,33 @@ form input[type="date"] {
   border-radius: 6px;
 }
 
-/* =========================
-   GRÁFICOS — PRESET ESTÁVEL
-   (sem quebrar Chart.js)
-   ========================= */
+/* =====================================================
+   GRÁFICOS — PRESET CONSOLIDADO (FIX DEFINITIVO!)
+   ===================================================== */
 .chart-box {
   position: relative;
-  aspect-ratio: 16 / 9;
-  min-height: 300px;
+  width: 100%;
+  min-height: 260px;
   height: auto;
+  aspect-ratio: 16 / 9;
   overflow: visible;
 }
 
-.chart-box > canvas {
-  display: block;
+.chart-box canvas {
+  position: absolute;
+  inset: 0;
   width: 100% !important;
   height: 100% !important;
+  display: block !important;
 }
 
 #graficoEvolucao,
 #graficoCategorias {
   display: block;
   width: 100%;
+  height: 100%;
+  background: #1f2937;
+  border: 1px dashed #888;
 }
 
 .card.h-100 {
@@ -473,6 +478,7 @@ body.sj-dark .btn-success {
   background: #16a34a;
   border-color: #15803d;
 }
+
 body.sj-dark .btn-success:hover {
   background: #22c55e;
   border-color: #16a34a;
@@ -489,11 +495,13 @@ body.sj-dark .chip-success {
   color: #4ade80;
   border-color: rgba(34, 197, 94, 0.7);
 }
+
 body.sj-dark .chip-warning {
   background: rgba(251, 191, 36, 0.1);
   color: #facc15;
   border-color: rgba(251, 191, 36, 0.8);
 }
+
 body.sj-dark .chip-neutral {
   background: rgba(148, 163, 184, 0.12);
   color: #e2e8f0;
@@ -503,9 +511,11 @@ body.sj-dark .chip-neutral {
 body.sj-dark .ia-card .ia-text-positiva {
   color: #4ade80;
 }
+
 body.sj-dark .ia-card .ia-text-alerta {
   color: #fdba74;
 }
+
 body.sj-dark .ia-card .ia-text-neutra {
   color: #e5e7eb;
 }
@@ -536,6 +546,7 @@ body.sj-dark .chart-box {
   background: #d4f6df;
   color: #0a6c2f;
 }
+
 .chip-success:hover {
   background: #c2efcf;
 }
@@ -544,6 +555,7 @@ body.sj-dark .chart-box {
   background: #dce9ff;
   color: #0a3c8c;
 }
+
 .chip-primary:hover {
   background: #c6dbff;
 }
@@ -552,6 +564,7 @@ body.sj-dark .chart-box {
   background: #fff3cd;
   color: #8a6d00;
 }
+
 .chip-warning:hover {
   background: #ffe9a6;
 }
@@ -580,7 +593,6 @@ body.sj-dark .chart-box {
 
 /* =========================
    SISTEMA “SaaS” (SEM QUEBRAR BOOTSTRAP)
-   -> Só aplica se você usar a classe .sj-row no HTML
    ========================= */
 .sj-row > [class^="col-"],
 .sj-row > [class*=" col-"] {
@@ -615,9 +627,11 @@ body.sj-dark .chart-box {
 .sj-sm {
   min-height: 160px;
 }
+
 .sj-md {
   min-height: 320px;
 }
+
 .sj-lg {
   min-height: 360px;
 }
@@ -625,15 +639,14 @@ body.sj-dark .chart-box {
 .sj-chart {
   height: 220px;
 }
+
 .sj-lg .sj-chart {
   height: 300px;
 }
 
 /* =========================
-   ✅ FIX DEFINITIVO — Últimas transações (SEM INLINE)
-   =========================
-   Requisito: o card precisa ter id="cardUltimasTransacoes"
-*/
+   FIX: Últimas transações (SEM INLINE)
+   ========================= */
 #cardUltimasTransacoes {
   height: 360px;
   display: flex;
@@ -646,7 +659,93 @@ body.sj-dark .chart-box {
 
 #cardUltimasTransacoes .card-body {
   flex: 1 1 auto;
-  min-height: 0; /* chave do scroll no flex */
-  overflow: auto; /* scroll aqui */
+  min-height: 0;
+  overflow: auto;
 }
 
+/* Correção definitiva: gráficos dentro de cards */
+.card .chart-box {
+  position: relative;
+  width: 100%;
+  height: 260px;
+}
+
+.card .chart-box canvas {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.card-body {
+  overflow: visible !important;
+}
+
+.card .chart-box {
+  overflow: hidden; /* ⬅ segura o canvas dentro do card */
+  border-radius: 12px; /* ⬅ dá acabamento */
+}
+
+#graficoCategorias,
+#graficoEvolucao {
+  border-radius: 12px; /* ⬅ acompanha o card */
+}
+/* ===== FIX NAVBAR ===== */
+
+/* Restaura fundo visível */
+.navbar {
+  background: #0b1120 !important;   /* fundo escuro original */
+  color: #e5e7eb !important;
+  border-bottom: 1px solid #1f2937;
+}
+
+/* Restaura cor dos textos e ícones */
+.navbar * {
+  color: #e5e7eb !important;
+}
+
+/* Corrige botões (Início / Modo escuro) */
+.navbar a.btn,
+.navbar button.btn {
+  color: #e5e7eb !important;
+  border-color: #e5e7eb !important;
+}
+
+.navbar a.btn:hover,
+.navbar button.btn:hover {
+  background: #22c55e !important;
+  color: #0b1120 !important;
+}
+
+/* ===== FIX GLOBAL NAVBAR — ignora sabotagens anteriores ===== */
+nav.navbar {
+  display: block !important;
+  position: relative !important;
+  z-index: 9999 !important;
+
+  background-color: #198754 !important; /* bg-success */
+  color: #fff !important;
+}
+
+nav.navbar .navbar-brand,
+nav.navbar a,
+nav.navbar a.btn {
+  color: #fff !important;
+}
+
+nav.navbar a.btn-outline-light {
+  border-color: #fff !important;
+}
+
+nav.navbar a.btn-outline-light:hover {
+  background: #fff !important;
+  color: #198754 !important;
+}
+/* ===== FIX DEFINITIVO: impedir que o padding do body empurre a navbar ===== */
+body {
+  padding: 0 !important;
+}
+
+main, .dashboard-container, .container {
+  padding-top: 1.5rem !important;
+}

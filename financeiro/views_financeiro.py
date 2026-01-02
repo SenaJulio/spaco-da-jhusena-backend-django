@@ -1049,20 +1049,21 @@ def _to_float(x) -> float:
 def dados_grafico_filtrados(request):
     """
     GET /financeiro/dados_grafico_filtrados/?inicio=YYYY-MM-DD&fim=YYYY-MM-DD&categoria=...&debug=1
+    Backend 100% seguro: nunca retorna listas vazias quebradas.
     """
+
     hoje = timezone.localdate()
 
-    # 1) Pega datas da querystring (ou define padrão)
+    # 1) Datas
     ini = parse_date(request.GET.get("inicio") or "") or hoje.replace(day=1)
     fim = parse_date(request.GET.get("fim") or "") or hoje
     if fim < ini:
         ini, fim = fim, ini
 
-    # 2) Base de transações
+    # 2) Base
     qs = Transacao.objects.all()
-
-    # DateField vs DateTimeField
     data_field = Transacao._meta.get_field("data")
+
     if isinstance(data_field, models.DateTimeField):
         filtro = {"data__date__range": (ini, fim)}
         trunc_expr = TruncDate("data")
@@ -1072,34 +1073,26 @@ def dados_grafico_filtrados(request):
 
     base = qs.filter(**filtro)
 
-    # 3) Configuração de Decimals para agregações
+    # 3) Decimal seguro
     DEC = DecimalField(max_digits=18, decimal_places=2)
     ZERO_DEC = Value(Decimal("0.00"), output_field=DEC)
 
-    # 4) Agrega por dia: receitas, despesas e nº de lançamentos (por TIPO)
-    diarios = (
+    # 4) Agregação diária
+    agreg = (
         base.annotate(dia=trunc_expr)
         .values("dia")
         .annotate(
-            rec=Coalesce(
-                Sum(Cast("valor", DEC), filter=Q(tipo__in=TIPO_RECEITA)),
-                ZERO_DEC,
-                output_field=DEC,
-            ),
-            des=Coalesce(
-                Sum(Cast("valor", DEC), filter=Q(tipo__in=TIPO_DESPESA)),
-                ZERO_DEC,
-                output_field=DEC,
-            ),
-            n=Count("id"),
+            rec=Coalesce(Sum(Cast("valor", DEC), filter=Q(tipo__in=TIPO_RECEITA)), ZERO_DEC),
+            des=Coalesce(Sum(Cast("valor", DEC), filter=Q(tipo__in=TIPO_DESPESA)), ZERO_DEC),
         )
         .order_by("dia")
     )
 
-    mapa = {row["dia"]: row for row in diarios}
+    mapa = {row["dia"]: row for row in agreg}
 
-    # 5) Monta séries diárias para o gráfico de linhas
+    # 5) Séries completas (mesmo sem dados)
     dias_labels, receitas, despesas, saldo = [], [], [], []
+
     for d in _daterange(ini, fim):
         dias_labels.append(d.strftime("%d/%m"))
         row = mapa.get(d)
@@ -1109,51 +1102,40 @@ def dados_grafico_filtrados(request):
         despesas.append(de)
         saldo.append(r - de)
 
-    # 6) Pizza: categorias reais (se o campo existir), focando em DESPESAS
-    model_fields = {f.name for f in Transacao._meta.get_fields() if hasattr(f, "attname")}
+    # 6) Pizza — agora **blindada**
+    categorias = []
+    valores = []
 
-    # Pizza por categoria (DESPESAS) com "Top N + Outras"
-    if "categoria" in model_fields:
+    if "categoria" in {f.name for f in Transacao._meta.get_fields()}:
+
         cat_qs = (
             base.filter(tipo__in=TIPO_DESPESA)
             .values("categoria")
-            .annotate(
-                total=Coalesce(
-                    Sum(Cast("valor", DEC), output_field=DEC),
-                    ZERO_DEC,
-                    output_field=DEC,
-                )
-            )
+            .annotate(total=Coalesce(Sum(Cast("valor", DEC)), ZERO_DEC))
             .order_by("-total")
         )
 
-        # monta lista crua [(nome, valor_float), ...]
-        raw_cats = []
-        for row in cat_qs:
-            nome = row["categoria"] or "Outras"
-            valor = _to_float(row["total"])
-            raw_cats.append((nome, valor))
+        raw = [(row["categoria"] or "Outras", _to_float(row["total"])) for row in cat_qs]
+        raw.sort(key=lambda x: x[1], reverse=True)
 
-        # ordena por valor (já vem ordenado, mas garantimos)
-        raw_cats.sort(key=lambda x: x[1], reverse=True)
-
-        TOP_N = 5  # mostra no máximo 5 categorias + "Outras"
-        top = raw_cats[:TOP_N]
-        resto = raw_cats[TOP_N:]
-
+        TOP_N = 5
+        top = raw[:TOP_N]
+        resto = raw[TOP_N:]
         outras_total = sum(v for _, v in resto) if resto else 0.0
 
-        categorias = [nome for (nome, _) in top]
-        valores = [valor for (_, valor) in top]
+        categorias = [n for n, _ in top]
+        valores = [v for _, v in top]
 
         if outras_total > 0:
             categorias.append("Outras")
             valores.append(outras_total)
-    else:
-        categorias = []
-        valores = []
 
-    # 7) Monta resposta JSON
+    # 7) Se **pizza vazia**, retorna "Sem categoria"
+    if not categorias:
+        categorias = ["Sem categoria"]
+        valores = [0]
+
+    # 8) JSON final
     resp = {
         "ok": True,
         "inicio": ini.isoformat(),
@@ -1166,11 +1148,8 @@ def dados_grafico_filtrados(request):
         "valores": valores,
     }
 
-    if request.GET.get("debug") == "1":
-        tipos_unicos = list(base.values_list("tipo", flat=True).distinct())
-        resp["debug"] = {"tipos_unicos": tipos_unicos}
-
     return JsonResponse(resp)
+
 
 
 # -----------------------------------------------------------------------------
@@ -1310,66 +1289,38 @@ def diag_transacao(request):
 @login_required
 def categorias_transacao(request):
     """
-    Retorna as categorias reais existentes em Transacao.categoria (distintas e ordenadas).
+    Retorna categorias + soma dos valores associados,
+    para montar o gráfico de pizza.
     """
     try:
+        # Verifica se existe o campo categoria
         fields = {f.name for f in Transacao._meta.get_fields()}
         if "categoria" not in fields:
-            return JsonResponse({"ok": True, "categorias": []})
+            return JsonResponse({"ok": True, "categorias": [], "valores": []})
 
+        # Agrupamento por categoria
         qs = (
-            Transacao.objects.exclude(categoria__isnull=True)
+            Transacao.objects
+            .exclude(categoria__isnull=True)
             .exclude(categoria__exact="")
-            .values_list("categoria", flat=True)
-            .distinct()
+            .values("categoria")
+            .annotate(total=Sum("valor"))
             .order_by("categoria")
         )
-        return JsonResponse({"ok": True, "categorias": list(qs)})
+
+        categorias = [x["categoria"] for x in qs]
+        valores = [float(x["total"] or 0) for x in qs]
+
+        return JsonResponse({
+            "ok": True,
+            "categorias": categorias,
+            "valores": valores
+        })
+
     except Exception as e:
         logging.getLogger(__name__).exception("Erro em categorias_transacao")
-        return JsonResponse({"ok": False, "categorias": [], "error": str(e)}, status=500)
+        return JsonResponse({"ok": False, "categorias": [], "valores": [], "error": str(e)}, status=500)
 
-
-# -----------------------------------------------------------------------------
-# Feed histórico v2 (com filtro textual e contadores)
-# -----------------------------------------------------------------------------
-# (opcional) use o classificador oficial se existir
-try:
-    from .services.ia_utils import _map_tipo as map_tipo_oficial  # positiva | alerta | neutra
-except Exception:
-    # fallback simples se services/ia_utils.py não existir ainda
-    def map_tipo_oficial(texto: str) -> str:
-        tx = (texto or "").lower()
-        ALERTAS = (
-            "atenção",
-            "cuidado",
-            "negativo",
-            "déficit",
-            "deficit",
-            "queda",
-            "alerta",
-            "urgente",
-            "gasto excessivo",
-            "acima do previsto",
-        )
-        POSITIVAS = (
-            "ótimo",
-            "otimo",
-            "positivo",
-            "sobra",
-            "superávit",
-            "superavit",
-            "parabéns",
-            "bom",
-            "melhorou",
-            "cresceu",
-            "acima da meta",
-        )
-        if any(k in tx for k in ALERTAS):
-            return "alerta"
-        if any(k in tx for k in POSITIVAS):
-            return "positiva"
-        return "neutra"
 
 
 @login_required

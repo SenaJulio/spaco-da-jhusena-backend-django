@@ -5,6 +5,7 @@
 /* global Chart */
 let sjChartRankingIa = null;
 let sjChartSerieIa = null;
+
 // === Plugins visuais do donut "Por categoria" ===
 
 // sombra interna leve no centro
@@ -320,8 +321,8 @@ const gradientFillPlugin = {
         empty.textContent = "Sem dados para o período escolhido.";
       }
       try {
-        Chart.getChart(canvas)?.destroy();
-      } catch {
+        Chart.getChart(canvas) && Chart.getChart(canvas).destroy();
+      } catch (_e) {
         /* */
       }
       return;
@@ -331,7 +332,7 @@ const gradientFillPlugin = {
     const toNum = (v) => {
       if (typeof v === "number") return v;
       const n = Number(
-        String(v ?? "")
+        String(v == null ? "" : v)
           .replace(/\./g, "")
           .replace(",", ".")
       );
@@ -373,8 +374,8 @@ const gradientFillPlugin = {
 
     // destrói gráfico anterior
     try {
-      Chart.getChart(canvas)?.destroy();
-    } catch {
+      Chart.getChart(canvas) && Chart.getChart(canvas).destroy();
+    } catch (_e) {
       /* */
     }
 
@@ -501,45 +502,87 @@ const gradientFillPlugin = {
           },
         },
 
-        // ✅ AQUI DENTRO
         animation: {
           duration: 900,
           easing: "easeOutQuart",
           delay(ctx) {
-            const i = ctx.dataIndex ?? 0;
-            const ds = ctx.datasetIndex ?? 0;
+            const i = ctx.dataIndex == null ? 0 : ctx.dataIndex;
+            const ds = ctx.datasetIndex == null ? 0 : ctx.datasetIndex;
             return (i + ds) * 25;
           },
         },
       },
 
-      // ✅ pode ficar aqui fora mesmo
       plugins: [glowPlugin, gradientFillPlugin],
     });
   }; // ✅ FECHA montarGraficoEvolucao
+
   // --------- Categorias (pizza)
   function montarGraficoCategorias(categorias, valores) {
     var canvas = document.getElementById("graficoCategorias");
     var empty = document.getElementById("categoriasEmpty");
-    if (!canvas || !window.Chart) return;
+    if (!canvas) return console.log("❌ canvas #graficoCategorias não existe");
+    if (typeof Chart === "undefined")
+      return console.log("❌ Chart.js não carregou ainda");
+    console.log("[PIZZA] entradas:", { categorias: categorias, valores: valores });
 
-    var hasData = Array.isArray(categorias) && categorias.length > 0;
-    if (!hasData) {
-      if (empty) {
-        empty.hidden = false;
-        empty.textContent = "Sem categorias neste período.";
+    // 🔒 Normaliza e filtra categorias com valor > 0
+    var pares = [];
+    if (Array.isArray(categorias) && Array.isArray(valores)) {
+      for (var i = 0; i < categorias.length; i++) {
+        var v = Math.abs(Number(toNumberBR(valores[i] || 0)));
+        if (v > 0) {
+          pares.push([categorias[i], v]);
+        }
       }
-      destroyChartByCanvas(canvas);
-      canvas.style.display = "none";
-      return;
     }
+    console.log("[PIZZA] pares antes do map:", pares);
+
+    categorias = pares.map(function (p) {
+      return p[0];
+    });
+    valores = pares.map(function (p) {
+      return p[1];
+    });
+
+    console.log("[PIZZA] depois do filtro:", {
+      categorias: categorias,
+      valores: valores,
+      len: categorias.length,
+    });
+
+    // ✅ Sem dados reais → mostra mensagem, mas NÃO some com o canvas
+  if (!categorias.length || (categorias.length === 1 && valores[0] === 0)) {
+  if (empty) {
+    empty.hidden = false;
+    empty.textContent = "Sem categorias neste período.";
+  }
+
+  destroyChartByCanvas(canvas);
+
+  // 🔒 Não use display:none no canvas (isso trava render futuro)
+  canvas.style.display = "block";
+
+
+  return;
+}
+
+
+    // ✅ Tem dados → mostra canvas
     if (empty) empty.hidden = true;
+    canvas.removeAttribute("style");
     canvas.style.display = "";
+    canvas.style.height = "260px";
+    canvas.style.width = "100%";
 
     var ctx = canvas.getContext("2d");
-    destroyChartByCanvas(canvas);
 
-    var dataVals = Array.isArray(valores) ? valores.map(toNumberBR) : [];
+    // 🔁 Garante que não existe gráfico antigo
+    try {
+      Chart.getChart(canvas) && Chart.getChart(canvas).destroy();
+    } catch (e) {
+      /* */
+    }
 
     new Chart(ctx, {
       type: "doughnut",
@@ -548,7 +591,7 @@ const gradientFillPlugin = {
         datasets: [
           {
             label: "Total",
-            data: dataVals,
+            data: valores,
             backgroundColor: [
               "#66bb6a",
               "#81c784",
@@ -590,14 +633,13 @@ const gradientFillPlugin = {
             cornerRadius: 8,
             padding: 10,
             callbacks: {
-              label(ctx) {
-                const label = ctx.label || "";
-                const v = Number(ctx.parsed) || 0;
+              label(ctx2) {
+                const label = ctx2.label || "";
+                const v = Number(ctx2.parsed) || 0;
 
-                const total = ctx.chart.data.datasets[0].data.reduce(
-                  (a, b) => a + Number(b),
-                  0
-                );
+                const total = ctx2.chart.data.datasets[0].data.reduce(function (a, b) {
+                  return a + Number(b);
+                }, 0);
 
                 const perc = total ? ((v / total) * 100).toFixed(1) : "0.0";
 
@@ -1066,12 +1108,10 @@ const gradientFillPlugin = {
               icon2 = "🟢";
             } else if (delta2 > 0 && pct2 !== null) {
               if (pct2 >= 30) {
-                // ALTA FORTE
                 badgeText2 = "Alta forte";
                 badgeClass2 = "bg-success text-light border border-success";
                 icon2 = "📈";
               } else {
-                // ALTA LEVE
                 badgeText2 = "Alta leve";
                 badgeClass2 =
                   "bg-success-subtle text-success border border-success-subtle";
@@ -1079,20 +1119,17 @@ const gradientFillPlugin = {
               }
             } else if (delta2 < 0 && pct2 !== null) {
               if (pct2 <= -30) {
-                // QUEDA FORTE
                 badgeText2 = "Queda forte";
                 badgeClass2 =
                   "bg-danger-subtle text-danger border border-danger-subtle";
                 icon2 = "🔻";
               } else {
-                // RISCO DE QUEDA
                 badgeText2 = "Risco de queda";
                 badgeClass2 =
                   "bg-warning-subtle text-warning border border-warning-subtle";
                 icon2 = "⚠️";
               }
             } else {
-              // ESTÁVEL
               badgeText2 = "Estável";
               badgeClass2 =
                 "bg-secondary-subtle text-secondary border border-secondary-subtle";
@@ -1130,8 +1167,8 @@ const gradientFillPlugin = {
               (delta2 > 0
                 ? "movimento de melhora do caixa, com tendência de reforço do saldo."
                 : delta2 < 0
-                  ? "pressão adicional sobre o caixa, exigindo maior controle de despesas."
-                  : "estabilidade no curto prazo, sem grandes oscilações de saldo.");
+                ? "pressão adicional sobre o caixa, exigindo maior controle de despesas."
+                : "estabilidade no curto prazo, sem grandes oscilações de saldo.");
 
             // horizonte 3 meses + faixa de incerteza
             if (forecast3 !== null || forecast2 !== null) {
@@ -1195,8 +1232,8 @@ const gradientFillPlugin = {
                   (delta2 > 0
                     ? "tendência de melhora do caixa, com aumento do saldo."
                     : delta2 < 0
-                      ? "pressão sobre o caixa, com risco de redução do saldo."
-                      : "estabilidade no curto prazo, sem grandes oscilações.") +
+                    ? "pressão sobre o caixa, com risco de redução do saldo."
+                    : "estabilidade no curto prazo, sem grandes oscilações.") +
                   " Variação esperada: " +
                   (delta2 >= 0 ? "+" : "-") +
                   "R$ " +
@@ -1238,7 +1275,6 @@ const gradientFillPlugin = {
             cardWrap.classList.add("sj-previsao-card");
           }
         } else {
-          // se não tiver forecast, esconde os cards de previsão
           var cardOff1 = document.getElementById("cardPrevisaoMensal");
           if (cardOff1) cardOff1.classList.add("d-none");
           var cardOff2 = document.getElementById("cardPrevisaoResumoIa");
@@ -1250,28 +1286,15 @@ const gradientFillPlugin = {
           sjChartSerieIa.destroy();
         }
 
-        var ctx = elCanvas.getContext("2d");
-        sjChartSerieIa = new Chart(ctx, {
+        var ctx2 = elCanvas.getContext("2d");
+        sjChartSerieIa = new Chart(ctx2, {
           type: "line",
           data: {
             labels: labels,
             datasets: [
-              {
-                label: "Receitas",
-                data: receitas,
-                tension: 0.3,
-              },
-              {
-                label: "Despesas",
-                data: despesas,
-                tension: 0.3,
-              },
-              {
-                label: "Saldo",
-                data: saldos,
-                tension: 0.3,
-              },
-              // Sombra da tendência (não aparece na legenda)
+              { label: "Receitas", data: receitas, tension: 0.3 },
+              { label: "Despesas", data: despesas, tension: 0.3 },
+              { label: "Saldo", data: saldos, tension: 0.3 },
               {
                 label: "_Tendência",
                 data: trendShadeData,
@@ -1282,7 +1305,6 @@ const gradientFillPlugin = {
                 pointHoverRadius: 0,
                 backgroundColor: "rgba(255,204,51,0.10)",
               },
-              // Ponto dourado da previsão
               {
                 label: "Saldo (previsto)",
                 data: forecastData,
@@ -1293,18 +1315,17 @@ const gradientFillPlugin = {
                 backgroundColor: forecastColor,
                 pointBackgroundColor: forecastColor,
                 pointBorderColor: "#00000088",
-                // responsivo: menor no mobile, maior no desktop
-                pointRadius: function (ctx2) {
+                pointRadius: function (ctx3) {
                   var w =
-                    ctx2 && ctx2.chart && ctx2.chart.width
-                      ? ctx2.chart.width
+                    ctx3 && ctx3.chart && ctx3.chart.width
+                      ? ctx3.chart.width
                       : 600;
                   return w < 480 ? 5 : 8;
                 },
-                pointHoverRadius: function (ctx2) {
+                pointHoverRadius: function (ctx3) {
                   var w =
-                    ctx2 && ctx2.chart && ctx2.chart.width
-                      ? ctx2.chart.width
+                    ctx3 && ctx3.chart && ctx3.chart.width
+                      ? ctx3.chart.width
                       : 600;
                   return w < 480 ? 8 : 12;
                 },
@@ -1321,7 +1342,6 @@ const gradientFillPlugin = {
                 position: "bottom",
                 labels: {
                   filter: function (item) {
-                    // esconde dataset interno "_Tendência"
                     return item.text && item.text.indexOf("_") !== 0;
                   },
                 },
@@ -1338,7 +1358,6 @@ const gradientFillPlugin = {
                       maximumFractionDigits: 2,
                     });
 
-                    // tooltip especial do ponto previsto
                     if (dsLabel.indexOf("Saldo (previsto") === 0) {
                       var linhas = ["Saldo (previsto): R$ " + valor];
 
@@ -1387,8 +1406,8 @@ const gradientFillPlugin = {
       })
       .catch(function (err) {
         console.error("[IA Série Mensal]", err);
-        var ctxClear = elCanvas.getContext("2d");
-        ctxClear.clearRect(0, 0, elCanvas.width, elCanvas.height);
+        var ctxClear2 = elCanvas.getContext("2d");
+        ctxClear2.clearRect(0, 0, elCanvas.width, elCanvas.height);
       });
   }
 
@@ -1732,6 +1751,14 @@ const gradientFillPlugin = {
       });
       if (!r.ok) throw new Error("HTTP_" + r.status);
       var j = await r.json();
+      console.log("[DADOS_GRAFICO] chaves:", Object.keys(j));
+      console.log("[DADOS_GRAFICO] amostra:", j);
+      console.log("[DADOS_GRAFICO] cats:", {
+        labels: j.categorias_labels,
+        valores: j.categorias_valores,
+        categorias: j.categorias,
+        valores2: j.valores,
+      });
 
       var toNum = function (v) {
         return typeof v === "number"
@@ -1784,12 +1811,12 @@ const gradientFillPlugin = {
         var sTot = Number(baseRef.saldo || 0);
 
         if (rTot > 0) {
-          var pct = (sTot / rTot) * 100;
-          if (pct >= 99.9) {
+          var pctM = (sTot / rTot) * 100;
+          if (pctM >= 99.9) {
             elM.textContent = "100 % (saldo total)";
           } else {
             elM.textContent =
-              pct.toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + " %";
+              pctM.toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + " %";
           }
         } else {
           elM.textContent = "—";
@@ -1831,8 +1858,8 @@ const gradientFillPlugin = {
             credentials: "same-origin",
           }
         )
-          .then(function (r) {
-            return r.json();
+          .then(function (r2) {
+            return r2.json();
           })
           .then(function (prev) {
             var num = function (v) {
@@ -1853,10 +1880,10 @@ const gradientFillPlugin = {
 
             function decideVar(curr, prevVal) {
               if (prevVal > 0) {
-                var pct = ((curr - prevVal) / prevVal) * 100;
+                var pctV = ((curr - prevVal) / prevVal) * 100;
                 return {
-                  text: (pct >= 0 ? "+" : "") + pct.toFixed(1) + " %",
-                  sign: Math.sign(pct),
+                  text: (pctV >= 0 ? "+" : "") + pctV.toFixed(1) + " %",
+                  sign: Math.sign(pctV),
                 };
               }
               if (curr > 0) return { text: "+100 % (vs 0)", sign: 1 };
@@ -1927,23 +1954,38 @@ const gradientFillPlugin = {
       window.montarGraficoEvolucao(dias, R, D, S);
 
       if (cvCat) {
-        var hasCats =
-          Array.isArray(j.categorias) &&
-          Array.isArray(j.valores) &&
-          j.categorias.length > 0;
-        if (hasCats) {
-          cvCat.style.display = "";
-          if (elCatEmpty) elCatEmpty.hidden = true;
-          montarGraficoCategorias(j.categorias, j.valores);
-        } else {
+        try {
+         cvCat.style.display = "block";
+
+        } catch (_eCat0) {
+          /* */
+        }
+
+        try {
+          montarGraficoCategorias(
+            
+            j.categorias || [],
+            j.valores || []      
+
+          );
+        } catch (_eCat1) {
+          console.warn("⚠️ Falha ao desenhar gráfico de categorias:", _eCat1);
+
           if (elCatEmpty) {
             elCatEmpty.hidden = false;
             elCatEmpty.textContent = "Sem categorias neste período.";
           }
-          cvCat.style.display = "none";
+
+          try {
+            cvCat.removeAttribute("style");
+            cvCat.style.display = "block";
+          } catch (_eCat2) {
+            /* */
+          }
+
           try {
             Chart.getChart(cvCat) && Chart.getChart(cvCat).destroy();
-          } catch (_e2) {
+          } catch (_eCat3) {
             /* */
           }
         }
@@ -1995,15 +2037,15 @@ const gradientFillPlugin = {
           },
           credentials: "same-origin",
         })
-          .then(function (r) {
-            return r.json();
+          .then(function (r3) {
+            return r3.json();
           })
-          .then(function (j) {
+          .then(function (j3) {
             if (
-              !j ||
-              !j.ok ||
-              !Array.isArray(j.categorias) ||
-              !j.categorias.length
+              !j3 ||
+              !j3.ok ||
+              !Array.isArray(j3.categorias) ||
+              !j3.categorias.length
             ) {
               sel.dataset.hydrated = "1";
               return;
@@ -2012,8 +2054,8 @@ const gradientFillPlugin = {
             sep.disabled = true;
             sep.textContent = "──────────";
             sel.appendChild(sep);
-            for (var k = 0; k < j.categorias.length; k++) {
-              var c = j.categorias[k];
+            for (var k = 0; k < j3.categorias.length; k++) {
+              var c = j3.categorias[k];
               var opt = document.createElement("option");
               opt.value = c;
               opt.textContent = c;
@@ -2035,8 +2077,8 @@ const gradientFillPlugin = {
       sjCarregarGraficoSerieMensalIa();
     }, 300);
 
-    ["#filtroInicio", "#filtroFim", "#filtroCategoria"].forEach(function (sel) {
-      var el = document.querySelector(sel);
+    ["#filtroInicio", "#filtroFim", "#filtroCategoria"].forEach(function (sel2) {
+      var el = document.querySelector(sel2);
       if (!el) return;
       el.addEventListener("change", fireReload);
       el.addEventListener("input", fireReload);
@@ -2067,15 +2109,6 @@ const gradientFillPlugin = {
 
     var byId = function (id) {
       return document.getElementById(id);
-    };
-    var fmtBRL = function (v) {
-      return (Number(v) || 0).toLocaleString("pt-BR", {
-        style: "currency",
-        currency: "BRL",
-      });
-    };
-    var fmtPct = function (v) {
-      return (Number(v) || 0).toLocaleString("pt-BR") + " %";
     };
 
     var DARK_TINTS = {
@@ -2121,6 +2154,7 @@ const gradientFillPlugin = {
       );
       el.style.setProperty("backdrop-filter", "saturate(120%)", "important");
     }
+
     function colorirKPIs(tipo) {
       var t = (tipo || "neutra").toLowerCase();
       var c = DARK_TINTS[t] || DARK_TINTS.neutra;
@@ -2135,6 +2169,7 @@ const gradientFillPlugin = {
         );
       }
     }
+
     function setTipoBadge(el, tipo) {
       if (!el) return;
       var t = (tipo || "neutra").toLowerCase();
@@ -2160,6 +2195,7 @@ const gradientFillPlugin = {
       var planoEl = byId("analise30dPlano");
       var periodoEl = byId("analise30dPeriodo");
       var tipoBadge = byId("a30_tipo_badge");
+
       try {
         if (btn) {
           btn.disabled = true;
@@ -2249,7 +2285,6 @@ const gradientFillPlugin = {
         (window.__HistoricoIA && window.__HistoricoIA.filtro) || "todas";
       await window.carregarHistorico(20, filtroAtual, false);
     }
-    // deixa a função acessível globalmente
     window.recarregarHistoricoComFiltroAtual =
       recarregarHistoricoComFiltroAtual;
 
@@ -2268,7 +2303,7 @@ const gradientFillPlugin = {
             "Content-Type": "application/json",
           },
           credentials: "same-origin",
-          body: JSON.stringify({ origem }),
+          body: JSON.stringify({ origem: origem }),
         });
 
         if (!r.ok) {
@@ -2324,12 +2359,11 @@ const gradientFillPlugin = {
     }
   });
 })();
+
 // ==========================================================
 // 📈 Spaço da Jhuséna — Gráfico Mensal (Receitas x Despesas x Saldo)
 // Fonte: /financeiro/ia/resumo-mensal/series/
 // ==========================================================
-
-/* global  */
 
 let sjChartMensalIA = null;
 
@@ -2393,7 +2427,7 @@ function carregarGraficoMensalIA() {
 
       for (var i = 0; i < series.length; i++) {
         var s = series[i];
-        labels.push(s.label); // "10/2025", "11/2025", etc.
+        labels.push(s.label);
         receitas.push(s.total_receitas || 0);
         despesas.push(s.total_despesas || 0);
         saldos.push(s.saldo || 0);
@@ -2415,26 +2449,19 @@ function carregarGraficoMensalIA() {
         var proxLabel =
           (proxMes < 10 ? "0" + proxMes : String(proxMes)) + "/" + proxAno;
 
-        // valor projetado do saldo
         var projValor = saldos[saldos.length - 1] || 0;
         if (saldos.length >= 2) {
           var diff =
             (saldos[saldos.length - 1] || 0) - (saldos[saldos.length - 2] || 0);
           projValor = (saldos[saldos.length - 1] || 0) + diff;
         }
-        if (projValor < 0) projValor = 0; // não deixa a projeção ir pra negativo, por enquanto
+        if (projValor < 0) projValor = 0;
 
-        // adiciona o próximo mês nas labels
         labels.push(proxLabel);
-
-        // alinhamento dos outros datasets:
-        // colocamos null para o mês projetado
         receitas.push(null);
         despesas.push(null);
         saldos.push(null);
 
-        // monta o array do saldo projetado:
-        // null para meses passados + valor só no último ponto
         for (var j = 0; j < labels.length - 1; j++) {
           saldoProj.push(null);
         }
@@ -2478,7 +2505,6 @@ function carregarGraficoMensalIA() {
                 pointRadius: 3,
                 borderColor: "#1565c0",
               },
-              // 🔮 Linha de projeção
               {
                 label: "Saldo (proj.)",
                 data: saldoProj,
@@ -2486,8 +2512,8 @@ function carregarGraficoMensalIA() {
                 fill: false,
                 borderWidth: 2,
                 pointRadius: 3,
-                borderColor: "#90caf9", // azul mais claro
-                borderDash: [6, 4], // linha pontilhada
+                borderColor: "#90caf9",
+                borderDash: [6, 4],
               },
             ],
           },
@@ -2526,8 +2552,6 @@ function carregarGraficoMensalIA() {
     });
 }
 
-
-// dispara junto com os outros gráficos do dashboard
 document.addEventListener("DOMContentLoaded", function () {
   try {
     carregarGraficoMensalIA();
@@ -2572,7 +2596,9 @@ function carregarAnaliseMensalIA() {
   sjSetIaAnaliseMsg("Gerando análise do mês com IA...", false);
 
   fetch("/financeiro/ia/analise-mensal/preview/")
-    .then(function (resp) { return resp.json(); })
+    .then(function (resp) {
+      return resp.json();
+    })
     .then(function (data) {
       if (!data || !data.ok) {
         sjSetIaAnaliseMsg("Não foi possível gerar a análise mensal.", true);
@@ -2585,7 +2611,6 @@ function carregarAnaliseMensalIA() {
       elDetalhe.textContent = data.detalhe || "—";
       elRecom.textContent = data.recomendacao || "—";
 
-      // opcional: pintar conforme o tipo
       var tipo = data.tipo || "neutra";
       elResumo.classList.remove("text-success", "text-warning", "text-danger");
       if (tipo === "positiva") {
@@ -2602,7 +2627,6 @@ function carregarAnaliseMensalIA() {
     });
 }
 
-// dispara junto com os outros componentes do dashboard
 document.addEventListener("DOMContentLoaded", function () {
   try {
     carregarAnaliseMensalIA();
@@ -2644,8 +2668,10 @@ function carregarRankingCategorias() {
   sjSetRankingMsg("Carregando ranking mensal...", false);
 
   fetch("/financeiro/metrics/ranking-categorias-mensal/")
-    .then(resp => resp.json())
-    .then(data => {
+    .then(function (resp) {
+      return resp.json();
+    })
+    .then(function (data) {
       if (!data.ok) {
         sjSetRankingMsg("Falha ao carregar ranking.", true);
         return;
@@ -2656,23 +2682,30 @@ function carregarRankingCategorias() {
 
       var itens = data.categorias || [];
       if (!itens.length) {
-        ul.innerHTML = `<li class="list-group-item small">Sem dados neste mês.</li>`;
+        ul.innerHTML =
+          "<li class='list-group-item small'>Sem dados neste mês.</li>";
         return;
       }
 
-      itens.forEach((item, idx) => {
+      itens.forEach(function (item, idx) {
         var li = document.createElement("li");
-        li.className = "list-group-item d-flex justify-content-between align-items-center";
+        li.className =
+          "list-group-item d-flex justify-content-between align-items-center";
 
-        li.innerHTML = `
-          <span>${idx + 1}. ${item.categoria}</span>
-          <span class="fw-semibold">R$ ${item.total.toFixed(2).replace(".", ",")}</span>
-        `;
+        li.innerHTML =
+          "<span>" +
+          (idx + 1) +
+          ". " +
+          item.categoria +
+          "</span>" +
+          "<span class='fw-semibold'>R$ " +
+          Number(item.total || 0).toFixed(2).replace(".", ",") +
+          "</span>";
 
         ul.appendChild(li);
       });
     })
-    .catch(err => {
+    .catch(function (err) {
       console.error("Erro ranking categorias:", err);
       sjSetRankingMsg("Erro ao carregar ranking.", true);
     });
@@ -2719,7 +2752,9 @@ function carregarRankingServicos() {
   sjSetRankingServicosMsg("Carregando ranking de serviços...", false);
 
   fetch("/financeiro/metrics/ranking-servicos-mensal/")
-    .then(function (resp) { return resp.json(); })
+    .then(function (resp) {
+      return resp.json();
+    })
     .then(function (data) {
       if (!data || !data.ok) {
         sjSetRankingServicosMsg("Falha ao carregar ranking de serviços.", true);
@@ -2732,18 +2767,23 @@ function carregarRankingServicos() {
       var itens = data.servicos || [];
       if (!itens.length) {
         ul.innerHTML =
-          '<li class="list-group-item small">Sem serviços/produtos registrados neste mês.</li>';
+          "<li class='list-group-item small'>Sem serviços/produtos registrados neste mês.</li>";
         return;
       }
 
       itens.forEach(function (item, idx) {
         var li = document.createElement("li");
-        li.className = "list-group-item d-flex justify-content-between align-items-center";
+        li.className =
+          "list-group-item d-flex justify-content-between align-items-center";
 
         li.innerHTML =
-          '<span>' + (idx + 1) + '. ' + item.nome + '</span>' +
-          '<span class="fw-semibold">R$ ' +
-          item.total.toFixed(2).replace(".", ",") +
+          "<span>" +
+          (idx + 1) +
+          ". " +
+          item.nome +
+          "</span>" +
+          "<span class='fw-semibold'>R$ " +
+          Number(item.total || 0).toFixed(2).replace(".", ",") +
           "</span>";
 
         ul.appendChild(li);
@@ -2769,8 +2809,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
 function carregarCategoriaQueMaisCresceu() {
   fetch("/financeiro/metrics/crescimento-categoria/")
-    .then(r => r.json())
-    .then(data => {
+    .then(function (r) {
+      return r.json();
+    })
+    .then(function (data) {
       const msg = document.getElementById("crescimentoCategoriaMsg");
       const titulo = document.getElementById("crescimentoCategoriaTitulo");
       const detalhe = document.getElementById("crescimentoCategoriaDetalhe");
@@ -2784,16 +2826,22 @@ function carregarCategoriaQueMaisCresceu() {
       msg.style.display = "none";
 
       const cat = data.categoria;
-      const varPct = data.variacao.toFixed(1).replace(".", ",");
+      const varPct = Number(data.variacao || 0).toFixed(1).replace(".", ",");
 
-      titulo.textContent = `${cat} ↑ ${varPct}%`;
+      titulo.textContent = cat + " ↑ " + varPct + "%";
 
       detalhe.textContent =
-        `De ${data.anterior.toFixed(2).replace(".", ",")} ` +
-        `para ${data.atual.toFixed(2).replace(".", ",")} ` +
-        `(${data.mes_anterior} → ${data.mes_atual}).`;
+        "De " +
+        Number(data.anterior || 0).toFixed(2).replace(".", ",") +
+        " para " +
+        Number(data.atual || 0).toFixed(2).replace(".", ",") +
+        " (" +
+        data.mes_anterior +
+        " → " +
+        data.mes_atual +
+        ").";
     })
-    .catch(e => {
+    .catch(function (e) {
       console.error("Erro crescimento categoria:", e);
       const msg = document.getElementById("crescimentoCategoriaMsg");
       msg.style.display = "block";
@@ -2843,7 +2891,9 @@ function carregarDespesasFixasVariaveis() {
   sjSetFixasVarMsg("Calculando fixas vs variáveis...", false);
 
   fetch("/financeiro/metrics/despesas-fixas-variaveis/")
-    .then(function (resp) { return resp.json(); })
+    .then(function (resp) {
+      return resp.json();
+    })
     .then(function (data) {
       if (!data || !data.ok) {
         sjSetFixasVarMsg("Não foi possível carregar fixas vs variáveis.", true);
@@ -2858,23 +2908,28 @@ function carregarDespesasFixasVariaveis() {
       var pctVar = data.pct_variaveis || 0;
 
       var fmt = function (v) {
-        return "R$ " + v.toFixed(2).replace(".", ",");
+        return "R$ " + Number(v || 0).toFixed(2).replace(".", ",");
       };
 
       elFixasValor.textContent = fmt(fixas);
       elVarValor.textContent = fmt(variaveis);
-      elFixasPct.textContent = "(" + pctFixas.toFixed(1).replace(".", ",") + "%)";
-      elVarPct.textContent = "(" + pctVar.toFixed(1).replace(".", ",") + "%)";
+      elFixasPct.textContent =
+        "(" + Number(pctFixas || 0).toFixed(1).replace(".", ",") + "%)";
+      elVarPct.textContent =
+        "(" + Number(pctVar || 0).toFixed(1).replace(".", ",") + "%)";
 
       var resumo;
       if (fixas === 0 && variaveis === 0) {
         resumo = "Sem despesas registradas neste mês.";
       } else if (pctFixas >= 60) {
-        resumo = "Boa parte das despesas são fixas. Se estiverem sob controle, isso traz previsibilidade para o caixa.";
+        resumo =
+          "Boa parte das despesas são fixas. Se estiverem sob controle, isso traz previsibilidade para o caixa.";
       } else if (pctVar >= 60) {
-        resumo = "Despesas variáveis altas. Vale revisar gastos fora do essencial e ajustar o padrão de consumo.";
+        resumo =
+          "Despesas variáveis altas. Vale revisar gastos fora do essencial e ajustar o padrão de consumo.";
       } else {
-        resumo = "Equilíbrio saudável entre fixas e variáveis. Mantenha o controle e monitore mudanças bruscas.";
+        resumo =
+          "Equilíbrio saudável entre fixas e variáveis. Mantenha o controle e monitore mudanças bruscas.";
       }
 
       elResumo.textContent = resumo;
@@ -2900,10 +2955,9 @@ document.addEventListener("DOMContentLoaded", function () {
   const btn = document.getElementById("btnGerarDicaFiltro");
   if (!btn) return;
 
-  // helper pra pegar o CSRF
   function getCookie(name) {
-    const value = `; ${document.cookie}`;
-    const parts = value.split(`; ${name}=`);
+    const value = "; " + document.cookie;
+    const parts = value.split("; " + name + "=");
     if (parts.length === 2) return parts.pop().split(";").shift();
   }
 
@@ -2932,10 +2986,8 @@ document.addEventListener("DOMContentLoaded", function () {
         data.dica ||
         "Dica gerada com sucesso!";
 
-      // 👉 Nada de alert aqui
       console.log("[IA Nova dica]", dica);
 
-      // feedback visual rápido no botão
       btn.textContent = "Dica gerada!";
       setTimeout(() => {
         btn.textContent = originalText;
@@ -2952,63 +3004,62 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 })();
 
-  (function () {
-    "use strict";
+(function () {
+  "use strict";
 
-    function getCsrfToken() {
-      const meta = document.querySelector('meta[name="csrf-token"]');
-      if (meta && meta.content) return meta.content;
-      const m = /(^|;\s*)csrftoken=([^;]+)/.exec(document.cookie);
-      return m ? decodeURIComponent(m[2]) : "";
-    }
+  function getCsrfToken() {
+    const meta = document.querySelector('meta[name="csrf-token"]');
+    if (meta && meta.content) return meta.content;
+    const m = /(^|;\s*)csrftoken=([^;]+)/.exec(document.cookie);
+    return m ? decodeURIComponent(m[2]) : "";
+  }
 
-    const btn = document.getElementById("btnCheckEstoqueIA");
-    if (!btn) return;
+  const btn = document.getElementById("btnCheckEstoqueIA");
+  if (!btn) return;
 
-    btn.addEventListener("click", async (ev) => {
-      if (!ev.isTrusted) return;
+  btn.addEventListener("click", async (ev) => {
+    if (!ev.isTrusted) return;
 
-      const original = btn.textContent;
-      btn.disabled = true;
-      btn.textContent = "Analisando estoque…";
+    const original = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = "Analisando estoque…";
+
+    try {
+      const resp = await fetch("/financeiro/ia/estoque-baixo/", {
+        method: "POST",
+        headers: {
+          "X-CSRFToken": getCsrfToken(),
+          Accept: "application/json",
+        },
+        credentials: "same-origin",
+      });
+
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+      const json = await resp.json();
+      console.log("IA estoque baixo:", json);
+
+      alert(
+        json.total_alertas_criados > 0
+          ? `Foram gerados ${json.total_alertas_criados} alerta(s) de estoque baixo. Confira no histórico da IA.`
+          : "Nenhum produto com estoque baixo no momento. Tudo sob controle! 🎉"
+      );
 
       try {
-        const resp = await fetch("/financeiro/ia/estoque-baixo/", {
-          method: "POST",
-          headers: {
-            "X-CSRFToken": getCsrfToken(),
-            Accept: "application/json",
-          },
-          credentials: "same-origin",
-        });
-
-        if (!resp.ok) throw new Error("HTTP " + resp.status);
-        const json = await resp.json();
-        console.log("IA estoque baixo:", json);
-
-        alert(
-          json.total_alertas_criados > 0
-            ? `Foram gerados ${json.total_alertas_criados} alerta(s) de estoque baixo. Confira no histórico da IA.`
-            : "Nenhum produto com estoque baixo no momento. Tudo sob controle! 🎉"
-        );
-
-        // se o Histórico IA estiver na tela, força recarregar
-        try {
-          globalThis.__HistoricoIA?.recarregar?.();
-        } catch (e) {
-          console.warn("Não consegui recarregar histórico IA:", e);
-        }
+        globalThis.__HistoricoIA && globalThis.__HistoricoIA.recarregar
+          ? globalThis.__HistoricoIA.recarregar()
+          : null;
       } catch (e) {
-        console.error("Falha ao chamar IA de estoque:", e);
-        alert(
-          "Não consegui analisar o estoque agora. Tente novamente em instantes."
-        );
-      } finally {
-        btn.disabled = false;
-        btn.textContent = original;
+        console.warn("Não consegui recarregar histórico IA:", e);
       }
-    });
-  })();
+    } catch (e) {
+      console.error("Falha ao chamar IA de estoque:", e);
+      alert("Não consegui analisar o estoque agora. Tente novamente em instantes.");
+    } finally {
+      btn.disabled = false;
+      btn.textContent = original;
+    }
+  });
+})();
 
 (function () {
   "use strict";
@@ -3033,8 +3084,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
       const items = data.items || [];
       if (!items.length) {
-        box.innerHTML =
-          "<span class='text-success'>Nenhum lote crítico 🎉</span>";
+        box.innerHTML = "<span class='text-success'>Nenhum lote crítico 🎉</span>";
         return;
       }
 
@@ -3053,18 +3103,22 @@ document.addEventListener("DOMContentLoaded", function () {
           const badge = acaoImediata
             ? "<span class='badge bg-danger'>AÇÃO IMEDIATA</span>"
             : vencido
-              ? "<span class='badge bg-danger'>VENCIDO</span>"
-              : "<span class='badge bg-warning text-dark'>A VENCER</span>";
+            ? "<span class='badge bg-danger'>VENCIDO</span>"
+            : "<span class='badge bg-warning text-dark'>A VENCER</span>";
 
           const diasTxt = vencido
             ? `há ${Math.abs(Number(it.dias_restantes || 0))} dia(s)`
             : `em ${Number(it.dias_restantes || 0)} dia(s)`;
 
           return `
-          <a href="${it.admin_url}" class="d-flex justify-content-between align-items-center text-decoration-none mb-2 p-2 rounded lotes-criticos-item ${acaoImediata ? "lote-critico-red" : ""}">
+          <a href="${it.admin_url}" class="d-flex justify-content-between align-items-center text-decoration-none mb-2 p-2 rounded lotes-criticos-item ${
+            acaoImediata ? "lote-critico-red" : ""
+          }">
             <div class="me-2">
               <div class="fw-semibold">${idx + 1}. ${it.produto_nome}</div>
-              <div class="text-muted">Lote ${it.lote_codigo} • ${diasTxt} • Val: ${it.validade || "-"}</div>
+              <div class="text-muted">Lote ${it.lote_codigo} • ${diasTxt} • Val: ${
+            it.validade || "-"
+          }</div>
             </div>
             <div class="text-end">
               ${badge}
@@ -3081,29 +3135,25 @@ document.addEventListener("DOMContentLoaded", function () {
       }
     } catch (e) {
       console.error("[lotesCriticos]", e);
-      box.innerHTML =
-        "<span class='text-danger'>Falha ao carregar lotes críticos.</span>";
+      box.innerHTML = "<span class='text-danger'>Falha ao carregar lotes críticos.</span>";
     }
   }
 
   document.addEventListener("DOMContentLoaded", carregarLotesCriticos);
 
-  const btn = document.getElementById("btnAtualizarLotesCriticos");
-  if (btn) btn.addEventListener("click", carregarLotesCriticos);
   function getCsrfToken() {
     const m = /(^|;\s*)csrftoken=([^;]+)/.exec(document.cookie);
     return m ? decodeURIComponent(m[2]) : "";
   }
 
   async function atualizarLotesERecarregar() {
-    const btn = document.getElementById("btnAtualizarLotesCriticos");
-    if (btn) {
-      btn.disabled = true;
-      btn.textContent = "Atualizando…";
+    const btnAtualizar = document.getElementById("btnAtualizarLotesCriticos");
+    if (btnAtualizar) {
+      btnAtualizar.disabled = true;
+      btnAtualizar.textContent = "Atualizando…";
     }
 
     try {
-      // 1) Gera alertas (não duplica: seu backend já “pula” os repetidos)
       const resp = await fetch("/financeiro/ia/alertas-lotes/", {
         method: "POST",
         headers: {
@@ -3117,29 +3167,24 @@ document.addEventListener("DOMContentLoaded", function () {
       const json = await resp.json();
       console.log("[alertas-lotes]", json);
 
-      // 2) Recarrega ranking
       await carregarLotesCriticos();
     } catch (e) {
       console.error("[atualizarLotesERecarregar]", e);
       alert("Não consegui atualizar agora. Tenta de novo em instantes.");
     } finally {
-      if (btn) {
-        btn.disabled = false;
-        btn.textContent = "Atualizar";
+      const btnAtualizar2 = document.getElementById("btnAtualizarLotesCriticos");
+      if (btnAtualizar2) {
+        btnAtualizar2.disabled = false;
+        btnAtualizar2.textContent = "Atualizar";
       }
     }
   }
 
-  // troca o clique do botão
-  const btnAtualizarRank = document.getElementById("btnAtualizarLotesCriticos");
-  if (btnAtualizarRank)
-    btnAtualizarRank.addEventListener("click", atualizarLotesERecarregar);
-
+  // ✅ FIX: evita clique DUPLO (não empilha addEventListener)
+  const btnAtualizar = document.getElementById("btnAtualizarLotesCriticos");
+  if (btnAtualizar) {
+    btnAtualizar.onclick = atualizarLotesERecarregar;
+  }
 })();
 
-
-
-
-
-
-
+console.log("VERSÃO ATUAL JS", "SENA-TESTE-123");

@@ -509,7 +509,7 @@
     carregarHoje();
     filtrarDados();
     document.querySelectorAll("#filtrosHoje button").forEach(btn => {
-  btn.addEventListener("click", () => {
+    btn.addEventListener("click", () => {
     document.querySelectorAll("#filtrosHoje button").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
     filtroHojeAtivo = btn.dataset.filtro || "todos";

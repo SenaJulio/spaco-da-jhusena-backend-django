@@ -13,8 +13,7 @@
   {% block stylesheet %}{% endblock %}
 
   <!-- CSS fixo do painel -->
-  <link rel="stylesheet" href="{% static 'financeiro/style.css' %}?v=20251227-1">
-  <link rel="stylesheet" href="{% static 'financeiro/admin_override.css' %}?v=20251227-1">
+ 
 
 
   {% block extrahead %}{% endblock %}
@@ -29,7 +28,7 @@
     <!-- Chart.js (GLOBAL) -->
   
 <!-- Chart.js (GLOBAL — UMA VEZ SÓ) -->
-<script src="{% static 'js/chart.umd.min.js' %}"></script>
+<script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
 
   {% block extrabody %}{% endblock %}
 </body>

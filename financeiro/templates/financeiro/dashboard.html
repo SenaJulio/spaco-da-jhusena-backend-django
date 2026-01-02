@@ -5,8 +5,10 @@
 
 {# Aqui o block stylesheet deve retornar APENAS a URL, pois o base_site.html já tem o <link> #}
 {% block stylesheet %}
-  <link rel="stylesheet" href="{% static 'financeiro/admin_override.css' %}?v=20251227">
+  <link rel="stylesheet" href="{% static 'financeiro/style.css' %}">
+  <link rel="stylesheet" href="{% static 'financeiro/admin_override.css' %}">
 {% endblock %}
+
 
 
 {% block extrahead %}
@@ -17,7 +19,7 @@
 {% block content %}
 <!-- todo o painel aqui -->
  
-
+<div id="sjFinanceiroRoot">
 <div class="d-flex justify-content-between align-items-center mb-3">
   <a href="{% url 'core:home' %}" class="btn btn-sm btn-outline-success">
     ⬅ Início
@@ -666,7 +668,8 @@
 <script>
   window.URL_DADOS_GRAFICO = "{% url 'financeiro:dados_grafico_filtrados' %}";
   window.URL_RESUMO_MENSAL = "{% url 'financeiro:ia_resumo_mensal' %}";
-  window.URL_CATEGORIAS   = "{% url 'financeiro:categorias_transacao' %}";
+  window.URL_CATEGORIAS = "{% url 'financeiro:categorias_transacao' %}";
+
 </script>
 <script>
   (function () {
@@ -675,18 +678,28 @@
     if (!btn) return;
 
     function aplicarTema(tema) {
-      if (tema === "dark") {
-        document.body.classList.add("sj-dark");
-        btn.textContent = "☀️ Modo claro";
-        btn.classList.remove("btn-outline-dark");
-        btn.classList.add("btn-outline-light");
-      } else {
-        document.body.classList.remove("sj-dark");
-        btn.textContent = "🌙 Modo escuro";
-        btn.classList.remove("btn-outline-light");
-        btn.classList.add("btn-outline-dark");
-      }
-    }
+    const root = document.getElementById("sjFinanceiroRoot") || document.body;
+
+    if (tema === "dark") {
+      root.classList.add("sj-dark");
+      btn.textContent = "☀️ Modo claro";
+      btn.classList.remove("btn-outline-dark");
+      btn.classList.add("btn-outline-light");
+    } else {
+      root.classList.remove("sj-dark");
+      btn.textContent = "🌙 Modo escuro";
+      btn.classList.remove("btn-outline-light");
+      btn.classList.add("btn-outline-dark");
+    } 
+  }
+  
+function alternarTema() {
+  const root = document.getElementById("sjFinanceiroRoot") || document.body;
+  const ativo = root.classList.contains("sj-dark");
+
+  aplicarTema(ativo ? "light" : "dark");
+}
+
 
     // Carrega tema salvo
     const salvo = localStorage.getItem(STORAGE_KEY) || "light";
@@ -694,7 +707,7 @@
 
     btn.addEventListener("click", (ev) => {
       if (!ev.isTrusted) return;
-      const ativo = document.body.classList.contains("sj-dark");
+      const ativo = root.classList.contains("sj-dark");
       const proximo = ativo ? "light" : "dark";
       localStorage.setItem(STORAGE_KEY, proximo);
       aplicarTema(proximo);
@@ -703,11 +716,13 @@
 </script>
 
 <!-- Ordem correta -->
+ {% load static %}
 <script src="{% static 'js/utils.js' %}"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
 <script src="{% static 'js/mini_ia.js' %}?v=20251110"></script>
 <script src="{% static 'js/historico_ia.js' %}"></script>
-<script src="{% static 'js/dashboard.js' %}?v=20251105"></script>
+<script src="{% static 'js/dashboard.js' %}?v=20260102"></script>
+
 
 <div class="card shadow-sm mt-4 border-success-subtle" style="font-size:.9rem;">
   <div class="card-body text-center text-muted">
@@ -726,6 +741,7 @@
     <p class="mb-1"><small><strong>Desenvolvido por:</strong> Júlio Sena • <em>Mentoria técnica ChatGPT</em></small></p>
     <p class="mb-0"><small>2025 © Projeto Spaço da Jhuséna — Todos os direitos reservados.</small></p>
   </div>
+</div>
 </div>
 
 {% endblock content %}
