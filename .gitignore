@@ -16,3 +16,4 @@ NUL
 /NUL
 .env.backup
 backups/
+dump_v2.json dump_v2_utf8.json
