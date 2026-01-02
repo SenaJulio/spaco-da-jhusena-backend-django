@@ -1,0 +1,113 @@
+[
+{
+  "model": "auth.user",
+  "pk": 1,
+  "fields": {
+    "password": "pbkdf2_sha256$600000$rvsS2JgNxAvDjwl4gEKFbQ$BrfSE9ySPRTjwbeNg/2806uZDWePPcTzAJ3kV0aguZo=",
+    "last_login": "2026-01-01T22:59:03.506Z",
+    "is_superuser": true,
+    "username": "julio",
+    "first_name": "",
+    "last_name": "",
+    "email": "",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2026-01-01T22:57:57.739Z",
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "by86y1txxiah0e8bix1bq8ajtfbrkukr",
+  "fields": {
+    "session_data": ".eJxVjEEOwiAQRe_C2hBKy5Rx6d4zEIZhpGpoUtqV8e7apAvd_vfef6kQt7WEreUlTKzOqlOn341ieuS6A77Hept1muu6TKR3RR-06evM-Xk53L-DElv51uisM-wZKDL2Ap1BTtlbcggueSIRFEkgngfg7IyFfjQ4WE9MMJJ6fwDyfzhV:1vbRdH:CUZAJty09fkqbxLD4YdczwoPYV_E7UnvqKk_cLJxCFU",
+    "expire_date": "2026-01-15T22:59:03.641Z"
+  }
+},
+{
+  "model": "servicos.servico",
+  "pk": 1,
+  "fields": {
+    "nome": "Banho",
+    "preco": "50.00",
+    "duracao": "00:00:30"
+  }
+},
+{
+  "model": "agendamentos.agendamento",
+  "pk": 1,
+  "fields": {
+    "nome": "Ronaldo",
+    "pet_nome": "Rex",
+    "email": "gm.sena@hotmail.com",
+    "telefone": "994898165",
+    "data": "2026-01-01",
+    "hora": "20:18:24",
+    "servico": 1,
+    "criado_em": "2026-01-01T23:19:13.443Z",
+    "status": "concluido"
+  }
+},
+{
+  "model": "financeiro.transacao",
+  "pk": 1,
+  "fields": {
+    "categoria": "Agendamentos",
+    "tipo": "receita",
+    "descricao": "Banho Rex",
+    "valor": "50.00",
+    "data": "2026-01-01",
+    "venda": null
+  }
+},
+{
+  "model": "financeiro.transacao",
+  "pk": 2,
+  "fields": {
+    "categoria": "Agendamentos",
+    "tipo": "receita",
+    "descricao": "Tosa Luna",
+    "valor": "80.00",
+    "data": "2026-01-02",
+    "venda": null
+  }
+},
+{
+  "model": "financeiro.transacao",
+  "pk": 3,
+  "fields": {
+    "categoria": "Insumos",
+    "tipo": "despesa",
+    "descricao": "Shampoo",
+    "valor": "25.00",
+    "data": "2026-01-03",
+    "venda": null
+  }
+},
+{
+  "model": "financeiro.recomendacaoia",
+  "pk": 1,
+  "fields": {
+    "usuario": 1,
+    "texto": "Reforce a reserva e avalie aporte extra (1–2%) no Tesouro Selic.",
+    "tipo": "neutra",
+    "criado_em": "2026-01-01T23:24:10.822Z"
+  }
+},
+{
+  "model": "notificacoes.notificacao",
+  "pk": 1,
+  "fields": {
+    "usuario": 1,
+    "canal": "whatsapp",
+    "destino": "TESTE_LOCAL",
+    "titulo": "Dica financeira da IA",
+    "mensagem": "Reforce a reserva e avalie aporte extra (1–2%) no Tesouro Selic.",
+    "status": "enviado",
+    "erro_msg": "",
+    "criado_em": "2026-01-01T23:24:11.023Z",
+    "enviado_em": "2026-01-01T23:24:11.194Z"
+  }
+}
+]
