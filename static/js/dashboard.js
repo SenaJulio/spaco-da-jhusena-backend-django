@@ -1,3 +1,6 @@
+/* eslint-disable no-undef */
+
+
 /* eslint-disable no-unused-vars */
 /* ==========================================================================
  * Spaço da Jhuséna — dashboard.js (versão estável, ES5)
@@ -1601,48 +1604,53 @@ const gradientFillPlugin = {
   }
 
   // --------- Atualiza card resumo (reutilizável)
-  function __updateCardResumo(origem) {
-    var box = document.getElementById("cardResumoMes");
-    if (!box || !origem) return;
+function __updateCardResumo(origem) {
+ var box = document.getElementById("boxResumoMensal");
+  if (!box || !origem) return;
 
-    var brl = new Intl.NumberFormat("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    });
-    var toNum = function (v) {
-      return Number(v || 0);
-    };
+  var brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+  var toNum = function (v) { return Number(v || 0); };
 
-    box.classList.remove(
-      "d-none",
-      "alert-info",
-      "alert-success",
-      "alert-danger"
+  // monta label do mês se backend não mandar
+  var meses = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
+  var mesNum = Number(origem.mes || 0);
+  var anoNum = Number(origem.ano || 0);
+
+  var mesLabel =
+    origem.mes_label ||
+    origem.label ||
+    (mesNum >= 1 && mesNum <= 12 && anoNum
+      ? (meses[mesNum - 1] + "/" + anoNum)
+      : "");
+
+  // cor do card pelo saldo
+  box.classList.remove("d-none", "alert-info", "alert-success", "alert-danger");
+  var cls = "alert-info";
+  if (toNum(origem.saldo) > 0) cls = "alert-success";
+  if (toNum(origem.saldo) < 0) cls = "alert-danger";
+  box.classList.add(cls);
+
+  // conteúdo
+  var titulo = mesLabel ? ("📅 " + mesLabel) : "📅 Resumo do mês";
+  var linhaResumo = origem.resumo
+    ? String(origem.resumo)
+    : (
+      "Receitas: " + brl.format(toNum(origem.total_receitas)) +
+      " | Despesas: " + brl.format(toNum(origem.total_despesas)) +
+      " | Saldo: " + brl.format(toNum(origem.saldo))
     );
-    var cls = "alert-info";
-    if (toNum(origem.saldo) > 0) cls = "alert-success";
-    if (toNum(origem.saldo) < 0) cls = "alert-danger";
-    box.classList.add(cls);
 
-    var titulo = origem.mes_label
-      ? "📅 " + origem.mes_label
-      : "📅 " + (origem.label || "");
-    box.innerHTML = [
-      "<strong>",
-      titulo,
-      "</strong><br>",
-      "Receitas: ",
-      brl.format(toNum(origem.total_receitas)),
-      " | ",
-      "Despesas: ",
-      brl.format(toNum(origem.total_despesas)),
-      " | ",
-      "Saldo: ",
-      brl.format(toNum(origem.saldo)),
-    ].join("");
+  var dica = origem.dica ? String(origem.dica) : "";
 
-    __sjApplyMoodFromSaldo(Number(origem.saldo || 0));
-  }
+  box.innerHTML = [
+    "<strong>", titulo, "</strong><br>",
+    linhaResumo,
+    dica ? ("<br>💡 " + dica) : ""
+  ].join("");
+
+  __sjApplyMoodFromSaldo(Number(origem.saldo || 0));
+}
+
 
   // ================== HUMOR DA IA (Badge + Tom dos KPIs) ==================
   function __sjApplyMoodFromSaldo(saldo) {
@@ -1784,8 +1792,24 @@ const gradientFillPlugin = {
           };
         })();
 
-      __sjApplyMoodFromSaldo(Number(src.saldo || 0));
-      __updateCardResumo(src);
+      // 1) aplica humor pelo saldo
+__sjApplyMoodFromSaldo(Number(src.saldo || 0));
+
+// 2) normaliza o payload pro card (mensal ou período)
+var payloadCard = {
+  ano: src.ano ?? src.year ?? null,
+  mes: src.mes ?? src.month ?? null,
+  mes_label: src.mes_label ?? null,
+  label: src.label ?? (src.inicio && src.fim ? (src.inicio + "–" + src.fim) : ""),
+  total_receitas: src.total_receitas ?? src.receitas ?? 0,
+  total_despesas: src.total_despesas ?? src.despesas ?? 0,
+  saldo: src.saldo ?? 0,
+  resumo: src.resumo ?? null,
+  dica: src.dica ?? null,
+};
+
+// se não veio ano/mes, mas veio label de período, deixa como período mesmo
+__updateCardResumo(payloadCard);
 
       (function () {
         var brl = new Intl.NumberFormat("pt-BR", {
@@ -3187,4 +3211,5 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 })();
 
-console.log("VERSÃO ATUAL JS", "SENA-TESTE-123");
+window.__updateCardResumo = __updateCardResumo;
+

@@ -105,6 +105,14 @@
     const spanPeriodo = qs("#turboPeriodo");
     const bar = qs("#iaSuccessBar");
     const iaIcon = qs("#iaIcon");
+     
+
+    function normTipo(t) {
+        t = String(t || "").toLowerCase().trim();
+        if (t === "positiva" || t === "positivo") return "positiva";
+        if (t === "alerta" || t === "negativa" || t === "negativo") return "alerta";
+        return "neutra";
+    }
 
     // --- Botão GERAR DICA ---
     if (btnGerar) {
@@ -154,21 +162,92 @@
             spanPeriodo.textContent = `${pi} → ${pf}`;
           }
 
-          // Tipo
-          const tipo = salvo.tipo || j.tipo || "neutra";
-          aplicarEstiloPorTipo(card, tipo, spanTipo);
+         // Tipo (deduz/normaliza)
+        let tipoRaw =
+          salvo.tipo ??
+          j.tipo ??
+          (metrics && (metrics.tipo || metrics.classificacao)) ??
+          null;
 
-          // Métricas
-          if (metUl) {
-            metUl.innerHTML = "";
-            const mx = metrics || {};
-            for (const [k, v] of Object.entries(mx)) {
-              metUl.insertAdjacentHTML(
-                "beforeend",
-                `<li><strong>${k}</strong>: ${v}</li>`
-              );
-            }
+        if (!tipoRaw) {
+          const saldoNum = Number(metrics?.saldo ?? 0);
+          const varDesp = Number(metrics?.variacao_despesas_pct ?? 0);
+
+          if (saldoNum < 0) tipoRaw = "alerta";
+          else if (saldoNum > 0 && varDesp < 0) tipoRaw = "positiva";
+          else tipoRaw = "neutra";
+        }
+
+        console.log(
+            "raw:", metrics?.saldo, metrics?.variacao_despesas_pct,
+            "| parsed:", saldoNum, varDesp,
+            "| isNaN:", Number.isNaN(saldoNum), Number.isNaN(varDesp)
+          );
+
+          const parseNumBR = (v) => {
+  if (v == null) return 0;
+  if (typeof v === "number") return v;
+  return Number(
+    String(v)
+      .replace(/\./g, "")      // tira separador de milhar
+      .replace(",", ".")       // vírgula -> ponto
+      .replace(/[^\d.-]/g, "") // remove "R$", "%", espaços etc.
+  ) || 0;
+};
+
+const saldoNum = parseNumBR(metrics?.saldo);
+const varDesp  = parseNumBR(metrics?.variacao_despesas_pct);
+
+        const tipo = normTipo(tipoRaw);
+
+        // 1) CARD: limpa e aplica classe correta
+        if (card) {
+          card.classList.remove("sj-ia-card-neutral", "sj-ia-card-positive", "sj-ia-card-alert");
+
+          if (tipo === "positiva") card.classList.add("sj-ia-card-positive");
+          else if (tipo === "alerta") card.classList.add("sj-ia-card-alert");
+          else card.classList.add("sj-ia-card-neutral");
+        }
+
+        // 2) CHIP: texto + classe
+        if (spanTipo) {
+          spanTipo.classList.remove("sj-ia-chip-positive", "sj-ia-chip-alert", "sj-ia-chip-neutral");
+
+          if (tipo === "positiva") {
+            spanTipo.classList.add("sj-ia-chip-positive");
+            spanTipo.textContent = "Positiva";
+          } else if (tipo === "alerta") {
+            spanTipo.classList.add("sj-ia-chip-alert");
+            spanTipo.textContent = "Alerta";
+          } else {
+            spanTipo.classList.add("sj-ia-chip-neutral");
+            spanTipo.textContent = "Neutra";
           }
+        }     
+
+      // Métricas (sem repetir tipo/dica/plano)
+      if (metUl) {
+        metUl.innerHTML = "";
+        const mx = metrics || {};
+                      const ignore = new Set([
+                "tipo",
+                "classificacao",
+                "mood",
+                "dica",
+                "texto",
+                "plano_acao",
+                "planoAcao"
+              ]);
+
+        for (const [k, v] of Object.entries(mx)) {
+          if (ignore.has(k)) continue;
+          metUl.insertAdjacentHTML(
+            "beforeend",
+            `<li><strong>${k}</strong>: ${v}</li>`
+          );
+        }
+      }
+
 
           // id da nova dica salva no backend
           const novoId = salvo.id || j.id || null;
@@ -199,16 +278,29 @@
             bar.classList.add("sj-ia-success-bar");
           }
 
-          st.textContent = "✅ Dica gerada, exibida e adicionada ao histórico!";
-        } catch (err) {
-          console.error("Mini-IA:", err);
-          st.textContent = "❌ Erro ao gerar dica dos últimos 30 dias.";
-        } finally {
-          btnGerar.disabled = false;
-          if (iaIcon) {
-            iaIcon.classList.remove("sj-ia-spin");
-          }
-        }
+         st.textContent = "✅ Dica gerada, exibida e adicionada ao histórico!";
+            show(st, true);
+
+            // some sozinho (UX limpa)
+            setTimeout(() => {
+              show(st, false);
+            }, 2500);
+
+            } catch (err) {
+              console.error("Mini-IA:", err);
+              st.textContent = "❌ Erro ao gerar dica dos últimos 30 dias.";
+              show(st, true);
+
+              setTimeout(() => {
+                show(st, false);
+              }, 3500);
+
+            } finally {
+              btnGerar.disabled = false;
+              if (iaIcon) {
+                iaIcon.classList.remove("sj-ia-spin");
+              }
+            }
 
         try {
           // Atualiza o histórico usando o helper global do dashboard (fluxo novo)

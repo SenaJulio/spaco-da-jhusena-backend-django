@@ -19,12 +19,7 @@
 {% block content %}
 <!-- todo o painel aqui -->
  
-<div id="sjFinanceiroRoot">
-<div class="d-flex justify-content-between align-items-center mb-3">
-  <a href="{% url 'core:home' %}" class="btn btn-sm btn-outline-success">
-    ⬅ Início
-  </a>
-</div>
+
 <h2 class="mb-3">📊 Painel Financeiro Inteligente</h2>
 
 
@@ -705,13 +700,14 @@ function alternarTema() {
     const salvo = localStorage.getItem(STORAGE_KEY) || "light";
     aplicarTema(salvo);
 
-    btn.addEventListener("click", (ev) => {
-      if (!ev.isTrusted) return;
-      const ativo = root.classList.contains("sj-dark");
-      const proximo = ativo ? "light" : "dark";
-      localStorage.setItem(STORAGE_KEY, proximo);
-      aplicarTema(proximo);
-    });
+    btn.addEventListener("click", () => {
+    const root = document.getElementById("sjFinanceiroRoot") || document.body;
+    const ativo = root.classList.contains("sj-dark");
+    const proximo = ativo ? "light" : "dark";
+
+    localStorage.setItem(STORAGE_KEY, proximo);
+    aplicarTema(proximo);
+  });
   })();
 </script>
 
