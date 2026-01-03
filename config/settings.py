@@ -166,22 +166,17 @@ import dj_database_url
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-if DATABASE_URL:
-    # Produção (Render / Postgres)
-    DATABASES = {
-        "default": dj_database_url.parse(
-            DATABASE_URL,
-            conn_max_age=600,
-        )
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": "spaco_jhusena",
+        "USER": "postgres",
+        "PASSWORD": "admin",  # a senha que criamos no psql
+        "HOST": "localhost",
+        "PORT": "5432",
     }
-else:
-    # Local (SQLite)
-    DATABASES = {
-        "default": {
-            "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
-        }
-    }
+}
+
 
 
 # =========================
