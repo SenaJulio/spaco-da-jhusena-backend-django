@@ -171,7 +171,7 @@ DATABASES = {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": "spaco_jhusena",
         "USER": "postgres",
-        "PASSWORD": "admin",  # a senha que criamos no psql
+        "PASSWORD": "yedaYU91",  # a senha que criamos no psql
         "HOST": "localhost",
         "PORT": "5432",
     }
