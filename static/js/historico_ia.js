@@ -333,47 +333,50 @@ function normalizeTipoIA(rawTipo) {
     overlayEl?.classList.toggle("d-none", !show);
   }
 
-  function renderLista(cont, countersEls, badgeEl, count) {    
-    if (!container) return;    
-    
-    count = count || lastCount;
-    lastCount = count;
-    const filtered = filtroCategoria
-      ? allItems.filter((i) => i.tipo === filtroCategoria)
-      : allItems;
+  function renderLista(cont, countersEls, badgeEl, count) {
+  // ✅ usa o cont recebido, não variável global
+  const container = cont || document.getElementById("listaHistorico");
+  if (!container) return;
 
-    if (!filtered.length) {
-      container.replaceChildren();
-      const alertDiv = document.createElement("div");
-      alertDiv.className = "alert alert-secondary mb-2 text-center fst-italic";
+  count = count || lastCount;
+  lastCount = count;
 
-      const msg = filtroCategoria
-        ? "Nenhuma dica encontrada para este filtro ainda. Gere uma nova dica ou ajuste o período."
-        : "Nenhuma dica encontrada ainda. Gere uma nova dica no botão acima.";
+  const filtered = filtroCategoria
+    ? allItems.filter((i) => i.tipo === filtroCategoria)
+    : allItems;
 
-      alertDiv.appendChild(textNode(msg));
-      container.appendChild(alertDiv);
-      atualizarBadgeTotal(badgeEl);
-      atualizarContadoresUI(countersEls, lastCount);
-      return;
-    }
+  if (!filtered.length) {
+    container.replaceChildren();
+    const alertDiv = document.createElement("div");
+    alertDiv.className = "alert alert-secondary mb-2 text-center fst-italic";
 
-    try {
-      renderListaSafe(container, filtered);
-    } catch (e) {
-      console.error("[Historico] Erro no renderListaSafe:", e);
-    }
+    const msg = filtroCategoria
+      ? "Nenhuma dica encontrada para este filtro ainda. Gere uma nova dica ou ajuste o período."
+      : "Nenhuma dica encontrada ainda. Gere uma nova dica no botão acima.";
 
-
-    requestAnimationFrame(() => {
-      for (const el of container.querySelectorAll(".ia-card")) {
-        el.classList.add("fade-in");
-      }
-    });
-    atualizarContadoresUI(countersEls, lastCount);
+    alertDiv.appendChild(textNode(msg));
+    container.appendChild(alertDiv);
     atualizarBadgeTotal(badgeEl);
-    
+    atualizarContadoresUI(countersEls, lastCount);
+    return;
   }
+
+  try {
+    renderListaSafe(container, filtered);
+  } catch (e) {
+    console.error("[Historico] Erro no renderListaSafe:", e);
+  }
+
+  requestAnimationFrame(() => {
+    for (const el of container.querySelectorAll(".ia-card")) {
+      el.classList.add("fade-in");
+    }
+  });
+
+  atualizarContadoresUI(countersEls, lastCount);
+  atualizarBadgeTotal(badgeEl);
+}
+
 
   // ---------- Auto refresh ----------
   function stopAutoRefresh() {
@@ -508,11 +511,8 @@ function normalizeTipoIA(rawTipo) {
 
     const raw = (json && (json.items || json.results || json.data)) || [];
     const items = normalizeItems(raw);
-    const hasMore = !!(
-      json &&
-      (json.has_more === true || json.hasMore === true || json.has_more === 1)
-    );
-
+    const hasMore = !!(json && (json.has_more === true || json.hasMore === true || json.has_more === 1));
+    
     if (json?.count && typeof setContadoresBackend === "function") {
       try {
         setContadoresBackend(json.count);
@@ -520,9 +520,9 @@ function normalizeTipoIA(rawTipo) {
         /* ignore */
       }
     }
-
-    return { items, hasMore, offset };
-  }
+    const count = json?.count || null;
+    return { items, hasMore, offset, count };
+ }
 
   function updateStateAfterFetch(result, args) {
     const { items, hasMore } = result;
@@ -600,8 +600,10 @@ function normalizeTipoIA(rawTipo) {
       _pendingTimer = null;
 
       if (_lastIntent.tipo !== args.tipo || _lastIntent.limit !== args.limit) return;
-
       _inFlight = true;
+
+      let result; // ✅ declarado no escopo 
+      
       try {
         const overlayEl = document.getElementById("ovlHistorico");
         const btnReload =
@@ -611,7 +613,7 @@ function normalizeTipoIA(rawTipo) {
         toggleLoading(overlayEl, true);
         if (btnReload) btnReload.disabled = true;
 
-        const result = await fetchHistorico(args.limit, args.tipo, {
+        result = await fetchHistorico(args.limit, args.tipo, {
           append: !!args.append,
           offset: _offsetAtual,
         });
@@ -645,9 +647,11 @@ function normalizeTipoIA(rawTipo) {
         };
         const badgeEl = document.getElementById("badgeNovasDicas");
 
-        renderLista(cont, countersEls, badgeEl, result.count);
+        renderLista(cont, countersEls, badgeEl, result.count || lastCount);
 
-        if (!args.append) maybeScrollToNew();
+
+        if (!args?.append) maybeScrollToNew();
+           
       } catch (e) {
         if (e?.name !== "AbortError") {
           err("Falha ao carregar histórico:", e);
@@ -967,7 +971,7 @@ function normalizeTipoIA(rawTipo) {
       startAutoRefresh();
       const cont = document.getElementById("listaHistorico");
       const badge = document.getElementById("badgeNovasDicas");
-      renderLista(cont, countersEls, badge, result.count);
+      
     })();
 
     (function diag() {
