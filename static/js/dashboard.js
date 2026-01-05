@@ -383,6 +383,9 @@ const gradientFillPlugin = {
       /* */
     }
 
+
+
+
     new Chart(canvas, {
       type: "line",
       data: {
@@ -905,6 +908,7 @@ const gradientFillPlugin = {
   }
 
   function sjCarregarGraficoSerieMensalIa() {
+
     var elCanvas = document.getElementById("graficoSerieMensalIa");
     if (!elCanvas) return;
 
@@ -932,20 +936,36 @@ const gradientFillPlugin = {
           ctxClear.clearRect(0, 0, elCanvas.width, elCanvas.height);
           return;
         }
+        function toNumberBR(v) {
+          if (v === null || v === undefined) return 0;
+          if (typeof v === "number") return Number.isFinite(v) ? v : 0;
+
+          var s = String(v).trim();
+          if (!s) return 0;
+
+          // remove "R$", espaços, milhar e troca decimal
+          s = s.replace(/[R$\s]/g, "").replace(/\./g, "").replace(",", ".");
+          var n = Number(s);
+          return Number.isFinite(n) ? n : 0;
+        }
+
 
         // ---------- Séries base ----------
-        var labels = series.map(function (s) {
-          return s.label || "";
-        });
         var receitas = series.map(function (s) {
-          return s.total_receitas || 0;
+          return toNumberBR(s.total_receitas);
         });
         var despesas = series.map(function (s) {
-          return s.total_despesas || 0;
+          return toNumberBR(s.total_despesas);
         });
         var saldos = series.map(function (s) {
-          return s.saldo || 0;
+          return toNumberBR(s.saldo);
         });
+
+
+        var labels = series.map(function (s) {
+          return (s && (s.label || s.mes_label || s.mes_ano || s.mes || "")) || "";
+        });
+
 
         var lastSaldo = saldos[saldos.length - 1] || 0;
         var lastLabel = labels[labels.length - 1] || "";
@@ -1286,9 +1306,9 @@ const gradientFillPlugin = {
         }
 
         // ---------- Monta o gráfico ----------
-        if (sjChartSerieIa) {
-          sjChartSerieIa.destroy();
-        }
+        if (sjChartSerieIa) sjChartSerieIa.destroy();
+        var existing = Chart.getChart(elCanvas);
+        if (existing) existing.destroy();
 
         var ctx2 = elCanvas.getContext("2d");
         sjChartSerieIa = new Chart(ctx2, {
@@ -1444,10 +1464,11 @@ const gradientFillPlugin = {
         if (series.length < 2) {
           elLista.innerHTML =
             '<li class="list-group-item small text-muted">' +
-            "Ainda não há meses suficientes para comparação. 👀" +
+            "Comparação mês a mês ficará disponível após o fechamento de pelo menos 2 meses completos. 📅" +
             "</li>";
           return;
         }
+
 
         var prev = series[series.length - 2];
         var cur = series[series.length - 1];
@@ -1651,7 +1672,7 @@ const gradientFillPlugin = {
 
     __sjApplyMoodFromSaldo(Number(origem.saldo || 0));
   }
-   window.__updateCardResumo = __updateCardResumo;
+  window.__updateCardResumo = __updateCardResumo;
 
   // ================== HUMOR DA IA (Badge + Tom dos KPIs) ==================
   function __sjApplyMoodFromSaldo(saldo) {
@@ -2410,9 +2431,10 @@ function sjMostrarMsgGraficoMensal(msg, isErro) {
 }
 
 function carregarGraficoMensalIA() {
-  var cv = document.getElementById("graficoMensalIA");
+  var labels = [];
+  var cv = document.getElementById("graficoSerieMensalIa");
   if (!cv) {
-    console.warn("📈 graficoMensalIA não encontrado no DOM.");
+    console.warn("📈 graficoSerieMensalIa não encontrado no DOM.");
     return;
   }
 
@@ -2495,8 +2517,12 @@ function carregarGraficoMensalIA() {
       }
 
       try {
+        const prev = Chart.getChart(cv);
+        if (prev) prev.destroy();
+
         if (sjChartMensalIA) {
           sjChartMensalIA.destroy();
+          sjChartMensalIA = null;
         }
 
         sjChartMensalIA = new Chart(cv, {
@@ -3171,36 +3197,36 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   async function atualizarLotesERecarregar() {
-  const btnAtualizar = document.getElementById("btnAtualizarLotes");
-  if (btnAtualizar) {
-    btnAtualizar.disabled = true;
-    btnAtualizar.textContent = "Atualizando…";
-  }
+    const btnAtualizar = document.getElementById("btnAtualizarLotes");
+    if (btnAtualizar) {
+      btnAtualizar.disabled = true;
+      btnAtualizar.textContent = "Atualizando…";
+    }
 
-  try {
-    const resp = await fetch("/financeiro/ia/alertas-lotes/?dias=30&limit=5");
-    if (!resp.ok) throw new Error("HTTP " + resp.status);
-    const json = await resp.json();
-    console.log("[alertas-lotes]", json);
+    try {
+      const resp = await fetch("/financeiro/ia/alertas-lotes/?dias=30&limit=5");
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+      const json = await resp.json();
+      console.log("[alertas-lotes]", json);
 
-    await carregarLotesCriticos();
-  } catch (e) {
-    console.error("[atualizarLotesERecarregar]", e);
-    alert("Não consegui atualizar agora. Tenta de novo em instantes.");
-  } finally {
-    const btnAtualizar2 = document.getElementById("btnAtualizarLotes");
-    if (btnAtualizar2) {
-      btnAtualizar2.disabled = false;
-      btnAtualizar2.textContent = "Atualizar";
+      await carregarLotesCriticos();
+    } catch (e) {
+      console.error("[atualizarLotesERecarregar]", e);
+      alert("Não consegui atualizar agora. Tenta de novo em instantes.");
+    } finally {
+      const btnAtualizar2 = document.getElementById("btnAtualizarLotes");
+      if (btnAtualizar2) {
+        btnAtualizar2.disabled = false;
+        btnAtualizar2.textContent = "Atualizar";
+      }
     }
   }
-}
 
-// Liga o botão REAL do HTML
-const btnAtualizar = document.getElementById("btnAtualizarLotes");
-if (btnAtualizar) {
-  btnAtualizar.onclick = atualizarLotesERecarregar;
-}
+  // Liga o botão REAL do HTML
+  const btnAtualizar = document.getElementById("btnAtualizarLotes");
+  if (btnAtualizar) {
+    btnAtualizar.onclick = atualizarLotesERecarregar;
+  }
 })();
 
 
