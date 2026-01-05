@@ -80,7 +80,10 @@ def _escolher_texto(textos: List[str]) -> str:
     return random.choice(textos)
 
 
-def _classificar_tipo(mes_atual: MesResumo, variacao_saldo_pct: Optional[float]) -> TipoAnalise:
+def _classificar_tipo(
+    mes_atual: MesResumo,
+    variacao_saldo_pct: Optional[float],
+) -> TipoAnalise:
     """
     Classifica a análise em:
     - 'positiva'
@@ -91,24 +94,24 @@ def _classificar_tipo(mes_atual: MesResumo, variacao_saldo_pct: Optional[float])
     saldo = mes_atual.saldo
     margem = mes_atual.margem
 
-    # Caso geral: saldo negativo ou muito perto de zero
+    # 🚨 saldo negativo é sempre alerta
     if saldo < 0:
         return "alerta"
 
-    # saldo positivo, mas margem muito baixa
-    if saldo >= 0 and margem < 5:
-        return "neutra"
-
-    # se tem variação e caiu forte (> 30% de queda)
+    # 🚨 queda forte de saldo
     if variacao_saldo_pct is not None and variacao_saldo_pct < -30.0:
         return "alerta"
 
-    # se saldo está razoável e margem boa
-    if margem >= 20:
+    # 🌱 cenário bom: saldo positivo + margem boa
+    if saldo > 0 and margem >= 15:
         return "positiva"
 
-    # caso intermediário
+    # 😐 saldo positivo, mas margem ainda fraca
+    if saldo >= 0 and margem < 15:
+        return "neutra"
+
     return "neutra"
+
 
 
 def analisar_serie_mensal(series: List[Dict]) -> Dict:

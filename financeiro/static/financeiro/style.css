@@ -749,3 +749,18 @@ body {
 main, .dashboard-container, .container {
   padding-top: 1.5rem !important;
 }
+
+.sj-ia-explain{
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  font-size: 0.92rem;
+  line-height: 1.25;
+  border: 1px solid rgba(76,175,80,.35);
+  background: rgba(46,125,50,.12);
+}
+
+.sj-ia-explain{ margin-top:8px; padding:8px 10px; border-radius: 999px; font-size:.92rem; line-height:1.25; border:1px solid; }
+.sj-ia-explain.pos{ border-color: rgba(76,175,80,.45); background: rgba(46,125,50,.12); }
+.sj-ia-explain.neu{ border-color: rgba(255,193,7,.55); background: rgba(255,193,7,.14); }
+.sj-ia-explain.ale{ border-color: rgba(244,67,54,.55); background: rgba(244,67,54,.12); }

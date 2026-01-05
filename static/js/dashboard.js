@@ -1,4 +1,5 @@
 /* eslint-disable no-undef */
+console.log("DASHBOARD.JS CARREGADO ✅ - TESTE 2026-01-04");
 
 
 /* eslint-disable no-unused-vars */
@@ -555,20 +556,20 @@ const gradientFillPlugin = {
     });
 
     // ✅ Sem dados reais → mostra mensagem, mas NÃO some com o canvas
-  if (!categorias.length || (categorias.length === 1 && valores[0] === 0)) {
-  if (empty) {
-    empty.hidden = false;
-    empty.textContent = "Sem categorias neste período.";
-  }
+    if (!categorias.length || (categorias.length === 1 && valores[0] === 0)) {
+      if (empty) {
+        empty.hidden = false;
+        empty.textContent = "Sem categorias neste período.";
+      }
 
-  destroyChartByCanvas(canvas);
+      destroyChartByCanvas(canvas);
 
-  // 🔒 Não use display:none no canvas (isso trava render futuro)
-  canvas.style.display = "block";
+      // 🔒 Não use display:none no canvas (isso trava render futuro)
+      canvas.style.display = "block";
 
 
-  return;
-}
+      return;
+    }
 
 
     // ✅ Tem dados → mostra canvas
@@ -1170,8 +1171,8 @@ const gradientFillPlugin = {
               (delta2 > 0
                 ? "movimento de melhora do caixa, com tendência de reforço do saldo."
                 : delta2 < 0
-                ? "pressão adicional sobre o caixa, exigindo maior controle de despesas."
-                : "estabilidade no curto prazo, sem grandes oscilações de saldo.");
+                  ? "pressão adicional sobre o caixa, exigindo maior controle de despesas."
+                  : "estabilidade no curto prazo, sem grandes oscilações de saldo.");
 
             // horizonte 3 meses + faixa de incerteza
             if (forecast3 !== null || forecast2 !== null) {
@@ -1232,23 +1233,23 @@ const gradientFillPlugin = {
               "</div>" +
               (pct2 !== null
                 ? '<div class="mb-1"><strong>Sinal da IA:</strong> ' +
-                  (delta2 > 0
-                    ? "tendência de melhora do caixa, com aumento do saldo."
-                    : delta2 < 0
+                (delta2 > 0
+                  ? "tendência de melhora do caixa, com aumento do saldo."
+                  : delta2 < 0
                     ? "pressão sobre o caixa, com risco de redução do saldo."
                     : "estabilidade no curto prazo, sem grandes oscilações.") +
-                  " Variação esperada: " +
-                  (delta2 >= 0 ? "+" : "-") +
-                  "R$ " +
-                  Math.abs(delta2).toLocaleString("pt-BR", {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  }) +
-                  " (" +
-                  (pct2 >= 0 ? "+" : "-") +
-                  Math.abs(pct2).toFixed(1).replace(".", ",") +
-                  "%)." +
-                  "</div>"
+                " Variação esperada: " +
+                (delta2 >= 0 ? "+" : "-") +
+                "R$ " +
+                Math.abs(delta2).toLocaleString("pt-BR", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 2,
+                }) +
+                " (" +
+                (pct2 >= 0 ? "+" : "-") +
+                Math.abs(pct2).toFixed(1).replace(".", ",") +
+                "%)." +
+                "</div>"
                 : "") +
               '<div class="small text-muted mb-1"><strong>Ação prática:</strong> ' +
               (delta2 >= 0
@@ -1375,15 +1376,15 @@ const gradientFillPlugin = {
 
                         linhas.push(
                           "Diferença vs " +
-                            lastLabel +
-                            ": " +
-                            sinalValor +
-                            "R$ " +
-                            valorAbs +
-                            " (" +
-                            sinalPct +
-                            pctAbs +
-                            "%)"
+                          lastLabel +
+                          ": " +
+                          sinalValor +
+                          "R$ " +
+                          valorAbs +
+                          " (" +
+                          sinalPct +
+                          pctAbs +
+                          "%)"
                         );
                       }
 
@@ -1604,53 +1605,53 @@ const gradientFillPlugin = {
   }
 
   // --------- Atualiza card resumo (reutilizável)
-function __updateCardResumo(origem) {
- var box = document.getElementById("boxResumoMensal");
-  if (!box || !origem) return;
+  function __updateCardResumo(origem) {
+    var box = document.getElementById("boxResumoMensal");
+    if (!box || !origem) return;
 
-  var brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
-  var toNum = function (v) { return Number(v || 0); };
+    var brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+    var toNum = function (v) { return Number(v || 0); };
 
-  // monta label do mês se backend não mandar
-  var meses = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
-  var mesNum = Number(origem.mes || 0);
-  var anoNum = Number(origem.ano || 0);
+    // monta label do mês se backend não mandar
+    var meses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    var mesNum = Number(origem.mes || 0);
+    var anoNum = Number(origem.ano || 0);
 
-  var mesLabel =
-    origem.mes_label ||
-    origem.label ||
-    (mesNum >= 1 && mesNum <= 12 && anoNum
-      ? (meses[mesNum - 1] + "/" + anoNum)
-      : "");
+    var mesLabel =
+      origem.mes_label ||
+      origem.label ||
+      (mesNum >= 1 && mesNum <= 12 && anoNum
+        ? (meses[mesNum - 1] + "/" + anoNum)
+        : "");
 
-  // cor do card pelo saldo
-  box.classList.remove("d-none", "alert-info", "alert-success", "alert-danger");
-  var cls = "alert-info";
-  if (toNum(origem.saldo) > 0) cls = "alert-success";
-  if (toNum(origem.saldo) < 0) cls = "alert-danger";
-  box.classList.add(cls);
+    // cor do card pelo saldo
+    box.classList.remove("d-none", "alert-info", "alert-success", "alert-danger");
+    var cls = "alert-info";
+    if (toNum(origem.saldo) > 0) cls = "alert-success";
+    if (toNum(origem.saldo) < 0) cls = "alert-danger";
+    box.classList.add(cls);
 
-  // conteúdo
-  var titulo = mesLabel ? ("📅 " + mesLabel) : "📅 Resumo do mês";
-  var linhaResumo = origem.resumo
-    ? String(origem.resumo)
-    : (
-      "Receitas: " + brl.format(toNum(origem.total_receitas)) +
-      " | Despesas: " + brl.format(toNum(origem.total_despesas)) +
-      " | Saldo: " + brl.format(toNum(origem.saldo))
-    );
+    // conteúdo
+    var titulo = mesLabel ? ("📅 " + mesLabel) : "📅 Resumo do mês";
+    var linhaResumo = origem.resumo
+      ? String(origem.resumo)
+      : (
+        "Receitas: " + brl.format(toNum(origem.total_receitas)) +
+        " | Despesas: " + brl.format(toNum(origem.total_despesas)) +
+        " | Saldo: " + brl.format(toNum(origem.saldo))
+      );
 
-  var dica = origem.dica ? String(origem.dica) : "";
+    var dica = origem.dica ? String(origem.dica) : "";
 
-  box.innerHTML = [
-    "<strong>", titulo, "</strong><br>",
-    linhaResumo,
-    dica ? ("<br>💡 " + dica) : ""
-  ].join("");
+    box.innerHTML = [
+      "<strong>", titulo, "</strong><br>",
+      linhaResumo,
+      dica ? ("<br>💡 " + dica) : ""
+    ].join("");
 
-  __sjApplyMoodFromSaldo(Number(origem.saldo || 0));
-}
-
+    __sjApplyMoodFromSaldo(Number(origem.saldo || 0));
+  }
+   window.__updateCardResumo = __updateCardResumo;
 
   // ================== HUMOR DA IA (Badge + Tom dos KPIs) ==================
   function __sjApplyMoodFromSaldo(saldo) {
@@ -1793,23 +1794,24 @@ function __updateCardResumo(origem) {
         })();
 
       // 1) aplica humor pelo saldo
-__sjApplyMoodFromSaldo(Number(src.saldo || 0));
+      __sjApplyMoodFromSaldo(Number(src.saldo || 0));
 
-// 2) normaliza o payload pro card (mensal ou período)
-var payloadCard = {
-  ano: src.ano ?? src.year ?? null,
-  mes: src.mes ?? src.month ?? null,
-  mes_label: src.mes_label ?? null,
-  label: src.label ?? (src.inicio && src.fim ? (src.inicio + "–" + src.fim) : ""),
-  total_receitas: src.total_receitas ?? src.receitas ?? 0,
-  total_despesas: src.total_despesas ?? src.despesas ?? 0,
-  saldo: src.saldo ?? 0,
-  resumo: src.resumo ?? null,
-  dica: src.dica ?? null,
-};
+      // 2) normaliza o payload pro card (mensal ou período)
+      var payloadCard = {
+        ano: src.ano ?? src.year ?? null,
+        mes: src.mes ?? src.month ?? null,
+        mes_label: src.mes_label ?? null,
+        label: src.label ?? (src.inicio && src.fim ? (src.inicio + "–" + src.fim) : ""),
+        total_receitas: src.total_receitas ?? src.receitas ?? 0,
+        total_despesas: src.total_despesas ?? src.despesas ?? 0,
+        saldo: src.saldo ?? 0,
+        resumo: src.resumo ?? null,
+        dica: src.dica ?? null,
+      };
 
-// se não veio ano/mes, mas veio label de período, deixa como período mesmo
-__updateCardResumo(payloadCard);
+      // se não veio ano/mes, mas veio label de período, deixa como período mesmo
+      window.__updateCardResumo?.(payloadCard);
+
 
       (function () {
         var brl = new Intl.NumberFormat("pt-BR", {
@@ -1873,10 +1875,10 @@ __updateCardResumo(payloadCard);
 
         fetch(
           (window.URL_DADOS_GRAFICO || "/financeiro/dados_grafico_filtrados/") +
-            "?inicio=" +
-            _fmt(inicioAnt) +
-            "&fim=" +
-            _fmt(fimAnt),
+          "?inicio=" +
+          _fmt(inicioAnt) +
+          "&fim=" +
+          _fmt(fimAnt),
           {
             headers: { Accept: "application/json" },
             credentials: "same-origin",
@@ -1946,10 +1948,10 @@ __updateCardResumo(payloadCard);
             typeof v === "number" && isFinite(v)
               ? v
               : Number(
-                  String(v || "0")
-                    .replace(/\./g, "")
-                    .replace(",", ".")
-                );
+                String(v || "0")
+                  .replace(/\./g, "")
+                  .replace(",", ".")
+              );
           if (!isFinite(n)) n = 0;
 
           if (Math.abs(n) >= 1000 && Math.floor(n) === n) {
@@ -1979,7 +1981,7 @@ __updateCardResumo(payloadCard);
 
       if (cvCat) {
         try {
-         cvCat.style.display = "block";
+          cvCat.style.display = "block";
 
         } catch (_eCat0) {
           /* */
@@ -1987,9 +1989,9 @@ __updateCardResumo(payloadCard);
 
         try {
           montarGraficoCategorias(
-            
+
             j.categorias || [],
-            j.valores || []      
+            j.valores || []
 
           );
         } catch (_eCat1) {
@@ -3097,7 +3099,7 @@ document.addEventListener("DOMContentLoaded", function () {
     if (footer) footer.innerHTML = "";
 
     try {
-      const resp = await fetch("/estoque/lotes/criticos/?dias=30&limit=5", {
+      const resp = await fetch("/financeiro/ia/alertas-lotes/?dias=30&limit=5", {
         headers: { Accept: "application/json" },
         credentials: "same-origin",
       });
@@ -3120,29 +3122,27 @@ document.addEventListener("DOMContentLoaded", function () {
 
       box.innerHTML = items
         .map((it, idx) => {
-          const vencido = String(it.status || "").toLowerCase() === "vencido";
-          const saldo = Number(it.saldo_lote || 0);
+          const vencido = Number(it.dias_restantes || 0) < 0;
+          const saldo = Number(it.saldo_lote ?? it.saldo ?? 0);
           const acaoImediata = vencido && saldo > 0;
 
           const badge = acaoImediata
             ? "<span class='badge bg-danger'>AÇÃO IMEDIATA</span>"
             : vencido
-            ? "<span class='badge bg-danger'>VENCIDO</span>"
-            : "<span class='badge bg-warning text-dark'>A VENCER</span>";
+              ? "<span class='badge bg-danger'>VENCIDO</span>"
+              : "<span class='badge bg-warning text-dark'>A VENCER</span>";
 
           const diasTxt = vencido
             ? `há ${Math.abs(Number(it.dias_restantes || 0))} dia(s)`
             : `em ${Number(it.dias_restantes || 0)} dia(s)`;
 
           return `
-          <a href="${it.admin_url}" class="d-flex justify-content-between align-items-center text-decoration-none mb-2 p-2 rounded lotes-criticos-item ${
-            acaoImediata ? "lote-critico-red" : ""
-          }">
+          <a href="${it.admin_url || "#"}" class="d-flex justify-content-between align-items-center text-decoration-none mb-2 p-2 rounded lotes-criticos-item ${acaoImediata ? "lote-critico-red" : ""
+            }">
             <div class="me-2">
-              <div class="fw-semibold">${idx + 1}. ${it.produto_nome}</div>
-              <div class="text-muted">Lote ${it.lote_codigo} • ${diasTxt} • Val: ${
-            it.validade || "-"
-          }</div>
+              <div class="fw-semibold">${idx + 1}.${it.produto_nome || it.produto || "-"}</div>
+              <div class="text-muted">Lote ${it.lote_codigo || it.codigo || "-"} • ${diasTxt} • Val: ${it.validade || "-"
+            }</div>
             </div>
             <div class="text-end">
               ${badge}
@@ -3171,45 +3171,36 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 
   async function atualizarLotesERecarregar() {
-    const btnAtualizar = document.getElementById("btnAtualizarLotesCriticos");
-    if (btnAtualizar) {
-      btnAtualizar.disabled = true;
-      btnAtualizar.textContent = "Atualizando…";
-    }
-
-    try {
-      const resp = await fetch("/financeiro/ia/alertas-lotes/", {
-        method: "POST",
-        headers: {
-          "X-CSRFToken": getCsrfToken(),
-          Accept: "application/json",
-        },
-        credentials: "same-origin",
-      });
-
-      if (!resp.ok) throw new Error("HTTP " + resp.status);
-      const json = await resp.json();
-      console.log("[alertas-lotes]", json);
-
-      await carregarLotesCriticos();
-    } catch (e) {
-      console.error("[atualizarLotesERecarregar]", e);
-      alert("Não consegui atualizar agora. Tenta de novo em instantes.");
-    } finally {
-      const btnAtualizar2 = document.getElementById("btnAtualizarLotesCriticos");
-      if (btnAtualizar2) {
-        btnAtualizar2.disabled = false;
-        btnAtualizar2.textContent = "Atualizar";
-      }
-    }
-  }
-
-  // ✅ FIX: evita clique DUPLO (não empilha addEventListener)
-  const btnAtualizar = document.getElementById("btnAtualizarLotesCriticos");
+  const btnAtualizar = document.getElementById("btnAtualizarLotes");
   if (btnAtualizar) {
-    btnAtualizar.onclick = atualizarLotesERecarregar;
+    btnAtualizar.disabled = true;
+    btnAtualizar.textContent = "Atualizando…";
   }
+
+  try {
+    const resp = await fetch("/financeiro/ia/alertas-lotes/?dias=30&limit=5");
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+    const json = await resp.json();
+    console.log("[alertas-lotes]", json);
+
+    await carregarLotesCriticos();
+  } catch (e) {
+    console.error("[atualizarLotesERecarregar]", e);
+    alert("Não consegui atualizar agora. Tenta de novo em instantes.");
+  } finally {
+    const btnAtualizar2 = document.getElementById("btnAtualizarLotes");
+    if (btnAtualizar2) {
+      btnAtualizar2.disabled = false;
+      btnAtualizar2.textContent = "Atualizar";
+    }
+  }
+}
+
+// Liga o botão REAL do HTML
+const btnAtualizar = document.getElementById("btnAtualizarLotes");
+if (btnAtualizar) {
+  btnAtualizar.onclick = atualizarLotesERecarregar;
+}
 })();
 
-window.__updateCardResumo = __updateCardResumo;
 

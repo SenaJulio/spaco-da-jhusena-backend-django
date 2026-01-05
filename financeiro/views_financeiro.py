@@ -56,6 +56,9 @@ from .models import Transacao, Insight
 
 # Serviços locais de IA (geração e classificador oficial que já usa no projeto)
 from .services.ia import generate_tip_last_30d, _map_tipo as map_tipo_ia
+from financeiro.ia_estoque_bridge import registrar_alertas_lote_no_historico
+from financeiro.models import HistoricoIA, RecomendacaoIA
+
 
 
 # --- Modelos opcionais/legados ---
@@ -219,7 +222,7 @@ def map_tipo_textual(texto: str) -> str:
 
     # 1) tenta o classificador oficial (importado lá em cima com fallback)
     try:
-        k = map_tipo_oficial(tx)
+        k = map_tipo_textual(tx)
     except NameError:
         k = ""
 
@@ -1343,20 +1346,45 @@ def ia_historico_feed_v2(request):
     except ValueError:
         offset = 0
 
-    # 3) Base do usuário (ordenado por data)
-    base = RecomendacaoIA.objects.filter(usuario=user).order_by("-criado_em")
+        # 3) Base do usuário (duas fontes)
+    base_rec = list(
+        RecomendacaoIA.objects.filter(usuario=user).order_by("-criado_em")
+    )
+    base_hist = list(
+        HistoricoIA.objects.filter(usuario=user).order_by("-criado_em")
+    )
+     # Junta tudo em uma lista só
+    base_all = base_rec + base_hist
 
-    # 4) Normaliza tipo de TODO mundo (positiva/alerta/neutra) e conta
+    # Junta tudo e ordena por data (mais recente primeiro)
+    base_all = base_rec + base_hist
+    base_all.sort(
+        key=lambda x: x.criado_em or timezone.now(),
+        reverse=True
+    )
+
+    # 4) Normaliza tipo e conta
     tz = timezone.get_current_timezone()
-    normalizados = []  # lista com dicts já normalizados
+    normalizados = []
     counts = {"positiva": 0, "alerta": 0, "neutra": 0}
     total = 0
+    base_all.sort(
+    key=lambda r: r.criado_em or timezone.now(),
+    reverse=True
+    )
 
-    for rec in base:
-        tnorm = (rec.tipo or "").strip().lower()
+
+    for rec in base_all:
+        # 🔴 prioridade máxima: alertas de LOTE
+        if getattr(rec, "origem", "") == "lote":
+            tnorm = "alerta"
+        else:
+            tnorm = (getattr(rec, "tipo", "") or "").strip().lower()
+
+        texto = getattr(rec, "texto", "") or ""
+
         if tnorm not in ("positiva", "alerta", "neutra"):
-            # classificador textual auxiliar
-            tnorm = map_tipo_textual(rec.texto or "") or "neutra" # type: ignore
+            tnorm = map_tipo_textual(texto) or "neutra"  # type: ignore
 
         if tnorm not in ("positiva", "alerta", "neutra"):
             tnorm = "neutra"
@@ -1366,16 +1394,14 @@ def ia_historico_feed_v2(request):
 
         dt_local = timezone.localtime(rec.criado_em, tz) if rec.criado_em else None
 
-        normalizados.append(
-            {
-                "id": rec.id,
-                "tipo": tnorm,
-                "texto": rec.texto or "",
-                "criado_em": rec.criado_em.isoformat() if rec.criado_em else "",
-                "criado_em_fmt": dt_local.strftime("%d/%m/%Y %H:%M") if dt_local else "",
-                "_stamp": rec.criado_em.timestamp() if rec.criado_em else 0,
-            }
-        )
+        normalizados.append({
+            "id": rec.id,
+            "tipo": tnorm,
+            "texto": texto,
+            "criado_em": rec.criado_em.isoformat() if rec.criado_em else "",
+            "criado_em_fmt": dt_local.strftime("%d/%m/%Y %H:%M") if dt_local else "",
+            "_stamp": rec.criado_em.timestamp() if rec.criado_em else 0,
+        })
 
     # 5) Aplica filtro de tipo em cima do tipo NORMALIZADO
     if tipo_param in ("positiva", "alerta", "neutra"):
@@ -1807,6 +1833,24 @@ from estoque.views_api import lotes_criticos
 def ia_alertas_lotes(request):
     """
     Alias financeiro → estoque.
-    Mantém compatibilidade com URLs antigas.
+    Registra alertas de lotes no Histórico IA e devolve os lotes críticos.
     """
+    try:
+        registrar_alertas_lote_no_historico(user=request.user, dias_aviso=30)
+    except Exception:
+        # não quebra o dashboard se o registro falhar
+        pass
+
     return lotes_criticos(request)
+@login_required
+def ia_alertas_financeiros(request):
+    """
+    IA: alertas financeiros baseados na série mensal.
+    Retorna alertas como:
+    - maior aumento de saldo entre meses
+    - maior queda de saldo entre meses
+    - margem muito apertada no último mês
+    """
+    hoje = now().date()
+    inicio = hoje.replace(month=1, day=1)
+    fim = hoje

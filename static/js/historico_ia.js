@@ -1,3 +1,4 @@
+let lastCount = { total: 0, positiva: 0, alerta: 0, neutra: 0 };
 
 function getCsrfToken() {
   const cookies = document.cookie.split(";").map((c) => c.trim());
@@ -46,8 +47,8 @@ function normalizeTipoIA(rawTipo) {
 
   // ---------- Constantes ----------
   const DEBUG = false;
-  const log = DEBUG ? console.log.bind(console, "[Historico]") : () => {};
-  const warn = DEBUG ? console.warn.bind(console, "[Historico]") : () => {};
+  const log = DEBUG ? console.log.bind(console, "[Historico]") : () => { };
+  const warn = DEBUG ? console.warn.bind(console, "[Historico]") : () => { };
   const err = console.error.bind(console, "[Historico]");
 
   const AWAIT_RETRY_MS = 80;
@@ -142,137 +143,137 @@ function normalizeTipoIA(rawTipo) {
   }
 
   function buildCard(it) {
-  const tipo = String(it.tipo || it.kind || "neutra").toLowerCase();
-  const raw = it.criado_em || it.created_at || it.created_at_br || "";
-  let quando = raw;
+    const tipo = String(it.tipo || it.kind || "neutra").toLowerCase();
+    const raw = it.criado_em || it.created_at || it.created_at_br || "";
+    let quando = raw;
 
-  if (typeof formatarDataBR === "function") {
-    quando = formatarDataBR(raw);
-  } else if (typeof fmtDate === "function") {
-    quando = fmtDate(raw);
-  }
-
-  const titulo = String(it.title || "Dica da IA").trim();
-  const texto = String(
-    it.text || it.texto || it.dica || "Sem conteúdo disponível."
-  ).trim();
-
-  const categoriaLabel = (it.categoria || "ECONOMIA").toString();
-  const categoriaSlug = (it.categoria_slug || "economia").toString();
-
-  const card = document.createElement("div");
-  card.className = `card ia-card${it.isNew ? " is-new" : ""}`;
-  if (it.id != null) card.dataset.id = String(it.id);
-  card.dataset.kind = tipo;
-  card.dataset.categoria = categoriaSlug;
-
-  const body = document.createElement("div");
-  body.className = "card-body";
-
-  const header = document.createElement("div");
-  header.className = "d-flex align-items-center justify-content-between";
-
-  // título à esquerda
-  const titleEl = document.createElement("div");
-  titleEl.className = "fw-semibold";
-  titleEl.appendChild(textNode(titulo));
-  header.appendChild(titleEl);
-
-  // meta (categoria + chips) à direita
-  const metaBox = document.createElement("div");
-  metaBox.className = "d-flex align-items-center gap-2";
-
-  // badge NOVA
-  if (it.isNew) {
-    const newSpan = document.createElement("span");
-    newSpan.className = "badge-ia-new";
-    newSpan.textContent = "NOVA";
-    metaBox.appendChild(newSpan);
-  }
-
-  // badge IA TURBO / PREVISÃO (origem)
-  if (it.isTurbo) {
-    const turboSpan = document.createElement("span");
-    turboSpan.className = "badge-ia-turbo";
-    turboSpan.textContent = "IA TURBO";
-    metaBox.appendChild(turboSpan);
-  }
-
-  // badge de categoria (clicável para filtro)
-  const catSpan = document.createElement("span");
-  catSpan.className = "badge bg-secondary";
-  catSpan.appendChild(textNode(categoriaLabel));
-
-  // 🔥 clique na categoria → filtra
-  catSpan.style.cursor = "pointer";
-  catSpan.title = "Clique para filtrar por esta categoria";
-
-  catSpan.addEventListener("click", (ev) => {
-    if (!ev.isTrusted) return;
-
-    // mapeia categoria_slug para filtro lógico
-    let filtroTipo = "";
-    if (categoriaSlug === "alerta") {
-      filtroTipo = "alerta";
-    } else if (categoriaSlug === "meta") {
-      filtroTipo = "neutra"; // ou "positiva", se preferir
-    } else {
-      // economia / oportunidade / outros = positivas
-      filtroTipo = "positiva";
+    if (typeof formatarDataBR === "function") {
+      quando = formatarDataBR(raw);
+    } else if (typeof fmtDate === "function") {
+      quando = fmtDate(raw);
     }
 
-    // ativa barra de filtros usando a API já existente
-    _allowFilteredUntil = (performance?.now?.() ?? 0) + FILTER_GRACE_MS;
-    globalThis.__HistoricoIA?.filtrar?.(filtroTipo);
+    const titulo = String(it.title || "Dica da IA").trim();
+    const texto = String(
+      it.text || it.texto || it.dica || "Sem conteúdo disponível."
+    ).trim();
 
-    // visual: marca o botão correspondente se existir
-    const mapBtnId = {
-      positiva: "btnPositivas",
-      alerta: "btnAlertas",
-      neutra: "btnNeutras",
-    };
-    const btnId = mapBtnId[filtroTipo];
-    if (btnId) {
-      for (const b of document.querySelectorAll(
-        "[data-ia-filtro],[data-filter]"
-      )) {
-        b.classList.remove("active");
+    const categoriaLabel = (it.categoria || "ECONOMIA").toString();
+    const categoriaSlug = (it.categoria_slug || "economia").toString();
+
+    const card = document.createElement("div");
+    card.className = `card ia-card${it.isNew ? " is-new" : ""}`;
+    if (it.id != null) card.dataset.id = String(it.id);
+    card.dataset.kind = tipo;
+    card.dataset.categoria = categoriaSlug;
+
+    const body = document.createElement("div");
+    body.className = "card-body";
+
+    const header = document.createElement("div");
+    header.className = "d-flex align-items-center justify-content-between";
+
+    // título à esquerda
+    const titleEl = document.createElement("div");
+    titleEl.className = "fw-semibold";
+    titleEl.appendChild(textNode(titulo));
+    header.appendChild(titleEl);
+
+    // meta (categoria + chips) à direita
+    const metaBox = document.createElement("div");
+    metaBox.className = "d-flex align-items-center gap-2";
+
+    // badge NOVA
+    if (it.isNew) {
+      const newSpan = document.createElement("span");
+      newSpan.className = "badge-ia-new";
+      newSpan.textContent = "NOVA";
+      metaBox.appendChild(newSpan);
+    }
+
+    // badge IA TURBO / PREVISÃO (origem)
+    if (it.isTurbo) {
+      const turboSpan = document.createElement("span");
+      turboSpan.className = "badge-ia-turbo";
+      turboSpan.textContent = "IA TURBO";
+      metaBox.appendChild(turboSpan);
+    }
+
+    // badge de categoria (clicável para filtro)
+    const catSpan = document.createElement("span");
+    catSpan.className = "badge bg-secondary";
+    catSpan.appendChild(textNode(categoriaLabel));
+
+    // 🔥 clique na categoria → filtra
+    catSpan.style.cursor = "pointer";
+    catSpan.title = "Clique para filtrar por esta categoria";
+
+    catSpan.addEventListener("click", (ev) => {
+      if (!ev.isTrusted) return;
+
+      // mapeia categoria_slug para filtro lógico
+      let filtroTipo = "";
+      if (categoriaSlug === "alerta") {
+        filtroTipo = "alerta";
+      } else if (categoriaSlug === "meta") {
+        filtroTipo = "neutra"; // ou "positiva", se preferir
+      } else {
+        // economia / oportunidade / outros = positivas
+        filtroTipo = "positiva";
       }
-      const tgt = document.getElementById(btnId);
-      if (tgt) tgt.classList.add("active");
+
+      // ativa barra de filtros usando a API já existente
+      _allowFilteredUntil = (performance?.now?.() ?? 0) + FILTER_GRACE_MS;
+      globalThis.__HistoricoIA?.filtrar?.(filtroTipo);
+
+      // visual: marca o botão correspondente se existir
+      const mapBtnId = {
+        positiva: "btnPositivas",
+        alerta: "btnAlertas",
+        neutra: "btnNeutras",
+      };
+      const btnId = mapBtnId[filtroTipo];
+      if (btnId) {
+        for (const b of document.querySelectorAll(
+          "[data-ia-filtro],[data-filter]"
+        )) {
+          b.classList.remove("active");
+        }
+        const tgt = document.getElementById(btnId);
+        if (tgt) tgt.classList.add("active");
+      }
+    });
+
+    metaBox.appendChild(catSpan);
+
+    // chip de humor (Positiva / Alerta / Neutra)
+    metaBox.appendChild(createChip(tipo));
+    header.appendChild(metaBox);
+
+    const p = document.createElement("p");
+    p.className = "mt-2 mb-2";
+    p.style.whiteSpace = "pre-wrap";
+
+    if (tipo === "positiva") {
+      p.classList.add("ia-text-positiva");
+    } else if (tipo === "alerta") {
+      p.classList.add("ia-text-alerta");
+    } else {
+      p.classList.add("ia-text-neutra");
     }
-  });
 
-  metaBox.appendChild(catSpan);
+    p.appendChild(textNode(texto));
 
-  // chip de humor (Positiva / Alerta / Neutra)
-  metaBox.appendChild(createChip(tipo));
-  header.appendChild(metaBox);
+    const foot = document.createElement("div");
+    foot.className = "text-muted small";
+    foot.appendChild(textNode(`Criada em: ${quando}`));
 
-  const p = document.createElement("p");
-  p.className = "mt-2 mb-2";
-  p.style.whiteSpace = "pre-wrap";
-
-  if (tipo === "positiva") {
-    p.classList.add("ia-text-positiva");
-  } else if (tipo === "alerta") {
-    p.classList.add("ia-text-alerta");
-  } else {
-    p.classList.add("ia-text-neutra");
+    body.appendChild(header);
+    body.appendChild(p);
+    body.appendChild(foot);
+    card.appendChild(body);
+    return card;
   }
-
-  p.appendChild(textNode(texto));
-
-  const foot = document.createElement("div");
-  foot.className = "text-muted small";
-  foot.appendChild(textNode(`Criada em: ${quando}`));
-
-  body.appendChild(header);
-  body.appendChild(p);
-  body.appendChild(foot);
-  card.appendChild(body);
-  return card;
-}
 
 
   function renderListaSafe(container, items) {
@@ -288,7 +289,7 @@ function normalizeTipoIA(rawTipo) {
     const base = Array.isArray(allItems) ? allItems : [];
     const cnt = lastISO
       ? base.filter((i) => (parseStamp(i.criado_em)?.getTime() || 0) > lastISO)
-          .length
+        .length
       : base.length || 0;
 
     if (cnt > 0) {
@@ -301,22 +302,16 @@ function normalizeTipoIA(rawTipo) {
 
   function atualizarContadoresUI(
     { elCountAll, elCountPos, elCountAlerta, elCountNeutra },
-    itemsAll
+    count
   ) {
-    if (elCountAll) elCountAll.textContent = String(itemsAll.length);
-    if (elCountPos)
-      elCountPos.textContent = String(
-        itemsAll.filter((i) => i.tipo === "positiva").length
-      );
-    if (elCountAlerta)
-      elCountAlerta.textContent = String(
-        itemsAll.filter((i) => i.tipo === "alerta").length
-      );
-    if (elCountNeutra)
-      elCountNeutra.textContent = String(
-        itemsAll.filter((i) => i.tipo === "neutra").length
-      );
+    if (!count) return;
+
+    if (elCountAll) elCountAll.textContent = String(count.total ?? 0);
+    if (elCountPos) elCountPos.textContent = String(count.positiva ?? 0);
+    if (elCountAlerta) elCountAlerta.textContent = String(count.alerta ?? 0);
+    if (elCountNeutra) elCountNeutra.textContent = String(count.neutra ?? 0);
   }
+
 
   function setContadoresBackend(count) {
     if (!count || typeof count !== "object") return;
@@ -338,8 +333,11 @@ function normalizeTipoIA(rawTipo) {
     overlayEl?.classList.toggle("d-none", !show);
   }
 
-  function renderLista(container, countersEls, badgeEl) {
-    if (!container) return;
+  function renderLista(cont, countersEls, badgeEl, count) {    
+    if (!container) return;    
+    
+    count = count || lastCount;
+    lastCount = count;
     const filtered = filtroCategoria
       ? allItems.filter((i) => i.tipo === filtroCategoria)
       : allItems;
@@ -356,20 +354,25 @@ function normalizeTipoIA(rawTipo) {
       alertDiv.appendChild(textNode(msg));
       container.appendChild(alertDiv);
       atualizarBadgeTotal(badgeEl);
-      atualizarContadoresUI(countersEls, allItems);
+      atualizarContadoresUI(countersEls, lastCount);
       return;
     }
 
-    renderListaSafe(container, filtered);
+    try {
+      renderListaSafe(container, filtered);
+    } catch (e) {
+      console.error("[Historico] Erro no renderListaSafe:", e);
+    }
+
 
     requestAnimationFrame(() => {
       for (const el of container.querySelectorAll(".ia-card")) {
         el.classList.add("fade-in");
       }
     });
-
+    atualizarContadoresUI(countersEls, lastCount);
     atualizarBadgeTotal(badgeEl);
-    atualizarContadoresUI(countersEls, allItems);
+    
   }
 
   // ---------- Auto refresh ----------
@@ -596,8 +599,7 @@ function normalizeTipoIA(rawTipo) {
       _pendingArgs = null;
       _pendingTimer = null;
 
-      if (_lastIntent.tipo !== args.tipo || _lastIntent.limit !== args.limit)
-        return;
+      if (_lastIntent.tipo !== args.tipo || _lastIntent.limit !== args.limit) return;
 
       _inFlight = true;
       try {
@@ -605,6 +607,7 @@ function normalizeTipoIA(rawTipo) {
         const btnReload =
           document.getElementById("btnReloadDicas") ||
           document.getElementById("btnReloadFeed");
+
         toggleLoading(overlayEl, true);
         if (btnReload) btnReload.disabled = true;
 
@@ -612,7 +615,26 @@ function normalizeTipoIA(rawTipo) {
           append: !!args.append,
           offset: _offsetAtual,
         });
+
+        // Atualiza estado/paginação (seu código já fazia isso)
         updateStateAfterFetch(result, args);
+
+        // ✅ CORREÇÃO: manter contadores globais vindos do backend (não dos 5 itens da página)
+        lastCount = result?.count || lastCount;
+
+        // ⚠️ Opcional (só se seu renderLista usa allItems global)
+        // Se updateStateAfterFetch já monta allItems internamente, pode remover este bloco.
+        if (Array.isArray(result?.items)) {
+          if (args.append && Array.isArray(allItems)) {
+            // evita duplicar por id (seguro)
+            const seen = new Set(allItems.map((x) => x.id));
+            for (const it of result.items) {
+              if (!seen.has(it.id)) allItems.push(it);
+            }
+          } else {
+            allItems = result.items;
+          }
+        }
 
         const cont = document.getElementById("listaHistorico");
         const countersEls = {
@@ -622,7 +644,8 @@ function normalizeTipoIA(rawTipo) {
           elCountNeutra: document.getElementById("countNeutra"),
         };
         const badgeEl = document.getElementById("badgeNovasDicas");
-        renderLista(cont, countersEls, badgeEl);
+
+        renderLista(cont, countersEls, badgeEl, result.count);
 
         if (!args.append) maybeScrollToNew();
       } catch (e) {
@@ -642,6 +665,7 @@ function normalizeTipoIA(rawTipo) {
         const btnReload =
           document.getElementById("btnReloadDicas") ||
           document.getElementById("btnReloadFeed");
+
         if (btnReload) btnReload.disabled = false;
         toggleLoading(overlayEl, false);
         _inFlight = false;
@@ -651,8 +675,7 @@ function normalizeTipoIA(rawTipo) {
   };
 
   globalThis.__HistoricoIA = {
-    recarregar: () =>
-      globalThis.carregarHistorico(_limitAtual, filtroCategoria),
+    recarregar: () => globalThis.carregarHistorico(_limitAtual, filtroCategoria),
     filtrar: (t) => {
       filtroCategoria = normalizeTipo(t) || "";
       _limitAtual = PREVIEW_LIMIT;
@@ -944,7 +967,7 @@ function normalizeTipoIA(rawTipo) {
       startAutoRefresh();
       const cont = document.getElementById("listaHistorico");
       const badge = document.getElementById("badgeNovasDicas");
-      renderLista(cont, countersEls, badge);
+      renderLista(cont, countersEls, badge, result.count);
     })();
 
     (function diag() {
@@ -976,16 +999,9 @@ function normalizeTipoIA(rawTipo) {
     btnLotes.innerHTML = "⏳ Atualizando...";
 
     try {
-      const resp = await fetch("/financeiro/ia/alertas-lotes/", {
-        method: "POST",
-        headers: {
-          "X-CSRFToken": getCsrfToken(),
-          Accept: "application/json",
-        },
-        credentials: "same-origin",
-      });
+      const resp = await fetch("/estoque/lotes/criticos/?dias=30&limit=5");
 
-      // 👇 se não for JSON (tipo 403 de CSRF ou 500), cai aqui
+      // se não for JSON
       const contentType = resp.headers.get("content-type") || "";
       if (!contentType.includes("application/json")) {
         const txt = await resp.text();
@@ -997,6 +1013,7 @@ function normalizeTipoIA(rawTipo) {
       const data = await resp.json();
 
       if (!data.ok) {
+        lastCount = data.count || lastCount;
         alert(
           "Erro ao gerar alertas de lote: " + (data.error || "desconhecido")
         );

@@ -19,6 +19,7 @@ class Analise30D:
     variacao_despesas_pct: float
     plano_acao: str
     tipo: str  # "positiva" | "alerta" | "neutra"
+    explicacao: str = ""
 
 
 def _pct(a: float, b: float) -> float:
@@ -79,6 +80,7 @@ def analisar_transacoes_30d(TransacaoModel, user) -> Analise30D:
         variacao_despesas_pct=var_des,
         plano_acao=plano,
         tipo=tipo,
+        explicacao="",
     )
 
 
