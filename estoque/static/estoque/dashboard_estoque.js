@@ -1,6 +1,6 @@
 /* global Chart */
 
-console.log("🔥 JHUSENA ESTOQUE JS — arquivo válido carregado");
+
 
 function readJsonScript(id, fallback = []) {
   const el = document.getElementById(id);
@@ -184,5 +184,5 @@ document.addEventListener("DOMContentLoaded", function () {
   const insights = buildInsights(agg.labels, agg.series[0], agg.series[1]);
   renderInsights(insights);
 
-  console.log("✅ Estoque renderizado com sucesso");
+  
 });

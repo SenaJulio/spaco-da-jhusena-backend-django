@@ -2,7 +2,6 @@
 Django settings for config project.
 """
 
-
 from pathlib import Path
 import os
 import sys
@@ -36,6 +35,7 @@ LOGGING = {
 }
 
 from django.core.mail.backends.smtp import EmailBackend
+
 ADMIN_URL = os.getenv("ADMIN_URL", "admin/")
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -171,12 +171,11 @@ DATABASES = {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": "spaco_jhusena",
         "USER": "postgres",
-        "PASSWORD": "yedaYU91",  # a senha que criamos no psql
-        "HOST": "localhost",
+        "PASSWORD": os.getenv("DB_PASSWORD", ""),
+        "HOST": os.getenv("DB_HOST", "127.0.0.1"),
         "PORT": "5432",
     }
 }
-
 
 
 # =========================
