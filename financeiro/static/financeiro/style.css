@@ -619,8 +619,23 @@ body.sj-dark .chart-box {
 /* Área rolável padrão */
 .sj-scroll {
   overflow-y: auto;
+  overflow-x: hidden;
   min-height: 0;
-  max-height: 260px;
+  flex: 1;           /* ESSENCIAL quando tá dentro de flex */
+  max-height: none;  /* tira o “teto” fixo */
+}
+
+.sj-card-col {
+  height: 420px;           /* ajuste fino */
+  display: flex;
+  flex-direction: column;
+}
+
+.sj-card-col .card-body{
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 /* tamanhos */
@@ -764,3 +779,71 @@ main, .dashboard-container, .container {
 .sj-ia-explain.pos{ border-color: rgba(76,175,80,.45); background: rgba(46,125,50,.12); }
 .sj-ia-explain.neu{ border-color: rgba(255,193,7,.55); background: rgba(255,193,7,.14); }
 .sj-ia-explain.ale{ border-color: rgba(244,67,54,.55); background: rgba(244,67,54,.12); }
+
+/* === FIX definitivo: gráfico mensal IA sumindo === */
+.sj-chart{
+  position: relative;
+  height: 260px;      /* pode subir pra 300 se quiser */
+  min-height: 260px;
+  width: 100%;
+}
+
+.sj-chart canvas{
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+#msgGraficoMensalIA{
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(102,187,106,0.18);
+}
+/* Card de transações como coluna (header fixo, body ocupa) */
+#cardUltimasTransacoes{
+  display: flex;
+  flex-direction: column;
+}
+
+/* body vira área rolável (aqui mora o scroll) */
+#cardUltimasTransacoes .sj-body-scroll{
+  flex: 1;
+  min-height: 0;          /* essencial p/ scroll em flex */
+  overflow-y: auto;
+  overflow-x: hidden;
+  max-height: 320px;      /* ajuste: 280/360 como preferir */
+}
+/* ÚLTIMAS TRANSAÇÕES — SCROLL BLINDADO */
+#cardUltimasTransacoes .card-body{
+  max-height: 240px !important;  /* pode subir p/ 300 */
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+
+/* opcional: evita padding "empurrando" o scroll */
+#cardUltimasTransacoes .card-body ul.list-group{
+  margin: 0;
+}
+
+.sj-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 20px;
+}
+
+@media (max-width: 991px) {
+  .sj-grid {
+    grid-template-columns: 1fr;
+  }
+}
+/* deixa as colunas esticarem igual */
+.sj-row-eq {
+  align-items: stretch;
+}
+
+/* card ocupa toda a altura da coluna */
+.sj-row-eq > [class*="col-"] > .card {
+  height: 100%;
+}
+

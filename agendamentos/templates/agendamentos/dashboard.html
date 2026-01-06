@@ -1,113 +1,179 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block extra_css %}
+{% block stylesheet %}
 <style>
+  /* Fundo geral da página */
+body {
+  background: linear-gradient(
+    180deg,
+    #0b1220 0%,
+    #0f172a 100%
+  );
+}
+/* Cards do dashboard de agendamentos */
+.card {
+  background: rgba(15, 23, 42, 0.85);
+  color: #e5e7eb;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.08);
+  backdrop-filter: blur(6px);
+}
+
+.card-title,
+.card-header h5,
+.card-header h4 {
+  color: #a7f3d0; /* verde suave */
+}
+
+.text-muted {
+  color: #94a3b8 !important;
+}
+
+.chart-box {
+  background: rgba(2, 6, 23, 0.6);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+input[type="date"], .form-control{
+  background: rgba(2, 6, 23, 0.55);
+  border: 1px solid rgba(255,255,255,0.10);
+  color: #e5e7eb;
+}
+input[type="date"]::-webkit-calendar-picker-indicator{
+  filter: invert(1);
+  opacity: .8;
+}
+
+.chart-donut { height: 280px; max-width: 520px; }
+
   .chart-box { position: relative; width: 100%; }
   .chart-donut { height: 280px; max-width: 420px; margin: 0 auto; }
   .chart-line { height: 260px; }
-  canvas { width: 100% !important; height: 100% !important; }
+
+  /* ⚠️ NÃO aplique canvas global em tudo. Só nos charts dentro do chart-box */
+  .chart-box canvas { width: 100% !important; height: 100% !important; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container py-4">
 
-  <!-- ✅ Topbar vendável (título + botão início) -->
+  <!-- ✅ Topbar (FECHADA corretamente) -->
   <div class="d-flex justify-content-between align-items-center gap-2 mb-3">
     <h2 class="text-success m-0">📊 Dashboard de Agendamentos 💚🐶</h2>
+  </div>
 
-    
-  <!-- Cartões de estatísticas -->
+  <!-- ✅ KPIs -->
   <div class="row g-3 mb-4">
-    <div class="col-md-4">
-      <div class="card shadow-sm border-success">
+    <div class="col-12 col-lg-4">
+      <div class="card shadow-sm border-success h-100">
         <div class="card-body text-center">
-          <h5 class="card-title">Total de Agendamentos</h5>
-          <p id="total-agendamentos" class="fs-4 fw-bold text-success">0</p>
+          <h6 class="card-title mb-1">Total de Agendamentos</h6>
+          <p id="total-agendamentos" class="fs-4 fw-bold text-success mb-0">0</p>
         </div>
       </div>
     </div>
 
-    <div class="col-md-4">
-      <div class="card shadow-sm border-primary">
+    <div class="col-12 col-lg-4">
+      <div class="card shadow-sm border-primary h-100">
         <div class="card-body text-center">
-          <h5 class="card-title">Concluídos</h5>
-          <p id="concluidos-percentual" class="fs-4 fw-bold text-primary">0.0%</p>
+          <h6 class="card-title mb-1">Concluídos</h6>
+          <p id="concluidos-percentual" class="fs-4 fw-bold text-primary mb-0">0.0%</p>
         </div>
       </div>
     </div>
 
-    <div class="col-md-4">
-      <div class="card shadow-sm border-danger">
+    <div class="col-12 col-lg-4">
+      <div class="card shadow-sm border-danger h-100">
         <div class="card-body text-center">
-          <h5 class="card-title">Cancelados</h5>
-          <p id="cancelados-percentual" class="fs-4 fw-bold text-danger">0.0%</p>
+          <h6 class="card-title mb-1">Cancelados</h6>
+          <p id="cancelados-percentual" class="fs-4 fw-bold text-danger mb-0">0.0%</p>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Agendamentos de hoje -->
-      <div class="card shadow-sm mb-4">
+  <!-- ✅ Linha 2: Hoje (esq) + Status (dir) -->
+  <div class="row g-3 mb-4">
+    <!-- Agendamentos de hoje -->
+    <div class="col-12 col-lg-6">
+      <div class="card shadow-sm h-100">
         <div class="card-body">
-          <div class="d-flex justify-content-between align-items-center">
+          <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
             <h5 class="mb-0">
-                  📅 Agendamentos de hoje
-                  <span id="badgeHojeCount" class="badge bg-success-subtle text-success border border-success-subtle ms-2">0</span>
+              📅 Agendamentos de hoje
+              <span id="badgeHojeCount" class="badge bg-success-subtle text-success border border-success-subtle ms-2">0</span>
             </h5>
-            <div class="btn-group btn-group-sm mt-2" id="filtrosHoje">
+
+            <div class="btn-group btn-group-sm" id="filtrosHoje">
               <button class="btn btn-outline-success active" data-filtro="todos">Todos</button>
               <button class="btn btn-outline-warning" data-filtro="pendentes">Pendentes</button>
               <button class="btn btn-outline-primary" data-filtro="finalizados">Finalizados</button>
             </div>
+
             <button id="btnRecarregarHoje" class="btn btn-sm btn-outline-success">Atualizar</button>
           </div>
+
           <div id="boxHoje" class="mt-3 small text-muted">Carregando...</div>
         </div>
       </div>
+    </div>
 
-  <!-- Gráfico de status -->
-  <div class="mb-4">
-    <h4>Status dos Agendamentos</h4>
-    <div class="chart-box chart-donut">
-      <canvas id="statusChart"></canvas>
+    <!-- Gráfico de status -->
+    <div class="col-12 col-lg-6">
+      <div class="card shadow-sm h-100">
+        <div class="card-body">
+          <h5 class="mb-3">Status dos Agendamentos</h5>
+          <div class="chart-box chart-donut">
+            <canvas id="statusChart"></canvas>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
-  <!-- Filtro de datas e gráfico mensal -->
-  <div class="mb-3">
-    <h4>Evolução Mensal</h4>
-
-    <form id="filtroForm" class="row g-2 align-items-end mb-3">
-      <div class="col-sm-4">
-        <label for="data_inicio" class="form-label">Início:</label>
-        <input type="date" id="data_inicio" name="data_inicio" class="form-control">
+  <!-- ✅ Evolução mensal (full width) -->
+  <div class="card shadow-sm mb-3">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+        <h5 class="mb-0">Evolução Mensal</h5>
       </div>
 
-      <div class="col-sm-4">
-        <label for="data_fim" class="form-label">Fim:</label>
-        <input type="date" id="data_fim" name="data_fim" class="form-control">
-      </div>
+      <form id="filtroForm" class="row g-2 align-items-end mb-3">
+        <div class="col-12 col-sm-4">
+          <label for="data_inicio" class="form-label">Início:</label>
+          <input type="date" id="data_inicio" name="data_inicio" class="form-control">
+        </div>
 
-      <div class="col-sm-4">
-        <button type="submit" class="btn btn-success w-100">🔍 Filtrar</button>
-      </div>
-    </form>
+        <div class="col-12 col-sm-4">
+          <label for="data_fim" class="form-label">Fim:</label>
+          <input type="date" id="data_fim" name="data_fim" class="form-control">
+        </div>
 
-    <div class="chart-box chart-line">
-      <canvas id="mesChart"></canvas>
+        <div class="col-12 col-sm-4">
+          <button type="submit" class="btn btn-success w-100">🔍 Filtrar</button>
+        </div>
+      </form>
+
+      <div class="chart-box chart-line">
+        <canvas id="mesChart"></canvas>
+      </div>
     </div>
   </div>
+
 </div>
-{% endblock %}
 
-{% block extrabody %}
+
 
 <script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
 
 
+
 <script>
+ // ✅ teste rápido pra confirmar que entrou
+  console.log("[AGENDAMENTOS] script carregou ✅");
   /* global Chart */
 
   // -----------------------
@@ -227,6 +293,7 @@
         plugins: {
           legend: { position: "bottom" },
           title: { display: true, text: "Distribuição de Status" },
+          legend: { labels: { color: "#cbd5e1" } },
         },
       },
     });
@@ -491,28 +558,36 @@
   // -----------------------
   // Boot
   // -----------------------
-  document.addEventListener("DOMContentLoaded", () => {
-    const form = document.getElementById("filtroForm");
-    if (form)
-      form.addEventListener("submit", (e) => {
-        e.preventDefault();
-        filtrarDados();
-      });
+ // -----------------------
+// Boot (CORRIGIDO)
+// -----------------------
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.getElementById("filtroForm");
+  if (form) {
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      filtrarDados();
+    });
+  }
 
-    const btn = document.getElementById("btnRecarregarHoje");
-    if (btn) btn.addEventListener("click", carregarHoje);
+  const btnRecarregar = document.getElementById("btnRecarregarHoje");
+  if (btnRecarregar) btnRecarregar.addEventListener("click", carregarHoje);
 
-    carregarHoje();
-    filtrarDados();
-    document.querySelectorAll("#filtrosHoje button").forEach(btn => {
+  // filtros de hoje
+  const botoesFiltro = document.querySelectorAll("#filtrosHoje button");
+  botoesFiltro.forEach((btn) => {
     btn.addEventListener("click", () => {
-    document.querySelectorAll("#filtrosHoje button").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    filtroHojeAtivo = btn.dataset.filtro || "todos";
-    carregarHoje(); // recarrega respeitando o filtro
+      botoesFiltro.forEach((b) => b.classList.remove("active"));
+      btn.classList.add("active");
+      filtroHojeAtivo = btn.dataset.filtro || "todos";
+      carregarHoje();
+    });
   });
-});
-});
-</script>
 
+  carregarHoje();
+  filtrarDados();
+});
+
+
+</script>
 {% endblock %}

@@ -325,10 +325,9 @@ const gradientFillPlugin = {
         empty.textContent = "Sem dados para o período escolhido.";
       }
       try {
-        Chart.getChart(canvas) && Chart.getChart(canvas).destroy();
-      } catch (_e) {
-        /* */
-      }
+        const old = Chart.getChart(canvas);
+        old && old.destroy();
+      } catch (_e) { }
       return;
     }
     if (empty) empty.hidden = true;
@@ -340,51 +339,44 @@ const gradientFillPlugin = {
           .replace(/\./g, "")
           .replace(",", ".")
       );
-      return isFinite(n) ? n : 0;
+      return Number.isFinite(n) ? n : 0;
     };
 
     const R = (receitas || []).map(toNum);
     const D = (despesas || []).map(toNum);
     const L = dias.length;
-    let S = [];
 
-    if (Array.isArray(saldo) && saldo.length === L) {
-      S = saldo.map(toNum);
-    } else {
-      let acc = 0;
-      for (let i = 0; i < L; i++) {
-        acc += (R[i] || 0) - (D[i] || 0);
-        S.push(acc);
-      }
+    // ✅ Saldo acumulado (default)
+    let S = [];
+    let acc = 0;
+    for (let i = 0; i < L; i++) {
+      acc += (R[i] || 0) - (D[i] || 0);
+      S.push(acc);
     }
 
-    // === Série de média móvel 7 dias da Receita (R) ===
-    const R_media7 = (function () {
-      if (!Array.isArray(R)) return [];
+    // ✅ Se backend já mandou saldo por dia, usa ele
+    if (Array.isArray(saldo) && saldo.length === L) {
+      S = saldo.map(toNum);
+    }
 
-      return R.map((_, idx) => {
-        if (idx < 6) return null; // primeiros 6 dias sem média
-
-        let soma = 0;
-        let count = 0;
-        for (let j = idx - 6; j <= idx; j++) {
-          const v = Number(R[j]) || 0;
-          soma += v;
-          count++;
-        }
-        return +(soma / count).toFixed(2);
-      });
-    })();
+    // ✅ Média móvel 7 dias da Receita
+    const R_media7 = R.map((_, idx) => {
+      if (idx < 6) return null;
+      let soma = 0;
+      for (let j = idx - 6; j <= idx; j++) soma += Number(R[j]) || 0;
+      return +(soma / 7).toFixed(2);
+    });
 
     // destrói gráfico anterior
     try {
-      Chart.getChart(canvas) && Chart.getChart(canvas).destroy();
-    } catch (_e) {
-      /* */
-    }
+      const old = Chart.getChart(canvas);
+      old && old.destroy();
+    } catch (_e) { }
 
-
-
+    // ✅ plugins só se existirem (evita crash silencioso)
+    const extraPlugins = [];
+    if (typeof glowPlugin !== "undefined") extraPlugins.push(glowPlugin);
+    if (typeof gradientFillPlugin !== "undefined") extraPlugins.push(gradientFillPlugin);
 
     new Chart(canvas, {
       type: "line",
@@ -402,16 +394,6 @@ const gradientFillPlugin = {
             pointHoverRadius: 4,
             fill: true,
             spanGaps: true,
-            _glow: {
-              color: "rgba(255,202,40,0.25)",
-              blur: 10,
-            },
-            _gradient: {
-              stops: [
-                { offset: 0, color: "rgba(102,187,106,0.55)" },
-                { offset: 1, color: "rgba(102,187,106,0.02)" },
-              ],
-            },
           },
           {
             label: "Despesas",
@@ -436,10 +418,6 @@ const gradientFillPlugin = {
             pointHoverRadius: 4,
             fill: false,
             spanGaps: true,
-            _glow: {
-              color: "rgba(255,202,40,0.45)",
-              blur: 16,
-            },
           },
           {
             label: "Média móvel (7d)",
@@ -473,8 +451,7 @@ const gradientFillPlugin = {
             bodyColor: "#1b5e20",
             callbacks: {
               title(items) {
-                const item = items[0];
-                return item.label || "";
+                return items?.[0]?.label || "";
               },
               label(ctx) {
                 const label = ctx.dataset.label || "";
@@ -484,15 +461,10 @@ const gradientFillPlugin = {
                 const valor = Number(v).toLocaleString("pt-BR", {
                   minimumFractionDigits: 2,
                 });
-
                 return `${label}: R$ ${valor}`;
               },
             },
           },
-        },
-        elements: {
-          line: { borderWidth: 3, fill: false },
-          point: { radius: 3 },
         },
         scales: {
           x: {
@@ -508,108 +480,93 @@ const gradientFillPlugin = {
             },
           },
         },
-
         animation: {
           duration: 900,
           easing: "easeOutQuart",
-          delay(ctx) {
-            const i = ctx.dataIndex == null ? 0 : ctx.dataIndex;
-            const ds = ctx.datasetIndex == null ? 0 : ctx.datasetIndex;
-            return (i + ds) * 25;
-          },
         },
       },
-
-      plugins: [glowPlugin, gradientFillPlugin],
+      plugins: extraPlugins,
     });
-  }; // ✅ FECHA montarGraficoEvolucao
+  };
+
 
   // --------- Categorias (pizza)
-  function montarGraficoCategorias(categorias, valores) {
-    var canvas = document.getElementById("graficoCategorias");
-    var empty = document.getElementById("categoriasEmpty");
-    if (!canvas) return console.log("❌ canvas #graficoCategorias não existe");
-    if (typeof Chart === "undefined")
-      return console.log("❌ Chart.js não carregou ainda");
-    console.log("[PIZZA] entradas:", { categorias: categorias, valores: valores });
+  function toNumberBR(v) {
+    if (typeof v === "number") return v;
+    const n = Number(String(v ?? "").replace(/\./g, "").replace(",", "."));
+    return Number.isFinite(n) ? n : 0;
+  }
 
-    // 🔒 Normaliza e filtra categorias com valor > 0
-    var pares = [];
+  function destroyChartByCanvas(canvas) {
+    try {
+      const old = Chart.getChart(canvas);
+      old && old.destroy();
+    } catch (_e) { }
+  }
+
+  function montarGraficoCategorias(categorias, valores) {
+    const canvas = document.getElementById("graficoCategorias");
+    const empty = document.getElementById("categoriasEmpty");
+
+    if (!canvas) return console.log("❌ canvas #graficoCategorias não existe");
+    if (typeof Chart === "undefined") return console.log("❌ Chart.js não carregou ainda");
+
+    // 🔒 Normaliza e filtra > 0
+    const pares = [];
     if (Array.isArray(categorias) && Array.isArray(valores)) {
-      for (var i = 0; i < categorias.length; i++) {
-        var v = Math.abs(Number(toNumberBR(valores[i] || 0)));
-        if (v > 0) {
-          pares.push([categorias[i], v]);
-        }
+      for (let i = 0; i < categorias.length; i++) {
+        const v = Math.abs(toNumberBR(valores[i] || 0));
+        if (v > 0) pares.push([categorias[i], v]);
       }
     }
-    console.log("[PIZZA] pares antes do map:", pares);
 
-    categorias = pares.map(function (p) {
-      return p[0];
-    });
-    valores = pares.map(function (p) {
-      return p[1];
-    });
+    const cats = pares.map((p) => p[0]);
+    const vals = pares.map((p) => p[1]);
 
-    console.log("[PIZZA] depois do filtro:", {
-      categorias: categorias,
-      valores: valores,
-      len: categorias.length,
-    });
-
-    // ✅ Sem dados reais → mostra mensagem, mas NÃO some com o canvas
-    if (!categorias.length || (categorias.length === 1 && valores[0] === 0)) {
+    // ✅ Sem dados → mostra mensagem e destrói chart antigo
+    if (!cats.length) {
       if (empty) {
         empty.hidden = false;
         empty.textContent = "Sem categorias neste período.";
       }
-
       destroyChartByCanvas(canvas);
 
-      // 🔒 Não use display:none no canvas (isso trava render futuro)
+      // garante que não ficou escondido por CSS antigo
       canvas.style.display = "block";
-
-
+      canvas.style.height = "260px";
+      canvas.style.width = "100%";
       return;
     }
 
-
     // ✅ Tem dados → mostra canvas
     if (empty) empty.hidden = true;
-    canvas.removeAttribute("style");
-    canvas.style.display = "";
+    canvas.style.display = "block";
     canvas.style.height = "260px";
     canvas.style.width = "100%";
 
-    var ctx = canvas.getContext("2d");
+    destroyChartByCanvas(canvas);
 
-    // 🔁 Garante que não existe gráfico antigo
-    try {
-      Chart.getChart(canvas) && Chart.getChart(canvas).destroy();
-    } catch (e) {
-      /* */
-    }
+    const ctx = canvas.getContext("2d");
+
+    // ✅ plugins só se existirem (evita quebrar render)
+    const donutPlugins = [];
+    if (typeof sjDonutInnerShadow !== "undefined") donutPlugins.push(sjDonutInnerShadow);
+    if (typeof sjDonutGradient !== "undefined") donutPlugins.push(sjDonutGradient);
+    if (typeof sjDonutLabels !== "undefined") donutPlugins.push(sjDonutLabels);
+    if (typeof sjDonutHighlight !== "undefined") donutPlugins.push(sjDonutHighlight);
 
     new Chart(ctx, {
       type: "doughnut",
       data: {
-        labels: categorias,
+        labels: cats,
         datasets: [
           {
             label: "Total",
-            data: valores,
+            data: vals,
             backgroundColor: [
-              "#66bb6a",
-              "#81c784",
-              "#a5d6a7",
-              "#c8e6c9",
-              "#ef9a9a",
-              "#ffcdd2",
-              "#fff59d",
-              "#fff176",
-              "#80cbc4",
-              "#4db6ac",
+              "#66bb6a", "#81c784", "#a5d6a7", "#c8e6c9",
+              "#ef9a9a", "#ffcdd2", "#fff59d", "#fff176",
+              "#80cbc4", "#4db6ac",
             ],
             borderColor: "#020b06",
             borderWidth: 3,
@@ -637,22 +594,19 @@ const gradientFillPlugin = {
             borderWidth: 1,
             titleColor: "#e8f5e9",
             bodyColor: "#e8f5e9",
-            cornerRadius: 8,
             padding: 10,
             callbacks: {
               label(ctx2) {
                 const label = ctx2.label || "";
                 const v = Number(ctx2.parsed) || 0;
 
-                const total = ctx2.chart.data.datasets[0].data.reduce(function (a, b) {
-                  return a + Number(b);
-                }, 0);
+                const total = (ctx2.chart.data.datasets[0].data || []).reduce(
+                  (a, b) => a + Number(b || 0),
+                  0
+                );
 
                 const perc = total ? ((v / total) * 100).toFixed(1) : "0.0";
-
-                const valor = v.toLocaleString("pt-BR", {
-                  minimumFractionDigits: 2,
-                });
+                const valor = v.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
 
                 return `${label}: R$ ${valor} (${perc}%)`;
               },
@@ -666,14 +620,10 @@ const gradientFillPlugin = {
           easing: "easeOutQuart",
         },
       },
-      plugins: [
-        sjDonutInnerShadow,
-        sjDonutGradient,
-        sjDonutLabels,
-        sjDonutHighlight,
-      ],
+      plugins: donutPlugins,
     });
   }
+
 
   function sjCarregarPainelIaMensal() {
     var elCanvas = document.getElementById("graficoRankingServicosIa");
@@ -2860,8 +2810,12 @@ document.addEventListener("DOMContentLoaded", function () {
 // ==========================================================
 
 function carregarCategoriaQueMaisCresceu() {
-  fetch("/financeiro/metrics/crescimento-categoria/")
+  fetch("/financeiro/metrics/crescimento-categoria/", {
+    headers: { "X-Requested-With": "XMLHttpRequest", Accept: "application/json" },
+    credentials: "same-origin",
+  })
     .then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
       return r.json();
     })
     .then(function (data) {
@@ -2869,39 +2823,61 @@ function carregarCategoriaQueMaisCresceu() {
       const titulo = document.getElementById("crescimentoCategoriaTitulo");
       const detalhe = document.getElementById("crescimentoCategoriaDetalhe");
 
-      if (!data.ok || !data.categoria) {
+      // segurança
+      if (!msg || !titulo || !detalhe) return;
+
+      // ✅ estado vazio (sem comparação suficiente)
+      if (!data || data.ok !== true || !data.categoria) {
         msg.style.display = "block";
-        msg.textContent = "Sem dados suficientes.";
+        msg.textContent = "Ainda não há base suficiente para comparar com o mês anterior.";
+        titulo.textContent = "Sem base de comparação";
+        detalhe.textContent =
+          "Dica: registre movimentações em pelo menos 2 meses para ver a categoria que mais cresceu.";
         return;
       }
 
+      // ✅ estado ok
       msg.style.display = "none";
 
       const cat = data.categoria;
-      const varPct = Number(data.variacao || 0).toFixed(1).replace(".", ",");
+
+      const variacaoNum = Number(data.variacao || 0);
+      const varPct = isFinite(variacaoNum) ? variacaoNum.toFixed(1).replace(".", ",") : "0,0";
+
+      const anteriorNum = Number(data.anterior || 0);
+      const atualNum = Number(data.atual || 0);
 
       titulo.textContent = cat + " ↑ " + varPct + "%";
 
       detalhe.textContent =
-        "De " +
-        Number(data.anterior || 0).toFixed(2).replace(".", ",") +
-        " para " +
-        Number(data.atual || 0).toFixed(2).replace(".", ",") +
+        "De R$ " +
+        (isFinite(anteriorNum) ? anteriorNum.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "0,00") +
+        " para R$ " +
+        (isFinite(atualNum) ? atualNum.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "0,00") +
         " (" +
-        data.mes_anterior +
+        (data.mes_anterior || "mês anterior") +
         " → " +
-        data.mes_atual +
+        (data.mes_atual || "mês atual") +
         ").";
     })
     .catch(function (e) {
       console.error("Erro crescimento categoria:", e);
+
       const msg = document.getElementById("crescimentoCategoriaMsg");
-      msg.style.display = "block";
-      msg.textContent = "Erro ao carregar crescimento.";
+      const titulo = document.getElementById("crescimentoCategoriaTitulo");
+      const detalhe = document.getElementById("crescimentoCategoriaDetalhe");
+
+      if (msg) {
+        msg.style.display = "block";
+        msg.textContent = "Não foi possível carregar o crescimento agora.";
+      }
+      if (titulo) titulo.textContent = "Falha ao carregar";
+      if (detalhe) detalhe.textContent = "Verifique a rota /financeiro/metrics/crescimento-categoria/.";
     });
 }
 
 document.addEventListener("DOMContentLoaded", carregarCategoriaQueMaisCresceu);
+
 
 // ==========================================================
 // 🧩 Despesas Fixas vs Variáveis — Analytics Turbo
@@ -3229,4 +3205,164 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 })();
 
+// ===============================
+// Resumo Mensal IA (R x D x Saldo)
+// canvas: #graficoMensalIA
+// msg:    #msgGraficoMensalIA
+// endpoint OK: /financeiro/ia/resumo-mensal/series/
+// ===============================
+
+(function () {
+  let sjChartMensalIA = null;
+
+  function sjShowMsgMensalIA(texto) {
+    const el = document.getElementById("msgGraficoMensalIA");
+    if (!el) return;
+    el.style.display = "block";
+    el.textContent = texto || "";
+  }
+
+  function sjHideMsgMensalIA() {
+    const el = document.getElementById("msgGraficoMensalIA");
+    if (!el) return;
+    el.style.display = "none";
+    el.textContent = "";
+  }
+
+  function toNum(v) {
+    if (typeof v === "number") return v;
+    const n = Number(String(v ?? "").replace(/\./g, "").replace(",", "."));
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function sjMontarGraficoMensalIA(payload) {
+    const canvas = document.getElementById("graficoMensalIA");
+    if (!canvas) return;
+    if (typeof Chart === "undefined") {
+      sjShowMsgMensalIA("Chart.js não carregou. Verifique o <script> do Chart.");
+      return;
+    }
+
+    const series = payload?.series || [];
+    if (!Array.isArray(series) || series.length === 0) {
+      if (sjChartMensalIA) {
+        try { sjChartMensalIA.destroy(); } catch (_e) { }
+        sjChartMensalIA = null;
+      }
+      sjShowMsgMensalIA("Sem dados no período para montar o Resumo Mensal.");
+      return;
+    }
+
+    // esperamos algo tipo:
+    // series: [{ mes: '2026-01', receitas: 123, despesas: 45, saldo: 78, label: 'Jan/2026' }, ...]
+    const labels = series.map((s, i) => s.label || s.mes || `Mês ${i + 1}`);
+    const receitas = series.map((s) => toNum(s.receitas ?? s.r ?? 0));
+    const despesas = series.map((s) => toNum(s.despesas ?? s.d ?? 0));
+    // saldo acumulado vindo do backend
+    const saldo = series.map(s => toNum(s.saldo ?? 0));
+
+    sjHideMsgMensalIA();
+
+    // destrói anterior
+    if (sjChartMensalIA) {
+      try { sjChartMensalIA.destroy(); } catch (_e) { }
+      sjChartMensalIA = null;
+    } else {
+      // segurança extra: se existir chart preso no canvas
+      try {
+        const old = Chart.getChart(canvas);
+        old && old.destroy();
+      } catch (_e) { }
+    }
+
+    sjChartMensalIA = new Chart(canvas, {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: "Receitas",
+            data: receitas,
+            borderWidth: 1,
+          },
+          {
+            label: "Despesas",
+            data: despesas,
+            borderWidth: 1,
+          },
+          {
+            label: "Saldo acumulado",
+            data: saldo,
+            type: "line",
+            tension: 0.35,
+            borderWidth: 3,
+            pointRadius: 6,
+            pointHoverRadius: 8,
+            fill: false,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: {
+            position: "bottom",
+            labels: { color: "#c8e6c9" },
+          },
+          tooltip: {
+            callbacks: {
+              label(ctx) {
+                const label = ctx.dataset.label;
+                const v = ctx.parsed.y;
+                return label === "Saldo acumulado"
+                  ? `Saldo atual: R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`
+                  : `${label}: R$ ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2 })}`;
+              },
+            },
+          },
+        },
+        scales: {
+          x: { ticks: { color: "#c8e6c9" }, grid: { color: "rgba(255,255,255,0.06)" } },
+          y: {
+            ticks: { color: "#c8e6c9" },
+            grid: { color: "rgba(255,255,255,0.06)" },
+          },
+        },
+      },
+    });
+  }
+
+  async function sjCarregarResumoMensalIA() {
+    const canvas = document.getElementById("graficoMensalIA");
+    if (!canvas) return;
+
+    try {
+      const resp = await fetch("/financeiro/ia/resumo-mensal/series/", {
+        headers: { "X-Requested-With": "XMLHttpRequest", Accept: "application/json" },
+        credentials: "same-origin",
+      });
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+      const data = await resp.json();
+
+      if (!data || data.ok !== true) {
+        sjShowMsgMensalIA("Não foi possível carregar o Resumo Mensal (payload inválido).");
+        return;
+      }
+      sjMontarGraficoMensalIA(data);
+    } catch (err) {
+      console.error("[Resumo Mensal IA]", err);
+      sjShowMsgMensalIA("Falha ao carregar o Resumo Mensal. Verifique a API/console.");
+    }
+  }
+
+  // expõe (se você quiser chamar manualmente)
+  window.sjCarregarResumoMensalIA = sjCarregarResumoMensalIA;
+
+  // auto-load quando a página terminar de carregar
+  document.addEventListener("DOMContentLoaded", function () {
+    sjCarregarResumoMensalIA();
+  });
+})();
 

@@ -366,7 +366,7 @@
 <!-- 📈 Resumo Mensal + Últimas Transações -->
 <div class="row g-3 mt-3 sj-row-eq">
   <div class="col-12 col-lg-6">
-    <div class="card sj-card mb-3">
+    <div class="card sj-card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span>📈 Resumo Mensal (Receitas x Despesas x Saldo)</span>
         <small class="text-muted">Analytics Turbo</small>
@@ -388,7 +388,7 @@
         <span class="badge bg-secondary">{{ ultimas_transacoes|length }}</span>
       </div>
 
-      <div class="card-body small" style="max-height:240px; overflow:auto;">
+      <div class="card-body small sj-body-scroll">
         {% if ultimas_transacoes %}
           <ul class="list-group list-group-flush">
             {% for t in ultimas_transacoes %}
@@ -409,13 +409,37 @@
   </div>
 </div>
 
-<!-- ⚠️ Pendências + Rankings -->
+<!-- ⚠️ Pendências + Rankings (linha 1) -->
 <div class="row g-3 mt-2 sj-row-eq">
+
+  <!-- CARD 1: Pendências -->
   <div class="col-12 col-lg-6">
-    <div class="card shadow-sm border-warning sj-card">
+    <div class="card shadow-sm sj-card
+  {% if qtd_pendentes_valor|default:0|add:0 > 0 %}
+    border-warning
+  {% else %}
+    border-success
+  {% endif %}
+">
+
       <div class="card-header d-flex justify-content-between align-items-center">
-        <strong>⚠️ Receitas pendentes de valor</strong>
-        <span class="badge bg-warning text-dark">{{ qtd_pendentes_valor }}</span>
+        <strong>
+          {% if qtd_pendentes_valor|default:0|add:0 > 0 %}
+            ⚠️ Receitas pendentes de valor
+          {% else %}
+            ✅ Receitas pendentes de valor
+          {% endif %}
+        </strong>
+
+        <span class="badge
+          {% if qtd_pendentes_valor|default:0|add:0 > 0 %}
+            bg-warning text-dark
+          {% else %}
+            bg-success
+          {% endif %}
+        ">
+          {{ qtd_pendentes_valor|default:0 }}
+        </span>
       </div>
 
       <div class="card-body small sj-scroll">
@@ -436,17 +460,18 @@
           </ul>
 
           <div class="text-muted mt-2">
-            Dica: defina preço do serviço depois para lançar valor automático.
+            Dica: defina o preço do serviço para lançar valor automático.
           </div>
         {% else %}
-          <div class="text-muted">Nenhuma pendência 🎉</div>
+          <div class="text-muted">Nenhuma pendência encontrada. 🎉</div>
         {% endif %}
       </div>
     </div>
   </div>
 
+  <!-- CARD 2: Ranking de Categorias -->
   <div class="col-12 col-lg-6">
-    <div class="card sj-card mb-3">
+    <div class="card sj-card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span>🏆 Ranking de Categorias</span>
         <small class="text-muted">Mensal</small>
@@ -457,12 +482,12 @@
       </div>
     </div>
   </div>
-</div>
 
+</div>  
 
 <div class="row g-3 mt-2 sj-row-eq">
   <div class="col-12 col-lg-6">
-    <div class="card sj-card mb-3">
+    <div class="card sj-card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span>🧼 Ranking de Serviços / Produtos</span>
         <small class="text-muted">Mensal</small>
@@ -473,10 +498,9 @@
       </div>
     </div>
   </div>
-  
 
   <div class="col-12 col-lg-6">
-    <div class="card sj-card mb-3">
+    <div class="card sj-card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span>📈 Categoria que mais cresceu</span>
         <small class="text-muted">Mensal</small>
@@ -490,9 +514,10 @@
   </div>
 </div>
 
+
 <div class="row g-3 mt-2 sj-row-eq">
   <div class="col-12 col-lg-6">
-    <div class="card sj-card mb-3">
+    <div class="card sj-card">
       <div class="card-header d-flex justify-content-between align-items-center">
         <span>🧩 Despesas Fixas vs Variáveis</span>
         <small class="text-muted">Mensal</small>
