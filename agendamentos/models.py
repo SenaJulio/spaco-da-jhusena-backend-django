@@ -5,7 +5,7 @@ from servicos.models import Servico
 
 class Agendamento(models.Model):
     nome = models.CharField(max_length=100)  # Nome do tutor
-    pet_nome = models.CharField(max_length=100) # Nome do pet
+    pet_nome = models.CharField(max_length=100, null=True, blank=True) # Nome do pet
     email = models.EmailField()
     telefone = models.CharField(max_length=20, null=True, blank=True)
     data = models.DateField()
