@@ -1,6 +1,9 @@
 """
 Django settings for config project.
 """
+from dotenv import load_dotenv
+load_dotenv()
+
 
 from pathlib import Path
 import os
@@ -166,16 +169,34 @@ import dj_database_url
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": "spaco_jhusena",
-        "USER": "postgres",
-        "PASSWORD": os.getenv("DB_PASSWORD", ""),
-        "HOST": os.getenv("DB_HOST", "127.0.0.1"),
-        "PORT": "5432",
+if DATABASE_URL:
+    # Render / Produção
+    DATABASES = {
+        "default": dj_database_url.parse(
+            DATABASE_URL,
+            conn_max_age=600,
+            ssl_require=True,  # Render Postgres geralmente exige SSL
+        )
     }
-}
+else:
+    # Local (fallback) — você pode usar Postgres local via variáveis, ou SQLite
+    DB_NAME = os.getenv("DB_NAME", "spaco_jhusena")
+    DB_USER = os.getenv("DB_USER", "postgres")
+    DB_PASSWORD = os.getenv("DB_PASSWORD", "")
+    DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
+    DB_PORT = os.getenv("DB_PORT", "5432")
+
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": DB_NAME,
+            "USER": DB_USER,
+            "PASSWORD": DB_PASSWORD,
+            "HOST": DB_HOST,
+            "PORT": DB_PORT,
+        }
+    }
+
 
 
 # =========================
