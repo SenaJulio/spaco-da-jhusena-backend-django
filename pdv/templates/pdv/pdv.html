@@ -26,22 +26,21 @@
       <input id="buscaProduto" type="text" placeholder="🔍 Buscar produto..." class="pdv-busca" />
 
       
-        <ul class="pdv-lista-produtos" id="listaProdutos">
-          <li class="produto" data-id="1" data-nome="Shampoo Neutro" data-preco="35.00" data-estoque="10">
-            <span class="nome">Shampoo Neutro</span>
-            <span class="preco">R$ 35,00</span>
+      <ul class="pdv-lista-produtos" id="listaProdutos">
+        {% for p in itens %}
+          <li class="produto"
+              data-id="{{ p.id }}"
+              data-nome="{{ p.nome|escape }}"
+              data-preco="{{ p.preco }}"
+              data-estoque="999999">
+            <span class="nome">{{ p.nome }}</span>
+            <span class="preco">R$ {{ p.preco }}</span>
           </li>
+        {% endfor %}
+      </ul>
 
-          <li class="produto" data-id="2" data-nome="Escova Dental" data-preco="12.00" data-estoque="25">
-            <span class="nome">Escova Dental</span>
-            <span class="preco">R$ 12,00</span>
-          </li>
 
-          <li class="produto desativado" data-id="3" data-nome="Ração Premium" data-preco="98.00" data-estoque="0" title="Sem estoque">
-            <span class="nome">Ração Premium</span>
-            <span class="preco">Sem estoque</span>
-          </li>
-       </ul>
+
     </section>
 
     <!-- CARRINHO -->

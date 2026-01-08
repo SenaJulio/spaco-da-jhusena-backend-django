@@ -1,9 +1,11 @@
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 
+
 @login_required
 def pdv_home(request):
     return render(request, "pdv/pdv.html")
+
 
 import json
 from django.db.models import Sum, Case, When, F, DecimalField
@@ -16,10 +18,37 @@ from django.views.decorators.http import require_POST
 
 from .models import Venda, VendaItem
 from financeiro.models import Transacao
+from estoque.models import Produto
 
+
+@login_required
+def pdv_home(request):
+    produtos = Produto.objects.all().order_by("nome")
+
+    # cria lista segura com preço resolvido
+    itens = []
+    for p in produtos:
+        preco = getattr(p, "preco_venda", None)
+        if preco is None:
+            preco = getattr(p, "preco", None)
+        if preco is None:
+            preco = 0
+
+        itens.append(
+            {
+                "id": p.id,
+                "nome": p.nome,
+                "preco": preco,
+            }
+        )
+
+    return render(request, "pdv/pdv.html", {"itens": itens})
 
 
 def _saldo_produto_atual(produto):
+    """
+    Saldo atual do produto somando movimentos (E - S).
+    """
     from estoque.models import MovimentoEstoque
 
     agg = MovimentoEstoque.objects.filter(produto=produto).aggregate(
@@ -36,18 +65,22 @@ def _saldo_produto_atual(produto):
 
 
 def _baixar_estoque_fifo(produto, qtd, observacao="", venda_id=None):
+    """
+    Dá baixa no estoque por FIFO usando lotes.
+    Cria movimentos tipo "S" em cada lote até completar a qtd.
+    """
     from estoque.models import LoteProduto, MovimentoEstoque
 
     qtd = Decimal(str(qtd))
     if qtd <= 0:
         return
 
+    # Se o produto não controla estoque, não baixa nada
     if not getattr(produto, "controla_estoque", False):
         return
 
     lotes = (
-        LoteProduto.objects
-        .select_for_update()
+        LoteProduto.objects.select_for_update()
         .filter(produto=produto)
         .order_by("validade", "criado_em", "codigo")
     )
@@ -81,7 +114,6 @@ def _baixar_estoque_fifo(produto, qtd, observacao="", venda_id=None):
 
     if restante > 0:
         raise ValueError(f"Estoque insuficiente em lotes para {produto} (faltou {restante}).")
-
 
 
 @require_POST
@@ -137,20 +169,18 @@ def api_finalizar_venda(request):
     # Transação pra ser tudo ou nada
     with transaction.atomic():
         # trava as linhas de produto (evita corrida de estoque)
-        produtos = (
-            Produto.objects.select_for_update()
-            .filter(id__in=produto_ids)
-        )
+        produtos = Produto.objects.select_for_update().filter(id__in=produto_ids)
 
         prod_map = {p.id: p for p in produtos}
 
         # valida se todos existem
         faltando = [pid for pid in produto_ids if pid not in prod_map]
         if faltando:
-            return JsonResponse({"ok": False, "erro": f"Produtos não encontrados: {faltando}"}, status=404)
+            return JsonResponse(
+                {"ok": False, "erro": f"Produtos não encontrados: {faltando}"}, status=404
+            )
 
-       
-                 # ✅ valida estoque pelo saldo REAL (movimentos E - S)
+            # ✅ valida estoque pelo saldo REAL (movimentos E - S)
         for pid, qtd in agrupado.items():
             p = prod_map[pid]
 
@@ -159,8 +189,11 @@ def api_finalizar_venda(request):
                 saldo_atual = _saldo_produto_atual(p)
                 if Decimal(str(saldo_atual)) < Decimal(str(qtd)):
                     return JsonResponse(
-                        {"ok": False, "erro": f"Estoque insuficiente para {getattr(p,'nome',p.id)}. Saldo: {saldo_atual}"},
-                        status=400
+                        {
+                            "ok": False,
+                            "erro": f"Estoque insuficiente para {getattr(p,'nome',p.id)}. Saldo: {saldo_atual}",
+                        },
+                        status=400,
                     )
 
         # cria venda
@@ -183,8 +216,10 @@ def api_finalizar_venda(request):
                 preco = getattr(p, "preco", None)
 
             if preco is None:
-                return JsonResponse({"ok": False, "erro": f"Produto {p.id} sem preço (preco/preco_venda)"},
-                                    status=500)
+                return JsonResponse(
+                    {"ok": False, "erro": f"Produto {p.id} sem preço (preco/preco_venda)"},
+                    status=500,
+                )
 
             preco = Decimal(str(preco))
 
@@ -209,8 +244,6 @@ def api_finalizar_venda(request):
                 except ValueError as e:
                     return JsonResponse({"ok": False, "erro": str(e)}, status=400)
 
-            
-
         venda.total = total
         venda.save(update_fields=["total"])
         # 💰 registra receita no financeiro (PDV)
@@ -221,6 +254,5 @@ def api_finalizar_venda(request):
         categoria="PDV",
         data=venda.criado_em if hasattr(venda, "criado_em") else None,
     )
-
 
     return JsonResponse({"ok": True, "venda_id": venda.id, "total": f"{total:.2f}"})

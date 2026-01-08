@@ -40,12 +40,15 @@
 
     const id = String(li.dataset.id || "");
     const nome = String(li.dataset.nome || li.querySelector(".nome")?.textContent || "").trim();
-    const preco = Number(li.dataset.preco ?? 0);
+    const preco = Number(String(li.dataset.preco ?? "0").replace(",", "."));
 
-    if (!id || !nome || !preco) {
-      console.warn("[PDV] Produto sem data-id/data-nome/data-preco:", li);
+
+    if (!id || !nome) return;
+    if (!(preco > 0)) {
+      alert("Produto sem preço cadastrado. Ajuste no admin 🙂");
       return;
     }
+
 
     addToCart({ id, nome, preco, estoque });
   });
