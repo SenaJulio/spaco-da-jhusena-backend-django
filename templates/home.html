@@ -18,7 +18,10 @@
     .top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;}
     .brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:22px;}
     .brand .dot{width:12px;height:12px;border-radius:999px;background:#22c55e;box-shadow:0 0 18px rgba(34,197,94,.45);}
-    .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:18px;}
+    .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:18px;}
+    @media (max-width: 1100px){ .grid{grid-template-columns:repeat(2,1fr);} }
+    @media (max-width: 900px){ .grid{grid-template-columns:1fr;} }
+
     .card{
       background:rgba(255,255,255,.04);
       border:1px solid rgba(34,197,94,.25);
@@ -42,6 +45,56 @@
       font-weight:700;
       transition:.15s ease;
     }
+  .actions{
+  margin-top:auto;
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+}
+
+.sj-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  height:44px;
+  padding:0 10px;
+  border-radius:12px;
+  border:1px solid rgba(34,197,94,.35);
+  background:rgba(34,197,94,.12);
+  color:#d6ffe5;
+  text-decoration:none;
+  font-weight:700;
+  font-size:14px;
+  transition:.15s ease;
+  white-space: normal;
+  line-height: 1.1;
+  text-align: center;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+.sj-btn:hover{
+  transform:translateY(-1px);
+  background:rgba(34,197,94,.18);
+  color:#eafff1;
+}
+
+.sj-btn.secondary{
+  background:rgba(255,255,255,.06);
+  border-color:rgba(255,255,255,.14);
+}
+.actions .sj-btn{
+  height: auto;
+  min-height: 44px;
+  padding: 10px 10px;
+  font-size: 13px;
+}
+
+@media (max-width: 420px){
+  .actions{ grid-template-columns: 1fr; }
+}
+
+    
     .btn:hover{transform:translateY(-1px);background:rgba(34,197,94,.18);}
     .btn.secondary{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.14);}
     .footer{margin-top:18px;opacity:.65;font-size:12px}
@@ -61,31 +114,39 @@
     </div>
 
     <div class="grid">
-      <!-- 1) Painel Financeiro -->
-      <div class="card">
-        <div class="title">📊 Painel Financeiro Inteligente</div>
-        <div class="desc">Receitas, despesas, saldo, gráficos e recomendações da IA.</div>
-        <a class="btn" href="/financeiro/dashboard/">Acessar Painel</a>
-      </div>
-
-      <!-- 2) Agendamentos -->
-      <div class="card">
-        <div class="title">🐾 Agendamentos</div>
-        <div class="desc">Página pública para clientes agendarem serviços.</div>
-        <a class="btn" href="/agendamentos/">Abrir Agendamento</a>
-      </div>
-
-      <!-- 3) Estoque -->
-      <div class="card">
-        <div class="title">📦 Estoque & Lotes</div>
-        <div class="desc">Produtos, lotes, vencimentos, ranking de críticos e FIFO.</div>
-        <a class="btn" href="/estoque/dashboard/">Ver Estoque</a>
-      </div>
-    </div>
-
-    <div class="footer">
-      Dica: depois a gente coloca “Voltar ao início” dentro de cada módulo pra ficar redondinho.
-    </div>
+  <!-- 1) Painel Financeiro -->
+  <div class="card">
+    <div class="title">📊 Painel Financeiro Inteligente</div>
+    <div class="desc">Receitas, despesas, saldo, gráficos e recomendações da IA.</div>
+    <a class="btn" href="/financeiro/dashboard/">Acessar Painel</a>
   </div>
+
+  <!-- 2) Agendamentos -->
+<div class="card">
+  <div class="title">🐾 Agendamentos</div>
+  <div class="desc">Clientes agendam serviços ou você gerencia a agenda interna.</div>
+
+  <div class="actions">
+    <a class="sj-btn" href="/agendamentos/">📅 Agendar (Cliente)</a>
+    <a class="sj-btn secondary" href="/agendamentos/dashboard/">🗂️ Agenda (Painel)</a>
+  </div>
+</div>
+
+
+
+  <!-- 3) Estoque -->
+  <div class="card">
+    <div class="title">📦 Estoque & Lotes</div>
+    <div class="desc">Produtos, lotes, vencimentos, ranking de críticos e FIFO.</div>
+    <a class="btn" href="/estoque/dashboard/">Ver Estoque</a>
+  </div>
+
+  <!-- 4) PDV (interno) -->
+  <div class="card">
+  <div class="title">💰 PDV — Vendas</div>
+  <div class="desc">Venda produtos no balcão, baixa estoque e registra no financeiro.</div>
+  <a class="btn" href="{% url 'pdv:home' %}">Abrir PDV</a>
+</div>
+</div>
 </body>
 </html>

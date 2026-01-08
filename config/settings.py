@@ -122,6 +122,7 @@ INSTALLED_APPS = [
     "colorfield",
     "corsheaders",
     "rest_framework",
+    "pdv",
 ]
 
 

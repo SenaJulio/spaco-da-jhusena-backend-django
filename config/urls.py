@@ -28,6 +28,7 @@ urlpatterns = [
     path("financeiro/", include(("financeiro.urls", "financeiro"), namespace="financeiro")),
     # Core (raiz) por ÚLTIMO, senão engole tudo
     path("", include(("core.urls", "core"), namespace="core")),
+    path("pdv/", include("pdv.urls")),
 ]
 
 from django.conf import settings

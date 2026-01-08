@@ -11,15 +11,33 @@
   {% block dark-mode-vars %}{% endblock %}
   {% block stylesheet %}{% endblock %}
   {% block extrahead %}{% endblock %}
+  <style>
+  body.sj-bg{
+    background: radial-gradient(
+      1200px 600px at 20% -10%,
+      rgba(47,191,113,0.14),
+      #0b1220 45%
+    ) !important;
+    min-height: 100vh;
+    color: #e8f0ff;
+  }
+  main.container{
+    min-height: calc(100vh - 70px);
+  }
+</style>
+
 </head>
 
-<body class="bg-light">
+<body class="sj-bg">
+
 
   <!-- 🔥 NAVBAR GLOBAL RESTAURADA -->
   <nav class="navbar navbar-dark bg-success">
     <div class="container d-flex justify-content-between">
       <span class="navbar-brand fw-bold">🐶 Spaço da Jhuséna</span>
       <a href="{% url 'core:home' %}" class="btn btn-sm btn-outline-light">⬅ Início</a>
+      
+
     </div>
   </nav>
 

@@ -846,4 +846,50 @@ main, .dashboard-container, .container {
 .sj-row-eq > [class*="col-"] > .card {
   height: 100%;
 }
+.sj-btn{
+  margin-top:auto;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  height:40px;
+  border-radius:12px;
+  border:1px solid rgba(34,197,94,.35);
+  background:rgba(34,197,94,.12);
+  color:#d6ffe5;
+  text-decoration:none;
+  font-weight:700;
+  transition:.15s ease;
+}
+.sj-btn:hover{
+  transform:translateY(-1px);
+  background:rgba(34,197,94,.18);
+}
+.sj-btn.secondary{
+  background:rgba(255,255,255,.06);
+  border-color:rgba(255,255,255,.14);
+}
+
+
+.actions{
+  margin-top:auto;
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap:10px;
+}
+
+.actions .sj-btn{
+  height:44px;
+  padding:0 10px;
+  border-radius:12px;
+  font-size:14px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+@media (max-width: 420px){
+  .actions{ grid-template-columns: 1fr; }
+}
+
+
 

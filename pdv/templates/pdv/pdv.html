@@ -1,0 +1,68 @@
+{% extends "base_site.html" %}
+{% load static %}
+
+{% block title %}PDV | Spaço da Jhuséna{% endblock %}
+
+{% block stylesheet %}
+  <link rel="stylesheet" href="{% static 'pdv/pdv.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="pdv-wrap">
+
+  <header class="pdv-header">
+  <h1 class="m-0">🟢 PDV — Vendas de Produtos</h1>
+
+  <div class="pdv-badges">
+    <span class="badge text-bg-light">Operador</span>
+    <span class="badge text-bg-dark">Balcão</span>
+  </div>
+</header>
+
+
+  <div class="pdv-content">
+    <!-- PRODUTOS -->
+    <section class="pdv-produtos">
+      <input id="buscaProduto" type="text" placeholder="🔍 Buscar produto..." class="pdv-busca" />
+
+      
+        <ul class="pdv-lista-produtos" id="listaProdutos">
+          <li class="produto" data-id="1" data-nome="Shampoo Neutro" data-preco="35.00" data-estoque="10">
+            <span class="nome">Shampoo Neutro</span>
+            <span class="preco">R$ 35,00</span>
+          </li>
+
+          <li class="produto" data-id="2" data-nome="Escova Dental" data-preco="12.00" data-estoque="25">
+            <span class="nome">Escova Dental</span>
+            <span class="preco">R$ 12,00</span>
+          </li>
+
+          <li class="produto desativado" data-id="3" data-nome="Ração Premium" data-preco="98.00" data-estoque="0" title="Sem estoque">
+            <span class="nome">Ração Premium</span>
+            <span class="preco">Sem estoque</span>
+          </li>
+       </ul>
+    </section>
+
+    <!-- CARRINHO -->
+<section class="pdv-carrinho">
+      <h2 class="pdv-title">🛒 Carrinho</h2>
+
+      <div id="cartItems"></div>
+
+      <div class="total">
+        <span>Total</span>
+        <strong id="cartTotal">R$ 0,00</strong>
+      </div>
+
+      <button type="button" class="btn-finalizar" id="btnFinalizar">
+        FINALIZAR VENDA
+      </button>
+</section>
+</div>
+</div>
+{% endblock %}
+
+{% block extrabody %}
+  <script src="{% static 'pdv/pdv.js' %}" defer></script>
+{% endblock %}
