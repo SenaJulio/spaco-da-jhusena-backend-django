@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.db import models
+from django.core.exceptions import ValidationError
 
 
 class Venda(models.Model):
@@ -24,12 +25,23 @@ class Venda(models.Model):
     )
 
     total = models.DecimalField(max_digits=10, decimal_places=2, default=0)
-
     observacao = models.CharField(max_length=255, blank=True, default="")
     status = models.CharField(max_length=20, default="concluida")  # futuro: cancelada, estornada
 
     def __str__(self):
         return f"Venda #{self.id} - {self.total} - {self.criado_em:%d/%m %H:%M}"
+
+    # ✅ Blindagem: impedir alterar venda concluída por código/admin POST
+    def clean(self):
+        super().clean()
+        if self.pk and self.status == "concluida":
+            raise ValidationError("Venda concluída não pode ser alterada.")
+
+    def save(self, *args, **kwargs):
+        # Só valida quando já existe (evita bloquear criação)
+        if self.pk:
+            self.full_clean()
+        return super().save(*args, **kwargs)
 
 
 class VendaItem(models.Model):
@@ -39,7 +51,6 @@ class VendaItem(models.Model):
         related_name="itens",
     )
 
-    # ✅ Produto do seu app estoque
     produto = models.ForeignKey(
         "estoque.Produto",
         on_delete=models.PROTECT,
@@ -54,3 +65,13 @@ class VendaItem(models.Model):
 
     def __str__(self):
         return f"{self.qtd}x {self.produto} (Venda #{self.venda_id})"
+
+    # ✅ Blindagem: item de venda concluída não pode mudar
+    def clean(self):
+        super().clean()
+        if self.venda_id and self.venda.status == "concluida":
+            raise ValidationError("Venda concluída não pode ser alterada.")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
