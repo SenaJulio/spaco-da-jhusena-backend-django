@@ -202,6 +202,7 @@ def api_finalizar_venda(request):
             forma_pagamento=forma_pagamento,
             observacao=observacao,
             total=Decimal("0.00"),
+            status="aberta",
         )
 
         total = Decimal("0.00")
@@ -245,7 +246,8 @@ def api_finalizar_venda(request):
                     return JsonResponse({"ok": False, "erro": str(e)}, status=400)
 
         venda.total = total
-        venda.save(update_fields=["total"])
+        venda.status = "concluida"
+        venda.save(update_fields=["total", "status"])
         # 💰 registra receita no financeiro (PDV)
     Transacao.objects.create(
         tipo="receita",

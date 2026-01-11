@@ -81,51 +81,75 @@
   });
 
   // ========= Finalizar (BACKEND REAL) =========
-  btnFinalizar.addEventListener("click", async () => {
-    const total = calcTotal();
-    if (total <= 0) {
-      alert("Carrinho vazio 🙂");
-      return;
+  let finalizando = false;
+
+btnFinalizar.addEventListener("click", async () => {
+  if (finalizando) return; // evita clique duplo
+  const total = calcTotal();
+  if (total <= 0) {
+    alert("Carrinho vazio 🙂");
+    return;
+  }
+
+  const ok = confirm(`Confirmar venda no valor de ${fmtBRL(total)}?`);
+  if (!ok) return;
+
+  finalizando = true;
+
+  // UI: trava botão + muda texto
+  const txtOriginal = btnFinalizar.textContent;
+  btnFinalizar.disabled = true;
+  btnFinalizar.textContent = "FINALIZANDO...";
+
+  try {
+    const itens = Object.values(cart).map((it) => ({
+      produto_id: Number(it.id),
+      qtd: Number(it.qtd),
+    }));
+
+    const res = await fetch("/pdv/api/finalizar/", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Requested-With": "XMLHttpRequest",
+        "X-CSRFToken": getCsrfToken(),
+      },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        itens,
+        forma_pagamento: "pix",
+        observacao: "",
+      }),
+    });
+
+    // ✅ lê resposta com segurança (JSON ou HTML)
+    const contentType = res.headers.get("content-type") || "";
+    const text = await res.text();
+    let data = null;
+    if (contentType.includes("application/json")) {
+      try { data = JSON.parse(text); } catch (_e) {}
     }
 
-    const ok = confirm(`Confirmar venda no valor de ${fmtBRL(total)}?`);
-    if (!ok) return;
-
-    try {
-      const itens = Object.values(cart).map((it) => ({
-        produto_id: Number(it.id),
-        qtd: Number(it.qtd),
-      }));
-
-      const res = await fetch("/pdv/api/finalizar/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Requested-With": "XMLHttpRequest",
-          "X-CSRFToken": getCsrfToken(),
-        },
-        credentials: "same-origin",
-        body: JSON.stringify({
-          itens,
-          forma_pagamento: "pix",
-          observacao: "",
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        throw new Error(data.erro || ("HTTP " + res.status));
-      }
-
-      // limpa carrinho após sucesso REAL
-      Object.keys(cart).forEach((k) => delete cart[k]);
-      renderCart();
-
-      alert(`✅ Venda #${data.venda_id} registrada! Total: ${fmtBRL(Number(data.total))}`);
-    } catch (err) {
-      alert("❌ Falha ao finalizar: " + err.message);
+    if (!res.ok || !data?.ok) {
+      const detalhe = data?.erro || text.slice(0, 200) || ("HTTP " + res.status);
+      throw new Error(detalhe);
     }
-  });
+
+    // ✅ sucesso: limpa carrinho e re-render
+    Object.keys(cart).forEach((k) => delete cart[k]);
+    renderCart();
+
+    alert(`✅ Venda #${data.venda_id} registrada! Total: ${fmtBRL(Number(data.total))}`);
+  } catch (err) {
+    alert("❌ Falha ao finalizar: " + (err?.message || err));
+  } finally {
+    // UI volta ao normal
+    finalizando = false;
+    btnFinalizar.disabled = false;
+    btnFinalizar.textContent = txtOriginal;
+  }
+});
+
 
   // ========= Funções =========
   function addToCart(prod) {

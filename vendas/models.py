@@ -5,6 +5,7 @@ from financeiro.models import Transacao
 from estoque.models import Produto, MovimentoEstoque
 
 
+
 class Venda(models.Model):
     data = models.DateTimeField("Data", default=timezone.now)
     total = models.DecimalField("Total", max_digits=10, decimal_places=2, default=0)

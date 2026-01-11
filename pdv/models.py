@@ -33,9 +33,14 @@ class Venda(models.Model):
 
     # ✅ Blindagem: impedir alterar venda concluída por código/admin POST
     def clean(self):
-        super().clean()
-        if self.pk and self.status == "concluida":
+      super().clean()
+
+    # Só bloqueia edição se a venda JÁ estava concluída no banco
+      if self.pk:
+        old = Venda.objects.filter(pk=self.pk).only("status").first()
+        if old and old.status == "concluida":
             raise ValidationError("Venda concluída não pode ser alterada.")
+
 
     def save(self, *args, **kwargs):
         # Só valida quando já existe (evita bloquear criação)

@@ -255,3 +255,16 @@
   align-items:center;
   flex-shrink:0;
 }
+
+.btn-finalizar:disabled{
+  opacity: .65;
+  cursor: not-allowed;
+  filter: grayscale(.2);
+}
+.pdv-badge{
+  background:rgba(255,255,255,.1);
+  padding:6px 10px;
+  border-radius:999px;
+  font-size:.85rem;
+  opacity:.9;
+}
