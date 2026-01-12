@@ -22,30 +22,32 @@ from django.apps import apps
 
 @login_required
 def pdv_home(request):
-    # 1) garante que o usuário tem perfil (Render pode ter user sem perfil)
-    perfil, _ = Perfil.objects.get_or_create(user=request.user)
-
-    # 2) garante que o perfil tem empresa
-    empresa = getattr(perfil, "empresa", None)
+    # 1) precisamos de uma empresa válida, porque Perfil.empresa é NOT NULL
+    empresa = Empresa.objects.order_by("id").first()
     if not empresa:
-        # pega uma empresa existente (ex.: a primeira)
-        empresa = Empresa.objects.order_by("id").first()
+        return render(
+            request,
+            "pdv/pdv.html",
+            {
+                "itens": [],
+                "erro": "Nenhuma empresa cadastrada ainda. Crie uma empresa no admin para liberar o PDV.",
+            },
+        )
 
-        # se nem empresa existir, não tem como filtrar; devolve vazio com aviso
-        if not empresa:
-            return render(
-                request,
-                "pdv/pdv.html",
-                {
-                    "itens": [],
-                    "erro": "Nenhuma empresa cadastrada ainda. Crie uma empresa no admin para liberar o PDV.",
-                },
-            )
+    # 2) garante perfil SEM tentar criar com empresa_id null
+    perfil = Perfil.objects.filter(user=request.user).select_related("empresa").first()
 
+    if not perfil:
+        perfil = Perfil.objects.create(user=request.user, empresa=empresa)
+    elif not getattr(perfil, "empresa_id", None):
+        # caso raro: perfil existe mas sem empresa (ou dados antigos)
         perfil.empresa = empresa
         perfil.save(update_fields=["empresa"])
 
-    # 3) busca produtos (com filtro por empresa se existir o campo)
+    # se você quer sempre operar pela empresa do perfil:
+    empresa = perfil.empresa
+
+    # 3) produtos (filtra por empresa se existir o campo)
     Produto = apps.get_model("estoque", "Produto")
     qs = Produto.objects.all()
 
@@ -54,7 +56,7 @@ def pdv_home(request):
 
     produtos = qs.order_by("nome")
 
-    # 4) cria lista segura com preço resolvido
+    # 4) lista segura com preço resolvido
     itens = []
     for p in produtos:
         preco = getattr(p, "preco_venda", None)
@@ -63,13 +65,7 @@ def pdv_home(request):
         if preco is None:
             preco = 0
 
-        itens.append(
-            {
-                "id": p.id,
-                "nome": p.nome,
-                "preco": float(preco),
-            }
-        )
+        itens.append({"id": p.id, "nome": p.nome, "preco": float(preco)})
 
     return render(request, "pdv/pdv.html", {"itens": itens})
 
