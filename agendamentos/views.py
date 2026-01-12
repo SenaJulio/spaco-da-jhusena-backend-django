@@ -2,6 +2,7 @@ import json
 import logging
 from datetime import datetime
 
+from django.apps import apps
 from django.conf import settings
 from django.contrib import messages
 from django.core.mail import send_mail
@@ -13,7 +14,7 @@ from django.views.decorators.http import require_POST
 from django.views.decorators.http import require_GET
 from rest_framework import generics
 from django.utils.timezone import localdate
-from financeiro.models import Transacao
+
 from django.contrib.auth.decorators import login_required
 
 
@@ -277,7 +278,8 @@ def dashboard_hoje(request):
         )
 
     return JsonResponse({"itens": itens})
-
+   
+   
 
 @login_required
 @require_POST
@@ -306,6 +308,8 @@ def acao_agendamento(request, id):
                 {"ok": False, "erro": "Serviço sem preço. Defina o preço antes de concluir."},
                 status=400,
             )
+        from django.apps import apps
+        Transacao = apps.get_model("financeiro", "Transacao")
 
 
         ja_existe = Transacao.objects.filter(

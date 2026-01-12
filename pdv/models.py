@@ -33,14 +33,13 @@ class Venda(models.Model):
 
     # ✅ Blindagem: impedir alterar venda concluída por código/admin POST
     def clean(self):
-      super().clean()
+        super().clean()
 
-    # Só bloqueia edição se a venda JÁ estava concluída no banco
-      if self.pk:
-        old = Venda.objects.filter(pk=self.pk).only("status").first()
-        if old and old.status == "concluida":
-            raise ValidationError("Venda concluída não pode ser alterada.")
-
+        # Só bloqueia edição se a venda JÁ estava concluída no banco
+        if self.pk:
+            old = Venda.objects.filter(pk=self.pk).only("status").first()
+            if old and old.status == "concluida":
+                raise ValidationError("Venda concluída não pode ser alterada.")
 
     def save(self, *args, **kwargs):
         # Só valida quando já existe (evita bloquear criação)
@@ -50,7 +49,7 @@ class Venda(models.Model):
 
 
 class VendaItem(models.Model):
-    venda = models.ForeignKey(
+    vendas = models.ForeignKey(
         Venda,
         on_delete=models.CASCADE,
         related_name="itens",
@@ -61,7 +60,7 @@ class VendaItem(models.Model):
         on_delete=models.PROTECT,
         related_name="pdv_itens",
     )
-
+    produto = models.ForeignKey("estoque.Produto", on_delete=models.PROTECT)
     qtd = models.PositiveIntegerField(default=1)
     preco_unit = models.DecimalField(max_digits=10, decimal_places=2, default=0)
 
@@ -69,12 +68,15 @@ class VendaItem(models.Model):
         return self.qtd * self.preco_unit
 
     def __str__(self):
-        return f"{self.qtd}x {self.produto} (Venda #{self.venda_id})"
+    # suporta FK chamada venda ou vendas (dependendo da migração)
+      vid = getattr(self, "venda_id", None) or getattr(self, "vendas_id", None)
+      return f"{self.qtd}x {self.produto} (Venda #{vid})"
+
 
     # ✅ Blindagem: item de venda concluída não pode mudar
     def clean(self):
         super().clean()
-        if self.venda_id and self.venda.status == "concluida":
+        if self.vendas_id and self.vendas.status == "concluida":
             raise ValidationError("Venda concluída não pode ser alterada.")
 
     def save(self, *args, **kwargs):

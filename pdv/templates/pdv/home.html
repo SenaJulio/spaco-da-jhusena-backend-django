@@ -1,0 +1,174 @@
+{% load static %}
+<!doctype html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>PDV — Spaço da Jhuséna</title>
+
+    <style>
+        body {
+            font-family: system-ui, Arial;
+            padding: 20px;
+            background: #0b1220;
+            color: #e8f0ff;
+        }
+
+        .wrap {
+            max-width: 980px;
+            margin: 0 auto;
+        }
+
+        .top {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1.2fr .8fr;
+            gap: 14px;
+        }
+
+        .card {
+            background: rgba(10, 16, 28, .85);
+            border: 1px solid rgba(47, 191, 113, .25);
+            border-radius: 16px;
+            padding: 14px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, .12);
+            background: rgba(255, 255, 255, .06);
+            color: #e8f0ff;
+        }
+
+        .produto {
+            padding: 10px 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, .10);
+            margin-bottom: 10px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+        }
+
+        .produto:hover {
+            border-color: rgba(47, 191, 113, .55);
+        }
+
+        .produto.desativado {
+            opacity: .45;
+            cursor: not-allowed;
+        }
+
+        .item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px 6px;
+            border-bottom: 1px solid rgba(255, 255, 255, .08);
+        }
+
+        .item-nome {
+            flex: 1;
+        }
+
+        .item-controles {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .item-controles button {
+            border-radius: 10px;
+            padding: 6px 10px;
+            border: 1px solid rgba(255, 255, 255, .12);
+            background: rgba(255, 255, 255, .06);
+            color: #e8f0ff;
+            cursor: pointer;
+        }
+
+        .footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 10px;
+        }
+
+        #btnFinalizar {
+            border: none;
+            border-radius: 12px;
+            padding: 10px 14px;
+            cursor: pointer;
+            background: linear-gradient(135deg, #1f7a3a, #2fbf71);
+            color: #fff;
+            font-weight: 700;
+        }
+
+        small {
+            opacity: .75;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <div class="top">
+            <h1 style="margin:0;">PDV — Spaço da Jhuséna</h1>
+            <small>PDV OK ✅</small>
+        </div>
+
+        <div class="grid">
+            <!-- COLUNA ESQUERDA -->
+            <div class="card">
+                <h3 style="margin-top:0;">Produtos</h3>
+                <input id="buscaProduto" placeholder="Buscar produto..." />
+
+                <!-- Lista (JS usa clique em .produto com data-id, data-nome, data-preco, data-estoque) -->
+                <div id="listaProdutos" style="margin-top:12px;">
+                    {% for p in produtos %}
+                    <div class="produto {% if p.desativado %}desativado{% endif %}" data-id="{{ p.id }}"
+                        data-nome="{{ p.nome|escape }}" data-preco="{{ p.preco }}" data-estoque="{{ p.estoque }}">
+                        <span class="nome">{{ p.nome }}</span>
+                        <span>R$ {{ p.preco|floatformat:2 }} • estoque {{ p.estoque|floatformat:0 }}</span>
+                    </div>
+                    {% empty %}
+                    <div style="opacity:.7; padding:8px 2px;">
+                        Nenhum produto cadastrado ainda.
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- COLUNA DIREITA -->
+            <div class="card">
+                <h3 style="margin-top:0;">Carrinho</h3>
+
+                <div id="cartItems"></div>
+
+                <div class="footer">
+                    <div>
+                        <small>Total</small><br />
+                        <strong id="cartTotal">R$ 0,00</strong>
+                    </div>
+
+                    <button id="btnFinalizar" type="button">Finalizar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{% static 'pdv/pdv.js' %}"></script>
+</body>
+
+</html>

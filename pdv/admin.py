@@ -61,8 +61,8 @@ class VendaAdmin(admin.ModelAdmin):
 
 @admin.register(VendaItem)
 class VendaItemAdmin(admin.ModelAdmin):
-    list_display = ("id", "venda", "produto", "qtd", "preco_unit")
-    search_fields = ("venda__id", "produto__nome")
+    list_display = ("id", "vendas", "produto", "qtd", "preco_unit")
+    search_fields = ("vendas__id", "produto__nome")
 
     def has_module_permission(self, request):
         # remove o app "VendaItem" do menu lateral

@@ -2,7 +2,8 @@ import logging
 from datetime import timedelta
 from django.utils import timezone
 from django.db.models import Sum
-from financeiro.models import Transacao
+from django.apps import apps
+
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +35,7 @@ def _get_periodo_semana():
 # ============================================================
 # ANÁLISE DA SEMANA — RESUMO PRINCIPAL
 # ============================================================
+Transacao = apps.get_model("financeiro", "Transacao")
 
 
 def analisar_financas_semana(user):

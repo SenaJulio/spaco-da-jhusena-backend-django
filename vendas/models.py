@@ -1,12 +1,19 @@
 from decimal import Decimal
+
+from django.apps import apps
 from django.db import models
 from django.utils import timezone
-from financeiro.models import Transacao
+
+from core.models import Empresa
 from estoque.models import Produto, MovimentoEstoque
 
 
-
 class Venda(models.Model):
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name="vendas",
+    )
     data = models.DateTimeField("Data", default=timezone.now)
     total = models.DecimalField("Total", max_digits=10, decimal_places=2, default=0)
     observacao = models.CharField("Observação", max_length=255, blank=True)
@@ -30,6 +37,8 @@ class Venda(models.Model):
         Garante que exista UMA transação de receita para esta venda,
         com valor e data sempre atualizados.
         """
+        Transacao = apps.get_model("financeiro", "Transacao")
+
         # Se não tiver total ou for zero/negativo, apaga qualquer transação ligada
         if not self.total or self.total <= 0:
             Transacao.objects.filter(venda=self).delete()
@@ -43,6 +52,7 @@ class Venda(models.Model):
                 "valor": self.total,
                 "data": self.data.date(),
                 "categoria": "Vendas",
+                "empresa": self.empresa,  # importante no multiempresa
             },
         )
 
@@ -50,6 +60,7 @@ class Venda(models.Model):
             trans.valor = self.total
             trans.data = self.data.date()
             trans.descricao = f"Venda #{self.id}"
+            trans.empresa = self.empresa
             if not trans.categoria:
                 trans.categoria = "Vendas"
             trans.save()
@@ -90,8 +101,8 @@ class ItemVenda(models.Model):
     @property
     def subtotal(self):
         if self.quantidade is None or self.preco_unitario is None:
-            return 0
-        return self.quantidade * self.preco_unitario
+            return Decimal("0")
+        return Decimal(self.quantidade) * Decimal(self.preco_unitario)
 
     class Meta:
         verbose_name = "Item da venda"
@@ -107,7 +118,7 @@ class ItemVenda(models.Model):
         diff > 0  => saída de estoque (venda/aumento de quantidade)
         diff < 0  => entrada de estoque (estorno/remoção de item)
         """
-        if not self.produto.controla_estoque:
+        if not getattr(self.produto, "controla_estoque", True):
             return
 
         diff = Decimal(diff or 0)
@@ -119,6 +130,8 @@ class ItemVenda(models.Model):
             tipo="S" if diff > 0 else "E",
             quantidade=abs(diff),
             observacao=f"Venda #{self.venda_id} (ajuste item)",
+            # se seu MovimentoEstoque também tiver empresa, depois a gente adiciona:
+            # empresa=self.venda.empresa,
         )
 
     def save(self, *args, **kwargs):
@@ -126,14 +139,13 @@ class ItemVenda(models.Model):
         qtd_nova = Decimal(self.quantidade or 0)
 
         if criando:
-            # salva primeiro para garantir PK e relação certinha
             super().save(*args, **kwargs)
-            # registra saída total da quantidade
             self._registrar_movimento_estoque(qtd_nova)
         else:
-            # pega quantidade antiga no banco para calcular diferença
             qtd_antiga = (
-                ItemVenda.objects.filter(pk=self.pk).values_list("quantidade", flat=True).first()
+                ItemVenda.objects.filter(pk=self.pk)
+                .values_list("quantidade", flat=True)
+                .first()
             )
             qtd_antiga = Decimal(qtd_antiga or 0)
 
@@ -142,12 +154,10 @@ class ItemVenda(models.Model):
             diff = qtd_nova - qtd_antiga
             self._registrar_movimento_estoque(diff)
 
-        # recalcula total da venda sempre que um item é salvo
         if self.venda_id:
             self.venda.calcular_total()
 
     def delete(self, *args, **kwargs):
-        # ao remover o item, devolve a quantidade inteira para o estoque
         qtd_atual = Decimal(self.quantidade or 0)
         self._registrar_movimento_estoque(-qtd_atual)
 

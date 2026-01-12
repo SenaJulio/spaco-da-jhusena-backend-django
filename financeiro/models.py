@@ -1,13 +1,18 @@
 from django.contrib.auth.models import User
 from django.db import models
+from core.models import Empresa
 
-
-# --- Transações ---
 class Transacao(models.Model):
     TIPO_CHOICES = [
         ("receita", "Receita"),
         ("despesa", "Despesa"),
     ]
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name="transacoes",
+    )
 
     categoria = models.CharField(max_length=100, blank=True, null=True)
     tipo = models.CharField(max_length=10, choices=TIPO_CHOICES)
@@ -16,7 +21,7 @@ class Transacao(models.Model):
     data = models.DateField()
 
     # 🔗 ligação opcional com Venda
-    venda = models.ForeignKey(
+    vendas = models.ForeignKey(
         "vendas.Venda",
         on_delete=models.CASCADE,
         null=True,
@@ -95,3 +100,5 @@ class HistoricoIA(models.Model):
 
     def __str__(self):
         return f"{self.tipo.upper()} - {self.criado_em:%d/%m/%Y %H:%M}"
+
+

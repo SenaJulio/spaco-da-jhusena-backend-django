@@ -5,7 +5,7 @@ from django.dispatch import receiver
 from django.utils import timezone
 
 from vendas.models import Venda
-from financeiro.models import Transacao  # só Transacao, sem Categoria
+from django.apps import apps # só Transacao, sem Categoria
 
 
 @receiver(post_save, sender=Venda)
@@ -28,7 +28,8 @@ def sync_venda_transacao(sender, instance, **kwargs):
 
     data_venda = instance.data or timezone.now()
     descricao = f"Venda #{instance.id}"
-
+    
+    Transacao = apps.get_model("financeiro", "Transacao")
     # cria ou atualiza a transação correspondente a essa venda
     transacao, created = Transacao.objects.update_or_create(
         descricao=descricao,

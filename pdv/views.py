@@ -2,11 +2,6 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 
 
-@login_required
-def pdv_home(request):
-    return render(request, "pdv/pdv.html")
-
-
 import json
 from django.db.models import Sum, Case, When, F, DecimalField
 from decimal import Decimal
@@ -17,13 +12,22 @@ from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 
 from .models import Venda, VendaItem
+from django.utils import timezone
 from financeiro.models import Transacao
-from estoque.models import Produto
+
+
+from django.apps import apps
 
 
 @login_required
 def pdv_home(request):
-    produtos = Produto.objects.all().order_by("nome")
+    empresa = request.user.perfil.empresa
+
+    Produto = apps.get_model("estoque", "Produto")
+    qs = Produto.objects.all()
+    if "empresa" in [f.name for f in Produto._meta.fields]:
+        qs = qs.filter(empresa=empresa)
+    produtos = qs.order_by("nome")
 
     # cria lista segura com preço resolvido
     itens = []
@@ -38,7 +42,7 @@ def pdv_home(request):
             {
                 "id": p.id,
                 "nome": p.nome,
-                "preco": preco,
+                "preco": float(preco),
             }
         )
 
@@ -119,17 +123,8 @@ def _baixar_estoque_fifo(produto, qtd, observacao="", venda_id=None):
 @require_POST
 @login_required
 def api_finalizar_venda(request):
-    """
-    Recebe:
-    {
-      "itens": [{"produto_id": 1, "qtd": 2}, ...],
-      "forma_pagamento": "pix" (opcional),
-      "observacao": "" (opcional)
-    }
+    empresa = request.user.perfil.empresa
 
-    Retorna:
-    { "ok": true, "venda_id": 123, "total": "106.00" }
-    """
     try:
         payload = json.loads(request.body.decode("utf-8")) if request.body else {}
     except json.JSONDecodeError:
@@ -142,8 +137,9 @@ def api_finalizar_venda(request):
     if not isinstance(itens, list) or len(itens) == 0:
         return JsonResponse({"ok": False, "erro": "Carrinho vazio"}, status=400)
 
-    # ✅ carrega o model Produto do app estoque
-    from estoque.models import Produto  # ajuste se o nome do model for outro
+    # ✅ pega models sem import circular
+    Produto = apps.get_model("estoque", "Produto")
+    Transacao = apps.get_model("financeiro", "Transacao")
 
     # Normaliza itens e valida básicos
     norm = []
@@ -166,25 +162,25 @@ def api_finalizar_venda(request):
 
     produto_ids = list(agrupado.keys())
 
-    # Transação pra ser tudo ou nada
     with transaction.atomic():
         # trava as linhas de produto (evita corrida de estoque)
-        produtos = Produto.objects.select_for_update().filter(id__in=produto_ids)
-
+        qs = Produto.objects.select_for_update().filter(id__in=produto_ids)
+        if "empresa" in [f.name for f in Produto._meta.fields]:
+            qs = qs.filter(empresa=empresa)
+        produtos = qs
         prod_map = {p.id: p for p in produtos}
 
         # valida se todos existem
         faltando = [pid for pid in produto_ids if pid not in prod_map]
         if faltando:
             return JsonResponse(
-                {"ok": False, "erro": f"Produtos não encontrados: {faltando}"}, status=404
+                {"ok": False, "erro": f"Produtos não encontrados: {faltando}"},
+                status=404,
             )
 
-            # ✅ valida estoque pelo saldo REAL (movimentos E - S)
+        # ✅ valida estoque pelo saldo REAL (movimentos E - S)
         for pid, qtd in agrupado.items():
             p = prod_map[pid]
-
-            # só valida se controla estoque
             if getattr(p, "controla_estoque", False):
                 saldo_atual = _saldo_produto_atual(p)
                 if Decimal(str(saldo_atual)) < Decimal(str(qtd)):
@@ -192,6 +188,8 @@ def api_finalizar_venda(request):
                         {
                             "ok": False,
                             "erro": f"Estoque insuficiente para {getattr(p,'nome',p.id)}. Saldo: {saldo_atual}",
+                            "produto_id": pid,
+                            "max_qtd": int(Decimal(str(saldo_atual))),
                         },
                         status=400,
                     )
@@ -207,11 +205,10 @@ def api_finalizar_venda(request):
 
         total = Decimal("0.00")
 
-        # cria itens + baixa estoque simples (FIFO a gente liga depois)
+        # cria itens + baixa estoque por FIFO
         for pid, qtd in agrupado.items():
             p = prod_map[pid]
 
-            # preço: tenta pegar do produto; se não existir, tenta "preco"
             preco = getattr(p, "preco_venda", None)
             if preco is None:
                 preco = getattr(p, "preco", None)
@@ -224,8 +221,9 @@ def api_finalizar_venda(request):
 
             preco = Decimal(str(preco))
 
+            # ✅ kwargs do item (com FK venda/vendas)
             VendaItem.objects.create(
-                venda=venda,
+                vendas=venda,
                 produto=p,
                 qtd=int(qtd),
                 preco_unit=preco,
@@ -233,7 +231,6 @@ def api_finalizar_venda(request):
 
             total += preco * int(qtd)
 
-            # ✅ baixa estoque via FIFO (lotes) gerando MovimentoEstoque tipo "S"
             if getattr(p, "controla_estoque", False):
                 try:
                     _baixar_estoque_fifo(
@@ -245,16 +242,34 @@ def api_finalizar_venda(request):
                 except ValueError as e:
                     return JsonResponse({"ok": False, "erro": str(e)}, status=400)
 
+        # fecha venda
         venda.total = total
         venda.status = "concluida"
         venda.save(update_fields=["total", "status"])
-        # 💰 registra receita no financeiro (PDV)
-    Transacao.objects.create(
-        tipo="receita",
-        valor=total,
-        descricao=f"Venda PDV #{venda.id}",
-        categoria="PDV",
-        data=venda.criado_em if hasattr(venda, "criado_em") else None,
-    )
 
+        # 💰 transação no financeiro
+    trans_kwargs = {
+        "empresa": request.user.perfil.empresa,
+        "tipo": "receita",
+        "valor": total,
+        "descricao": f"Venda PDV #{venda.id}",
+        "categoria": "PDV",
+        "data": (getattr(venda, "criado_em", None) or timezone.now()).date(),
+    }
+
+    # ✅ Só adiciona 'vendas' se existir no model
+    # Só tenta linkar se existir um FK e ele apontar pro MESMO model da venda atual (pdv.Venda)
+    for fname in ("venda", "vendas"):
+        try:
+            f = Transacao._meta.get_field(fname)
+        except Exception:
+            continue
+
+        if getattr(f, "remote_field", None) and f.remote_field.model == venda.__class__:
+            trans_kwargs[fname] = venda
+            break
+
+    Transacao.objects.create(**trans_kwargs)
+
+    # ✅ SEMPRE retorna fora do atomic (mais seguro)
     return JsonResponse({"ok": True, "venda_id": venda.id, "total": f"{total:.2f}"})

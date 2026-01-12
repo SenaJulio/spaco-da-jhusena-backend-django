@@ -9,6 +9,20 @@ from servicos.models import Servico
 from usuarios.models import Usuario
 
 
+from .models import Empresa, Perfil
+
+@admin.register(Empresa)
+class EmpresaAdmin(admin.ModelAdmin):
+    list_display = ("id", "nome", "plano", "ativa", "criado_em")
+    list_filter = ("plano", "ativa")
+    search_fields = ("nome",)
+
+@admin.register(Perfil)
+class PerfilAdmin(admin.ModelAdmin):
+    list_display = ("id", "user", "empresa")
+    search_fields = ("user__username", "empresa__nome")
+
+
 class SpaçoJhusenaAdminSite(AdminSite):
     site_header = "🐶 Spaço da Jhuséna Admin"
     site_title = "Painel Spaço da Jhuséna"

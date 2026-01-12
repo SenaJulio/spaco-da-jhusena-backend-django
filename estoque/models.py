@@ -2,6 +2,8 @@
 from django.db import models
 from django.db.models import Sum, F, Case, When, DecimalField
 from django.core.exceptions import ValidationError
+from core.models import Empresa
+
 
 
 class ItemEstoque(models.Model):
@@ -9,7 +11,6 @@ class ItemEstoque(models.Model):
     Modelo simples legado. Mantido por compatibilidade.
     Use Produto para novos cadastros.
     """
-
     nome = models.CharField(max_length=100)
 
     def __str__(self):
@@ -22,6 +23,12 @@ class Produto(models.Model):
     - Serviços (banho, tosa, hidratação etc.)
     - Produtos físicos (ração, petiscos, acessório etc.)
     """
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.CASCADE,
+        related_name="estoque_produtos",
+    )
 
     TIPO_CHOICES = [
         ("SERVICO", "Serviço"),

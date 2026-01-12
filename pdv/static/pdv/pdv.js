@@ -20,10 +20,27 @@
   const cartTotalEl = $("#cartTotal");
   const btnFinalizar = $("#btnFinalizar");
 
+
   if (!listaProdutos || !buscaProduto || !cartItemsEl || !cartTotalEl || !btnFinalizar) {
     console.warn("[PDV] Elementos não encontrados. Confere IDs no HTML.");
     return;
   }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+
+    const tag = document.activeElement?.tagName?.toLowerCase();
+
+    // se estiver digitando em textarea ou outro input que não seja a busca, ignora
+    if (tag === "textarea") return;
+    if (tag === "input" && document.activeElement !== buscaProduto) return;
+
+    if (calcTotal() <= 0) return;
+
+    e.preventDefault();
+    btnFinalizar.click();
+  });
+
 
   // ========= Estado =========
   // cart = { [id]: { id, nome, preco, qtd, estoque } }
@@ -83,72 +100,104 @@
   // ========= Finalizar (BACKEND REAL) =========
   let finalizando = false;
 
-btnFinalizar.addEventListener("click", async () => {
-  if (finalizando) return; // evita clique duplo
-  const total = calcTotal();
-  if (total <= 0) {
-    alert("Carrinho vazio 🙂");
-    return;
-  }
-
-  const ok = confirm(`Confirmar venda no valor de ${fmtBRL(total)}?`);
-  if (!ok) return;
-
-  finalizando = true;
-
-  // UI: trava botão + muda texto
-  const txtOriginal = btnFinalizar.textContent;
-  btnFinalizar.disabled = true;
-  btnFinalizar.textContent = "FINALIZANDO...";
-
-  try {
-    const itens = Object.values(cart).map((it) => ({
-      produto_id: Number(it.id),
-      qtd: Number(it.qtd),
-    }));
-
-    const res = await fetch("/pdv/api/finalizar/", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "X-Requested-With": "XMLHttpRequest",
-        "X-CSRFToken": getCsrfToken(),
-      },
-      credentials: "same-origin",
-      body: JSON.stringify({
-        itens,
-        forma_pagamento: "pix",
-        observacao: "",
-      }),
-    });
-
-    // ✅ lê resposta com segurança (JSON ou HTML)
-    const contentType = res.headers.get("content-type") || "";
-    const text = await res.text();
-    let data = null;
-    if (contentType.includes("application/json")) {
-      try { data = JSON.parse(text); } catch (_e) {}
+  btnFinalizar.addEventListener("click", async () => {
+    if (finalizando) return; // evita clique duplo
+    const total = calcTotal();
+    if (total <= 0) {
+      alert("Carrinho vazio 🙂");
+      return;
     }
 
-    if (!res.ok || !data?.ok) {
-      const detalhe = data?.erro || text.slice(0, 200) || ("HTTP " + res.status);
-      throw new Error(detalhe);
+    const ok = confirm(`Confirmar venda no valor de ${fmtBRL(total)}?`);
+    if (!ok) return;
+
+    finalizando = true;
+
+    // UI: trava botão + muda texto
+    const txtOriginal = btnFinalizar.textContent;
+    btnFinalizar.disabled = true;
+    btnFinalizar.textContent = "FINALIZANDO...";
+
+    try {
+      const itens = Object.values(cart).map((it) => ({
+        produto_id: Number(it.id),
+        qtd: Number(it.qtd),
+      }));
+
+      const res = await fetch("/pdv/api/finalizar/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Requested-With": "XMLHttpRequest",
+          "X-CSRFToken": getCsrfToken(),
+        },
+        credentials: "same-origin",
+        body: JSON.stringify({
+          itens,
+          forma_pagamento: "pix",
+          observacao: "",
+        }),
+      });
+
+      // ✅ lê resposta com segurança (JSON ou HTML)
+      const contentType = res.headers.get("content-type") || "";
+      const text = await res.text();
+      let data = null;
+      if (contentType.includes("application/json")) {
+        try { data = JSON.parse(text); } catch (_e) { }
+      }
+
+      if (!res.ok || !data?.ok) {
+        // ✅ Auto-correção de carrinho quando backend sinaliza estoque insuficiente
+        if (data?.produto_id != null && data?.max_qtd != null) {
+          const pid = String(data.produto_id);
+          const max = Math.max(0, Math.floor(Number(data.max_qtd)));
+
+          if (cart[pid]) {
+            if (max <= 0) {
+              delete cart[pid]; // remove se não tem mais estoque
+            } else {
+              cart[pid].qtd = Math.min(cart[pid].qtd, max); // limita a qtd ao máximo permitido
+              if (cart[pid].qtd <= 0) delete cart[pid];
+            }
+            renderCart();
+
+            // volta o foco pra busca (fluxo de balcão)
+            if (buscaProduto) {
+              buscaProduto.value = "";
+              buscaProduto.focus();
+            }
+          }
+
+          alert("⚠️ Estoque mudou. Ajustei seu carrinho automaticamente.\n\n" + (data.erro || ""));
+          return; // não dispara throw
+        }
+
+        const detalhe = data?.erro || text.slice(0, 200) || ("HTTP " + res.status);
+        throw new Error(detalhe);
+      }
+
+
+      // ✅ sucesso: limpa carrinho e re-render
+      Object.keys(cart).forEach((k) => delete cart[k]);
+      renderCart();
+      const busca = document.getElementById("buscaProduto");
+      if (busca) {
+        busca.value = "";
+        busca.focus();
+      }
+
+
+      alert(`✅ Venda #${data.venda_id} registrada! Total: ${fmtBRL(Number(data.total))}`);
+    } catch (err) {
+      alert("❌ Falha ao finalizar: " + (err?.message || err));
+    } finally {
+      // UI volta ao normal
+      finalizando = false;
+      btnFinalizar.disabled = false;
+      btnFinalizar.textContent = txtOriginal;
     }
-
-    // ✅ sucesso: limpa carrinho e re-render
-    Object.keys(cart).forEach((k) => delete cart[k]);
-    renderCart();
-
-    alert(`✅ Venda #${data.venda_id} registrada! Total: ${fmtBRL(Number(data.total))}`);
-  } catch (err) {
-    alert("❌ Falha ao finalizar: " + (err?.message || err));
-  } finally {
-    // UI volta ao normal
-    finalizando = false;
-    btnFinalizar.disabled = false;
-    btnFinalizar.textContent = txtOriginal;
-  }
-});
+  });
 
 
   // ========= Funções =========
