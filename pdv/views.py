@@ -14,22 +14,47 @@ from django.views.decorators.http import require_POST
 from .models import Venda, VendaItem
 from django.utils import timezone
 from financeiro.models import Transacao
-
+from django.shortcuts import redirect
+from core.models import Perfil, Empresa  # ajuste se o caminho for outro
 
 from django.apps import apps
 
 
 @login_required
 def pdv_home(request):
-    empresa = request.user.perfil.empresa
+    # 1) garante que o usuário tem perfil (Render pode ter user sem perfil)
+    perfil, _ = Perfil.objects.get_or_create(user=request.user)
 
+    # 2) garante que o perfil tem empresa
+    empresa = getattr(perfil, "empresa", None)
+    if not empresa:
+        # pega uma empresa existente (ex.: a primeira)
+        empresa = Empresa.objects.order_by("id").first()
+
+        # se nem empresa existir, não tem como filtrar; devolve vazio com aviso
+        if not empresa:
+            return render(
+                request,
+                "pdv/pdv.html",
+                {
+                    "itens": [],
+                    "erro": "Nenhuma empresa cadastrada ainda. Crie uma empresa no admin para liberar o PDV.",
+                },
+            )
+
+        perfil.empresa = empresa
+        perfil.save(update_fields=["empresa"])
+
+    # 3) busca produtos (com filtro por empresa se existir o campo)
     Produto = apps.get_model("estoque", "Produto")
     qs = Produto.objects.all()
-    if "empresa" in [f.name for f in Produto._meta.fields]:
+
+    if any(f.name == "empresa" for f in Produto._meta.fields):
         qs = qs.filter(empresa=empresa)
+
     produtos = qs.order_by("nome")
 
-    # cria lista segura com preço resolvido
+    # 4) cria lista segura com preço resolvido
     itens = []
     for p in produtos:
         preco = getattr(p, "preco_venda", None)

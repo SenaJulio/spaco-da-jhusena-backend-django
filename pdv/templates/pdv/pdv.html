@@ -6,6 +6,10 @@
 {% block stylesheet %}
   <link rel="stylesheet" href="{% static 'pdv/pdv.css' %}">
 {% endblock %}
+{% if erro %}
+  <div class="alert alert-warning">{{ erro }}</div>
+{% endif %}
+
 
 {% block content %}
 <div class="pdv-wrap">
