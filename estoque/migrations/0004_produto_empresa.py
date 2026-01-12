@@ -4,6 +4,20 @@ from django.db import migrations, models
 import django.db.models.deletion
 
 
+def criar_empresa_padrao(apps, schema_editor):
+    Empresa = apps.get_model("core", "Empresa")
+    db = schema_editor.connection.alias
+
+    # Se já existir, não faz nada
+    if Empresa.objects.using(db).filter(id=1).exists():
+        return
+
+    Empresa.objects.using(db).create(
+        id=1,
+        nome="Spaço da Jhuséna",
+    )
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
@@ -12,10 +26,19 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
+        # 1️⃣ garante que a empresa existe
+        migrations.RunPython(criar_empresa_padrao),
+
+        # 2️⃣ agora sim cria a FK sem quebrar
         migrations.AddField(
             model_name='produto',
             name='empresa',
-            field=models.ForeignKey(default=1, on_delete=django.db.models.deletion.CASCADE, related_name='estoque_produtos', to='core.empresa'),
+            field=models.ForeignKey(
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name='estoque_produtos',
+                to='core.empresa',
+                default=1,
+            ),
             preserve_default=False,
         ),
     ]
