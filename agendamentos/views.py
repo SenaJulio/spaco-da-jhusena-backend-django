@@ -58,7 +58,11 @@ def agendar(request):
                 return redirect("agendamentos:agendamento_sucesso")
 
             # ✅ Salva só se não existir
-            agendamento = form.save()
+            agendamento = form.save(commit=False)
+            agendamento.empresa = request.user.perfil.empresa
+            agendamento.save()
+            form.save_m2m()
+
 
             # ✅ Monta mensagem
             assunto = "Confirmação de Agendamento - Spaço da Jhuséna"
