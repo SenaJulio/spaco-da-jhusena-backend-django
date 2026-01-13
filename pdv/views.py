@@ -20,34 +20,62 @@ from core.models import Perfil, Empresa  # ajuste se o caminho for outro
 from django.apps import apps
 
 
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import render
+from django.apps import apps
+
+from core.models import Perfil  # Empresa não precisa mais aqui
+
+import traceback
+from django.http import JsonResponse
+
+def json_guard(view_func):
+    """
+    Garante que qualquer exceção vire JSON (e não HTML).
+    Assim o front não recebe <!DOCTYPE html>.
+    """
+    def _wrapped(request, *args, **kwargs):
+        try:
+            return view_func(request, *args, **kwargs)
+        except Exception as e:
+            # loga no terminal (pra você ver a causa real)
+            print("\n🚨 ERRO NO PDV API FINALIZAR")
+            print(traceback.format_exc())
+
+            # devolve JSON pro front
+            return JsonResponse(
+                {"ok": False, "erro": f"{e.__class__.__name__}: {str(e)}"},
+                status=500,
+            )
+    return _wrapped
+
+
 @login_required
 def pdv_home(request):
-    # 1) precisamos de uma empresa válida, porque Perfil.empresa é NOT NULL
-    empresa = Empresa.objects.order_by("id").first()
-    if not empresa:
+    # 1) empresa SEMPRE vem do perfil do usuário logado
+    perfil = (
+        Perfil.objects.filter(user=request.user)
+        .select_related("empresa")
+        .first()
+    )
+
+    # fallback ultra seguro (não deveria acontecer após signal/backfill)
+    if not perfil or not getattr(perfil, "empresa_id", None):
         return render(
             request,
             "pdv/pdv.html",
             {
                 "itens": [],
-                "erro": "Nenhuma empresa cadastrada ainda. Crie uma empresa no admin para liberar o PDV.",
+                "erro": (
+                    "Seu usuário ainda não está vinculado a uma empresa. "
+                    "Peça ao administrador para vincular sua conta a uma empresa."
+                ),
             },
         )
 
-    # 2) garante perfil SEM tentar criar com empresa_id null
-    perfil = Perfil.objects.filter(user=request.user).select_related("empresa").first()
-
-    if not perfil:
-        perfil = Perfil.objects.create(user=request.user, empresa=empresa)
-    elif not getattr(perfil, "empresa_id", None):
-        # caso raro: perfil existe mas sem empresa (ou dados antigos)
-        perfil.empresa = empresa
-        perfil.save(update_fields=["empresa"])
-
-    # se você quer sempre operar pela empresa do perfil:
     empresa = perfil.empresa
 
-    # 3) produtos (filtra por empresa se existir o campo)
+    # 2) produtos (filtra por empresa se existir o campo)
     Produto = apps.get_model("estoque", "Produto")
     qs = Produto.objects.all()
 
@@ -56,7 +84,7 @@ def pdv_home(request):
 
     produtos = qs.order_by("nome")
 
-    # 4) lista segura com preço resolvido
+    # 3) lista segura com preço resolvido
     itens = []
     for p in produtos:
         preco = getattr(p, "preco_venda", None)
@@ -68,6 +96,7 @@ def pdv_home(request):
         itens.append({"id": p.id, "nome": p.nome, "preco": float(preco)})
 
     return render(request, "pdv/pdv.html", {"itens": itens})
+
 
 
 def _saldo_produto_atual(produto):
@@ -143,8 +172,11 @@ def _baixar_estoque_fifo(produto, qtd, observacao="", venda_id=None):
 
 @require_POST
 @login_required
+@json_guard
 def api_finalizar_venda(request):
-    empresa = request.user.perfil.empresa
+    # empresa SEMPRE do perfil
+    perfil = request.user.perfil
+    empresa = perfil.empresa
 
     try:
         payload = json.loads(request.body.decode("utf-8")) if request.body else {}
@@ -158,11 +190,11 @@ def api_finalizar_venda(request):
     if not isinstance(itens, list) or len(itens) == 0:
         return JsonResponse({"ok": False, "erro": "Carrinho vazio"}, status=400)
 
-    # ✅ pega models sem import circular
+    # models
     Produto = apps.get_model("estoque", "Produto")
     Transacao = apps.get_model("financeiro", "Transacao")
 
-    # Normaliza itens e valida básicos
+    # Normaliza itens
     norm = []
     for it in itens:
         try:
@@ -176,7 +208,7 @@ def api_finalizar_venda(request):
 
         norm.append((pid, qtd))
 
-    # Agrupa por produto (se vier repetido)
+    # Agrupa por produto
     agrupado = {}
     for pid, qtd in norm:
         agrupado[pid] = agrupado.get(pid, 0) + qtd
@@ -184,22 +216,18 @@ def api_finalizar_venda(request):
     produto_ids = list(agrupado.keys())
 
     with transaction.atomic():
-        # trava as linhas de produto (evita corrida de estoque)
+        # trava produtos
         qs = Produto.objects.select_for_update().filter(id__in=produto_ids)
         if "empresa" in [f.name for f in Produto._meta.fields]:
             qs = qs.filter(empresa=empresa)
-        produtos = qs
-        prod_map = {p.id: p for p in produtos}
 
-        # valida se todos existem
+        prod_map = {p.id: p for p in qs}
+
         faltando = [pid for pid in produto_ids if pid not in prod_map]
         if faltando:
-            return JsonResponse(
-                {"ok": False, "erro": f"Produtos não encontrados: {faltando}"},
-                status=404,
-            )
+            return JsonResponse({"ok": False, "erro": f"Produtos não encontrados: {faltando}"}, status=404)
 
-        # ✅ valida estoque pelo saldo REAL (movimentos E - S)
+        # valida estoque
         for pid, qtd in agrupado.items():
             p = prod_map[pid]
             if getattr(p, "controla_estoque", False):
@@ -215,18 +243,20 @@ def api_finalizar_venda(request):
                         status=400,
                     )
 
-        # cria venda
-        venda = Venda.objects.create(
-            operador=request.user,
-            forma_pagamento=forma_pagamento,
-            observacao=observacao,
-            total=Decimal("0.00"),
-            status="aberta",
-        )
-
+        # ✅ total precisa existir ANTES
         total = Decimal("0.00")
 
-        # cria itens + baixa estoque por FIFO
+        # ✅ cria venda e guarda o objeto
+        venda = Venda.objects.create(
+            empresa=empresa,
+            operador=request.user,
+            total=Decimal("0.00"),
+            forma_pagamento=forma_pagamento,
+            observacao=observacao,
+            status="aberta",  # <-- importante
+        )
+
+        # itens + baixa FIFO
         for pid, qtd in agrupado.items():
             p = prod_map[pid]
 
@@ -242,55 +272,84 @@ def api_finalizar_venda(request):
 
             preco = Decimal(str(preco))
 
-            # ✅ kwargs do item (com FK venda/vendas)
-            VendaItem.objects.create(
-                vendas=venda,
-                produto=p,
-                qtd=int(qtd),
-                preco_unit=preco,
-            )
+            # ✅ cria item da venda
+           # ✅ cria item da venda SEM quebrar por nome de campo diferente
+            item_fields = {f.name for f in VendaItem._meta.fields}
+
+            kwargs_item = {}
+
+            # FK da venda pode ser 'venda' ou 'vendas'
+            if "venda" in item_fields:
+                kwargs_item["venda"] = venda
+            elif "vendas" in item_fields:
+                kwargs_item["vendas"] = venda
+            else:
+                return JsonResponse({"ok": False, "erro": "VendaItem sem FK para Venda (venda/vendas)."}, status=500)
+
+            # produto
+            if "produto" in item_fields:
+                kwargs_item["produto"] = p
+            else:
+                return JsonResponse({"ok": False, "erro": "VendaItem sem campo produto."}, status=500)
+
+            # quantidade pode ser 'qtd' ou 'quantidade'
+            if "qtd" in item_fields:
+                kwargs_item["qtd"] = int(qtd)
+            elif "quantidade" in item_fields:
+                kwargs_item["quantidade"] = int(qtd)
+            else:
+                return JsonResponse({"ok": False, "erro": "VendaItem sem campo qtd/quantidade."}, status=500)
+
+            # preço pode variar
+            if "preco_unit" in item_fields:
+                kwargs_item["preco_unit"] = preco
+            elif "preco_unitario" in item_fields:
+                kwargs_item["preco_unitario"] = preco
+            elif "preco" in item_fields:
+                kwargs_item["preco"] = preco
+            else:
+                return JsonResponse({"ok": False, "erro": "VendaItem sem campo de preço (preco_unit/preco_unitario/preco)."}, status=500)
+
+            VendaItem.objects.create(**kwargs_item)
+
 
             total += preco * int(qtd)
 
             if getattr(p, "controla_estoque", False):
-                try:
-                    _baixar_estoque_fifo(
-                        produto=p,
-                        qtd=int(qtd),
-                        observacao="Saída PDV",
-                        venda_id=venda.id,
-                    )
-                except ValueError as e:
-                    return JsonResponse({"ok": False, "erro": str(e)}, status=400)
+                _baixar_estoque_fifo(
+                    produto=p,
+                    qtd=int(qtd),
+                    observacao="Saída PDV",
+                    venda_id=venda.id,
+                )
 
         # fecha venda
         venda.total = total
         venda.status = "concluida"
         venda.save(update_fields=["total", "status"])
 
-        # 💰 transação no financeiro
-    trans_kwargs = {
-        "empresa": request.user.perfil.empresa,
-        "tipo": "receita",
-        "valor": total,
-        "descricao": f"Venda PDV #{venda.id}",
-        "categoria": "PDV",
-        "data": (getattr(venda, "criado_em", None) or timezone.now()).date(),
-    }
 
-    # ✅ Só adiciona 'vendas' se existir no model
-    # Só tenta linkar se existir um FK e ele apontar pro MESMO model da venda atual (pdv.Venda)
-    for fname in ("venda", "vendas"):
-        try:
-            f = Transacao._meta.get_field(fname)
-        except Exception:
-            continue
+        # 💰 cria transação (DENTRO do atomic)
+        trans_kwargs = {
+            "empresa": empresa,
+            "tipo": "receita",
+            "valor": total,
+            "descricao": f"Venda PDV #{venda.id}",
+            "categoria": "PDV",
+            "data": (getattr(venda, "criado_em", None) or timezone.now()).date(),
+        }
 
-        if getattr(f, "remote_field", None) and f.remote_field.model == venda.__class__:
-            trans_kwargs[fname] = venda
-            break
+        # tenta vincular venda se existir campo
+        for fname in ("venda", "vendas"):
+            try:
+                f = Transacao._meta.get_field(fname)
+            except Exception:
+                continue
+            if getattr(f, "remote_field", None) and f.remote_field.model == venda.__class__:
+                trans_kwargs[fname] = venda
+                break
 
-    Transacao.objects.create(**trans_kwargs)
+        Transacao.objects.create(**trans_kwargs)
 
-    # ✅ SEMPRE retorna fora do atomic (mais seguro)
     return JsonResponse({"ok": True, "venda_id": venda.id, "total": f"{total:.2f}"})
+
