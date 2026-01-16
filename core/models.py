@@ -1,4 +1,7 @@
+from django.conf import settings
 from django.db import models
+from django.utils.text import slugify
+
 
 class Empresa(models.Model):
     PLANO_CHOICES = [
@@ -7,6 +10,10 @@ class Empresa(models.Model):
     ]
 
     nome = models.CharField(max_length=120)
+
+    # ✅ âncora para empresa padrão (não depende de first())
+    codigo = models.SlugField(unique=True, blank=True)
+
     plano = models.CharField(
         max_length=10,
         choices=PLANO_CHOICES,
@@ -15,18 +22,26 @@ class Empresa(models.Model):
     ativa = models.BooleanField(default=True)
     criado_em = models.DateTimeField(auto_now_add=True)
 
+    def save(self, *args, **kwargs):
+        if not self.codigo:
+            self.codigo = slugify(self.nome) or "spaco-da-jhusena"
+        super().save(*args, **kwargs)
+
     def __str__(self):
         return self.nome
 
-from django.contrib.auth.models import User
 
 class Perfil(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="perfil",
+    )
     empresa = models.ForeignKey(
         Empresa,
-        on_delete=models.CASCADE,
-        related_name="usuarios"
+        on_delete=models.PROTECT,
+        related_name="usuarios",
     )
 
     def __str__(self):
-        return self.user.username
+        return getattr(self.user, "username", "user")
