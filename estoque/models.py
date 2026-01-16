@@ -2,8 +2,8 @@
 from django.db import models
 from django.db.models import Sum, F, Case, When, DecimalField
 from django.core.exceptions import ValidationError
-from core.models import Empresa
 
+from core.models import Empresa
 
 
 class ItemEstoque(models.Model):
@@ -23,7 +23,6 @@ class Produto(models.Model):
     - Serviços (banho, tosa, hidratação etc.)
     - Produtos físicos (ração, petiscos, acessório etc.)
     """
-
     empresa = models.ForeignKey(
         Empresa,
         on_delete=models.CASCADE,
@@ -36,23 +35,21 @@ class Produto(models.Model):
     ]
 
     nome = models.CharField("Nome", max_length=120)
-    tipo = models.CharField(
-        "Tipo",
-        max_length=8,
-        choices=TIPO_CHOICES,
-        default="SERVICO",
-    )
+    tipo = models.CharField("Tipo", max_length=8, choices=TIPO_CHOICES, default="SERVICO")
+
     preco_venda = models.DecimalField(
         "Preço de venda",
         max_digits=10,
         decimal_places=2,
         default=0,
     )
+
     controla_estoque = models.BooleanField(
         "Controla estoque?",
         default=False,
         help_text="Marque apenas para itens físicos que baixam estoque.",
     )
+
     ativo = models.BooleanField("Ativo?", default=True)
 
     class Meta:
@@ -69,24 +66,32 @@ class LoteProduto(models.Model):
     Lote de um produto com validade opcional.
     Serve para rastrear de qual lote vieram as entradas/saídas.
     """
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.PROTECT,
+        related_name="lotes_produto",
+    )
 
     produto = models.ForeignKey(
         Produto,
         on_delete=models.PROTECT,
         related_name="lotes",
     )
+
     codigo = models.CharField(
         "Lote",
         max_length=50,
         blank=True,
         help_text="Código do lote impresso na embalagem (opcional).",
     )
+
     validade = models.DateField(
         "Validade",
         null=True,
         blank=True,
         help_text="Data de validade do lote (se houver).",
     )
+
     criado_em = models.DateTimeField("Criado em", auto_now_add=True)
 
     class Meta:
@@ -101,6 +106,11 @@ class LoteProduto(models.Model):
         if self.validade:
             base += f" (val {self.validade:%d/%m/%Y})"
         return base
+    
+    def save(self, *args, **kwargs):
+        if self.produto_id:
+            self.empresa = self.produto.empresa
+        return super().save(*args, **kwargs)
 
     @property
     def saldo_atual(self):
@@ -124,35 +134,35 @@ class LoteProduto(models.Model):
 class MovimentoEstoque(models.Model):
     """
     Registro de entradas/saídas de estoque.
-    Futuro PDV vai gerar saídas automaticamente.
+    PDV e ajustes de estoque geram movimentos automaticamente.
     """
-
     TIPO_CHOICES = [
         ("E", "Entrada"),
         ("S", "Saída"),
     ]
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.PROTECT,
+        related_name="movimentos_estoque",
+    )
 
     produto = models.ForeignKey(
         Produto,
         on_delete=models.PROTECT,
         related_name="movimentos",
     )
-    tipo = models.CharField("Tipo", max_length=1, choices=TIPO_CHOICES)
-    quantidade = models.DecimalField(
-        "Quantidade",
-        max_digits=10,
-        decimal_places=3,
-    )
-    data = models.DateTimeField("Data", auto_now_add=True)
-    observacao = models.CharField(
-        "Observação",
-        max_length=255,
-        blank=True,
-    )
 
-    # 👉 NOVO: vínculo opcional com lote
+    tipo = models.CharField("Tipo", max_length=1, choices=TIPO_CHOICES)
+
+    quantidade = models.DecimalField("Quantidade", max_digits=10, decimal_places=3)
+
+    data = models.DateTimeField("Data", auto_now_add=True)
+
+    observacao = models.CharField("Observação", max_length=255, blank=True)
+
     lote = models.ForeignKey(
-        LoteProduto,
+        "estoque.LoteProduto",
         on_delete=models.PROTECT,
         null=True,
         blank=True,
@@ -168,19 +178,21 @@ class MovimentoEstoque(models.Model):
     def __str__(self):
         return f"{self.get_tipo_display()} de {self.quantidade} de {self.produto}"
 
-    # 🔒 Regra: não permitir saída acima do saldo atual
     def clean(self):
         super().clean()
 
-        # Só valida SAÍDA de produto que controla estoque
+        # Regra anti-mistura: empresa do movimento deve ser a do produto
+        if self.produto_id and self.empresa_id and getattr(self.produto, "empresa_id", None) != self.empresa_id:
+            raise ValidationError({"empresa": "Empresa do movimento deve ser a mesma do produto."})
+
+        # Só valida SAÍDA de produto que controla estoque (por produto)
         if (
             self.tipo == "S"
             and self.produto_id
             and getattr(self.produto, "controla_estoque", False)
         ):
-            qs = type(self).objects.filter(produto=self.produto)
+            qs = type(self).objects.filter(produto=self.produto, empresa=self.produto.empresa)
 
-            # se estiver editando um movimento já existente, ignora ele no cálculo
             if self.pk:
                 qs = qs.exclude(pk=self.pk)
 
@@ -200,15 +212,12 @@ class MovimentoEstoque(models.Model):
 
             if self.quantidade > saldo_atual:
                 raise ValidationError(
-                    {
-                        "quantidade": (
-                            f"Estoque insuficiente para {self.produto}. "
-                            f"Saldo atual: {saldo_atual}."
-                        )
-                    }
+                    {"quantidade": f"Estoque insuficiente para {self.produto}. Saldo atual: {saldo_atual}."}
                 )
 
-    # garante que a validação rode mesmo quando salvar via código
     def save(self, *args, **kwargs):
+        if self.produto_id:
+            self.empresa = self.produto.empresa
         self.full_clean()
         return super().save(*args, **kwargs)
+
