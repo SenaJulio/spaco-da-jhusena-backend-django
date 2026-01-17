@@ -17,8 +17,23 @@ class EstoqueBaixoFilter(admin.SimpleListFilter):
     def queryset(self, request, queryset):
         valor = self.value()
         if valor == "baixo":
-            # usa a anotação saldo_calc feita no get_queryset
-            return queryset.filter(saldo_calc__lte=3)
+            # só considera produtos que controlam estoque
+            # e compara saldo_calc com o estoque_minimo do próprio produto
+            return queryset.filter(controla_estoque=True, saldo_calc__lte=F("estoque_minimo"))
+        return queryset
+
+
+class EstoqueBaixoFilter(admin.SimpleListFilter):
+    title = "Estoque"
+    parameter_name = "estoque_baixo"
+
+    def lookups(self, request, model_admin):
+        return [("baixo", "Baixo / Em falta")]
+
+    def queryset(self, request, queryset):
+        if self.value() == "baixo":
+            # saldo <= estoque_minimo
+            return queryset.filter(saldo_calc__lte=F("estoque_minimo"))
         return queryset
 
 
@@ -29,15 +44,20 @@ class ProdutoAdmin(admin.ModelAdmin):
         "tipo",
         "preco_venda",
         "controla_estoque",
+        "estoque_minimo",
         "ativo",
         "saldo_estoque",
         "status_estoque",
     )
+
+    # permite editar direto na lista (mais rápido no dia a dia)
+    list_editable = ("estoque_minimo",)
+
     list_filter = (
         "tipo",
         "controla_estoque",
         "ativo",
-        EstoqueBaixoFilter,  # 👈 filtro de estoque baixo
+        EstoqueBaixoFilter,
     )
     search_fields = ("nome",)
     readonly_fields = ("saldo_estoque",)
@@ -63,11 +83,16 @@ class ProdutoAdmin(admin.ModelAdmin):
     # -------- STATUS VISUAL --------
     @admin.display(description="Status")
     def status_estoque(self, obj):
+        # se não controla estoque, não entra em alerta
+        if not obj.controla_estoque:
+            return "🟢 OK"
+
         saldo = self.saldo_estoque(obj)
+        minimo = getattr(obj, "estoque_minimo", 0) or 0
 
         if saldo <= 0:
             return "❌ Em falta"
-        elif saldo <= 3:
+        elif saldo <= minimo:
             return "⚠️ Baixo"
         return "🟢 OK"
 
@@ -104,5 +129,5 @@ class MovimentoEstoqueAdmin(admin.ModelAdmin):
     search_fields = ("produto__nome", "observacao", "lote__codigo")
 
 
-# legado, mas ainda registrado
 admin.site.register(ItemEstoque)
+

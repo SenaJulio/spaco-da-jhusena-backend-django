@@ -17,6 +17,9 @@ class Venda(models.Model):
     data = models.DateTimeField("Data", default=timezone.now)
     total = models.DecimalField("Total", max_digits=10, decimal_places=2, default=0)
     observacao = models.CharField("Observação", max_length=255, blank=True)
+    justificativa_lote = models.TextField("Justificativa do lote", blank=True, default="")
+    motivo_lote = models.CharField("Motivo (lote)", max_length=30, blank=True, default="")
+
 
     class Meta:
         verbose_name = "Venda"

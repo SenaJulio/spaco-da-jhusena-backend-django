@@ -11,6 +11,7 @@ class ItemEstoque(models.Model):
     Modelo simples legado. Mantido por compatibilidade.
     Use Produto para novos cadastros.
     """
+
     nome = models.CharField(max_length=100)
 
     def __str__(self):
@@ -23,6 +24,7 @@ class Produto(models.Model):
     - Serviços (banho, tosa, hidratação etc.)
     - Produtos físicos (ração, petiscos, acessório etc.)
     """
+
     empresa = models.ForeignKey(
         Empresa,
         on_delete=models.CASCADE,
@@ -49,6 +51,15 @@ class Produto(models.Model):
         default=False,
         help_text="Marque apenas para itens físicos que baixam estoque.",
     )
+   
+    # ✅ NOVO
+    estoque_minimo = models.DecimalField(
+        "Estoque mínimo",
+        max_digits=10,
+        decimal_places=3,
+        default=0,
+        help_text="Quantidade mínima aceitável antes de gerar alerta.",
+    )
 
     ativo = models.BooleanField("Ativo?", default=True)
 
@@ -66,6 +77,7 @@ class LoteProduto(models.Model):
     Lote de um produto com validade opcional.
     Serve para rastrear de qual lote vieram as entradas/saídas.
     """
+
     empresa = models.ForeignKey(
         Empresa,
         on_delete=models.PROTECT,
@@ -106,7 +118,7 @@ class LoteProduto(models.Model):
         if self.validade:
             base += f" (val {self.validade:%d/%m/%Y})"
         return base
-    
+
     def save(self, *args, **kwargs):
         if self.produto_id:
             self.empresa = self.produto.empresa
@@ -136,6 +148,7 @@ class MovimentoEstoque(models.Model):
     Registro de entradas/saídas de estoque.
     PDV e ajustes de estoque geram movimentos automaticamente.
     """
+
     TIPO_CHOICES = [
         ("E", "Entrada"),
         ("S", "Saída"),
@@ -182,7 +195,11 @@ class MovimentoEstoque(models.Model):
         super().clean()
 
         # Regra anti-mistura: empresa do movimento deve ser a do produto
-        if self.produto_id and self.empresa_id and getattr(self.produto, "empresa_id", None) != self.empresa_id:
+        if (
+            self.produto_id
+            and self.empresa_id
+            and getattr(self.produto, "empresa_id", None) != self.empresa_id
+        ):
             raise ValidationError({"empresa": "Empresa do movimento deve ser a mesma do produto."})
 
         # Só valida SAÍDA de produto que controla estoque (por produto)
@@ -212,7 +229,9 @@ class MovimentoEstoque(models.Model):
 
             if self.quantidade > saldo_atual:
                 raise ValidationError(
-                    {"quantidade": f"Estoque insuficiente para {self.produto}. Saldo atual: {saldo_atual}."}
+                    {
+                        "quantidade": f"Estoque insuficiente para {self.produto}. Saldo atual: {saldo_atual}."
+                    }
                 )
 
     def save(self, *args, **kwargs):
@@ -220,4 +239,3 @@ class MovimentoEstoque(models.Model):
             self.empresa = self.produto.empresa
         self.full_clean()
         return super().save(*args, **kwargs)
-

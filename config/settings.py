@@ -115,7 +115,7 @@ INSTALLED_APPS = [
     "usuarios.apps.UsuariosConfig",
     "relatorios",
     "core.apps.CoreConfig",
-    "estoque",
+    "estoque.apps.EstoqueConfig",
     "financeiro",
     "notificacoes.apps.NotificacoesConfig",
     # terceiros

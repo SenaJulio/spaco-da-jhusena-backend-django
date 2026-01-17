@@ -4,10 +4,10 @@
 {% block title %}PDV | Spaço da Jhuséna{% endblock %}
 
 {% block stylesheet %}
-  <link rel="stylesheet" href="{% static 'pdv/pdv.css' %}">
+<link rel="stylesheet" href="{% static 'pdv/pdv.css' %}">
 {% endblock %}
 {% if erro %}
-  <div class="alert alert-warning">{{ erro }}</div>
+<div class="alert alert-warning">{{ erro }}</div>
 {% endif %}
 
 
@@ -15,13 +15,42 @@
 <div class="pdv-wrap">
 
   <header class="pdv-header">
-  <h1 class="m-0">🟢 PDV — Vendas de Produtos</h1>
+    <h1 class="m-0">🟢 PDV — Vendas de Produtos</h1>
 
-  <div class="pdv-badges">
-    <span class="badge text-bg-light">Operador</span>
-    <span class="badge text-bg-dark">Balcão</span>
-  </div>
-</header>
+    <div class="pdv-badges">
+      <span class="badge text-bg-light">Operador</span>
+      <span class="badge text-bg-dark">Balcão</span>
+    </div>
+
+    <a href="{% url 'pdv:vendas_lote_vencido' %}" style="
+  text-decoration:none;
+  color:#e8f0ff;
+  font-weight:800;
+  padding:8px 12px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.15);
+  background:rgba(255,255,255,.06);
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+">
+      🧾 Overrides
+      <span style="
+    display:inline-block;
+    min-width:28px;
+    text-align:center;
+    padding:2px 10px;
+    border-radius:999px;
+    border:1px solid rgba(255,107,107,.25);
+    background:rgba(255,107,107,.12);
+    color:#ff8b8b;
+    font-weight:900;
+  ">
+        {{ overrides_count|default:"0" }}
+      </span>
+    </a>
+
+  </header>
 
 
   <div class="pdv-content">
@@ -29,17 +58,14 @@
     <section class="pdv-produtos">
       <input id="buscaProduto" type="text" placeholder="🔍 Buscar produto..." class="pdv-busca" />
 
-      
+
       <ul class="pdv-lista-produtos" id="listaProdutos">
         {% for p in itens %}
-          <li class="produto"
-              data-id="{{ p.id }}"
-              data-nome="{{ p.nome|escape }}"
-              data-preco="{{ p.preco }}"
-              data-estoque="999999">
-            <span class="nome">{{ p.nome }}</span>
-            <span class="preco">R$ {{ p.preco }}</span>
-          </li>
+        <li class="produto" data-id="{{ p.id }}" data-nome="{{ p.nome|escape }}" data-preco="{{ p.preco }}"
+          data-estoque="999999">
+          <span class="nome">{{ p.nome }}</span>
+          <span class="preco">R$ {{ p.preco }}</span>
+        </li>
         {% endfor %}
       </ul>
 
@@ -48,7 +74,7 @@
     </section>
 
     <!-- CARRINHO -->
-<section class="pdv-carrinho">
+    <section class="pdv-carrinho">
       <h2 class="pdv-title">🛒 Carrinho</h2>
 
       <div id="cartItems"></div>
@@ -61,11 +87,42 @@
       <button type="button" class="btn-finalizar" id="btnFinalizar">
         FINALIZAR VENDA
       </button>
-</section>
+    </section>
+  </div>
 </div>
+<div class="modal fade" id="modalLoteVencido" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark text-light">
+      <div class="modal-header">
+        <h5 class="modal-title">🚨 Lote vencido detectado</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <div id="mvDetalhes" class="mb-2" style="font-size:.95rem; opacity:.9;"></div>
+
+        <div class="mb-2">
+          <strong>Ação recomendada:</strong> Descartar / Baixar / Bloquear
+        </div>
+
+        <label class="form-label">Justificativa (obrigatória para continuar)</label>
+        <textarea id="justificativaLote" class="form-control" rows="2"
+          placeholder="Ex: Autorizado pelo responsável, será baixado no sistema..."></textarea>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button id="btnContinuarComJustificativa" class="btn btn-danger">
+          Continuar mesmo assim
+        </button>
+      </div>
+    </div>
+  </div>
 </div>
+
+
 {% endblock %}
 
 {% block extrabody %}
-  <script src="{% static 'pdv/pdv.js' %}" defer></script>
+<script src="{% static 'pdv/pdv.js' %}" defer></script>
 {% endblock %}

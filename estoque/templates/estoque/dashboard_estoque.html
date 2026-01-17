@@ -1,5 +1,3 @@
-
-
 {% extends "base.html" %}
 {% load static %}
 
@@ -7,100 +5,175 @@
 
 {% block content %}
 <style>
-  body{
-  min-height: 100vh;
-  background:
-    radial-gradient(1100px 600px at 18% 0%, rgba(47,191,113,.14), transparent 55%),
-    radial-gradient(900px 520px at 92% 18%, rgba(59,130,246,.10), transparent 55%),
-    linear-gradient(180deg, #0b1220 0%, #0f172a 100%);
-  color:#e8f0ff;
-}
-.card{
-  background: rgba(15, 23, 42, 0.86) !important;
-  border: 1px solid rgba(255,255,255,0.10);
-  border-radius: 14px;
-  box-shadow: 0 12px 36px rgba(0,0,0,.45);
-  color: #e5e7eb;
-}
+  body {
+    min-height: 100vh;
+    background:
+      radial-gradient(1100px 600px at 18% 0%, rgba(47, 191, 113, .14), transparent 55%),
+      radial-gradient(900px 520px at 92% 18%, rgba(59, 130, 246, .10), transparent 55%),
+      linear-gradient(180deg, #0b1220 0%, #0f172a 100%);
+    color: #e8f0ff;
+  }
 
-.chart-container,
-.chart-box{
-  background: rgba(2, 6, 23, 0.55);
-  border-radius: 12px;
-  padding: 12px;
-}
+  .card {
+    background: rgba(15, 23, 42, 0.86) !important;
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 14px;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, .45);
+    color: #e5e7eb;
+  }
 
-.text-muted{
-  color:#94a3b8 !important;
-}
+  .chart-container,
+  .chart-box {
+    background: rgba(2, 6, 23, 0.55);
+    border-radius: 12px;
+    padding: 12px;
+  }
+
+  .text-muted {
+    color: #94a3b8 !important;
+  }
 
 
 
-  .sj-wrap{
+  .sj-wrap {
     padding: 18px 10px 28px;
   }
-  .sj-topbar{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:12px;
+
+  .sj-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
     margin-bottom: 10px;
   }
-  .sj-title{
+
+  .sj-title {
     font-weight: 800;
     font-size: clamp(28px, 3vw, 44px);
     color: #7CFF9E;
     letter-spacing: .2px;
     margin: 6px 0 0;
-    text-shadow: 0 0 18px rgba(124,255,158,.15);
+    text-shadow: 0 0 18px rgba(124, 255, 158, .15);
   }
-  .sj-btn{
+
+  .sj-btn {
     border-radius: 12px;
     font-weight: 800;
   }
-  .sj-card{
-    background: rgba(0,0,0,.35);
-    border: 1px solid rgba(255,255,255,.06);
+
+  .sj-card {
+    background: rgba(0, 0, 0, .35);
+    border: 1px solid rgba(255, 255, 255, .06);
     border-radius: 14px;
-    box-shadow: 0 10px 28px rgba(0,0,0,.35);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, .35);
     overflow: hidden;
   }
-  .sj-card-header{
+
+  .sj-card-header {
     padding: 14px 16px;
-    border-bottom: 1px solid rgba(255,255,255,.06);
+    border-bottom: 1px solid rgba(255, 255, 255, .06);
     color: #eaf2ff;
     font-weight: 700;
   }
-  .sj-card-body{
+
+  .sj-card-body {
     padding: 14px 16px 18px;
   }
-  .sj-chartBox{
+
+  .sj-chartBox {
     height: 320px;
   }
-  .sj-alerts{
+
+  .sj-alerts {
     margin: 0;
     padding-left: 18px;
   }
-  .sj-alerts li{
+
+  .sj-alerts li {
     margin: 8px 0;
     font-weight: 700;
     color: #ff4d4d;
-    text-shadow: 0 0 14px rgba(255,77,77,.10);
+    text-shadow: 0 0 14px rgba(255, 77, 77, .10);
   }
-  .sj-muted{
-    color: rgba(255,255,255,.65);
+
+  .sj-muted {
+    color: rgba(255, 255, 255, .65);
     font-weight: 500;
+  }
+
+  /* === Ranking de Lotes Críticos: alerta máximo quando há vencidos === */
+  #cardRankingLotes.sj-critico-vencido {
+    border: 1px solid rgba(255, 59, 48, 0.55);
+    box-shadow: 0 0 0 2px rgba(255, 59, 48, 0.12), 0 16px 40px rgba(0, 0, 0, 0.35);
+    position: relative;
+  }
+
+  #cardRankingLotes.sj-critico-vencido::after {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    border: 2px solid rgba(255, 59, 48, 0.35);
+    animation: sjPulse 1.6s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  @keyframes sjPulse {
+    0% {
+      opacity: 0.25;
+      transform: scale(1);
+    }
+
+    50% {
+      opacity: 0.7;
+      transform: scale(1.01);
+    }
+
+    100% {
+      opacity: 0.25;
+      transform: scale(1);
+    }
+  }
+
+  /* === Ranking de Lotes Críticos — Dark friendly === */
+  #cardRankingLotes .list-group-item {
+    background: rgba(12, 18, 32, 0.85);
+    /* dark azul */
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #e8f0ff;
+  }
+
+  #cardRankingLotes .list-group-item+.list-group-item {
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  #cardRankingLotes .list-group-item .text-muted {
+    color: rgba(232, 240, 255, 0.65) !important;
+  }
+
+  /* badges continuam chamativos */
+  #cardRankingLotes .badge.bg-danger {
+    background-color: #ff4d4f !important;
+  }
+
+  #cardRankingLotes .badge.bg-warning {
+    background-color: #f5c542 !important;
+    color: #111 !important;
+  }
+
+  #cardRankingLotes .badge.bg-success {
+    background-color: #2fbf71 !important;
   }
 </style>
 <!-- ✅ Topo vendável (título + botão) -->
- 
 
-<div class="sj-wrap">  
+
+<div class="sj-wrap">
   <div class="sj-topbar">
     <div class="sj-title">Dashboard de Estoque</div>
-
-    
   </div>
+
 
   <div class="row g-3">
     <!-- Card 1 -->
@@ -128,15 +201,57 @@
         </div>
       </div>
     </div>
-                <!-- Card 3: Insights (mini-IA) -->
+
+
+    <!-- === Ranking de Lotes Críticos === -->
+    <div class="card sj-card" id="cardRankingLotes">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <div>
+          <h5 class="mb-0">Ranking de Lotes Críticos</h5>
+          <small class="text-muted">Validade + saldo (somente lotes com saldo &gt; 0)</small>
+        </div>
+
+        <div class="d-flex align-items-center gap-2">
+          <a href="/estoque/lotes/criticos/" class="btn btn-sm btn-outline-light">
+            Ver todos
+          </a>
+          <span class="badge bg-danger" id="badgeCriticos">0</span>
+        </div>
+      </div>
+
+
+      <div class="card-body">
+        <div id="rankingLotesMsg" class="text-muted">Carregando...</div>
+
+        <div class="list-group mt-2" id="rankingLotesLista" style="display:none;"></div>
+      </div>
+    </div>
+
+    <!-- Card 3: Insights (mini-IA) -->
     <div class="col-12">
       <div class="sj-card">
         <div class="sj-card-header">🧠 Insights do Estoque</div>
-            <div class="sj-card-body">
-              <div id="estoqueInsights" class="sj-muted"></div>
-              </div>
+        <div class="sj-card-body">
+          <div id="estoqueInsights" class="sj-muted"></div>
         </div>
       </div>
+    </div>
+
+    <!-- Card 3.5: Ranking Estoque Crítico -->
+    <div class="col-12">
+      <div class="sj-card">
+        <div class="sj-card-header">🚨 Ranking de Estoque Crítico</div>
+        <div class="sj-card-body">
+          <div id="rankingEstoque">
+            <div class="sj-muted">Carregando...</div>
+          </div>
+          <div class="sj-muted small mt-2">
+            Mostra itens com saldo ≤ estoque mínimo (crítico/atenção)
+          </div>
+        </div>
+      </div>
+    </div>
+
 
     <!-- Card 4: Alertas -->
     <div class="col-12">
@@ -144,15 +259,15 @@
         <div class="sj-card-header">Alertas de lotes vencidos / a vencer</div>
         <div class="sj-card-body">
           {% if alertas_lotes and alertas_lotes|length %}
-            <ul class="sj-alerts">
-              {% for msg in alertas_lotes %}
-                <li>
-                  {% if msg.texto %}{{ msg.texto }}{% else %}{{ msg }}{% endif %}
-                </li>
-              {% endfor %}
-            </ul>
+          <ul class="sj-alerts">
+            {% for msg in alertas_lotes %}
+            <li>
+              {% if msg.texto %}{{ msg.texto }}{% else %}{{ msg }}{% endif %}
+            </li>
+            {% endfor %}
+          </ul>
           {% else %}
-            <div class="sj-muted">Nenhum alerta de lote no momento. ✅</div>
+          <div class="sj-muted">Nenhum alerta de lote no momento. ✅</div>
           {% endif %}
         </div>
       </div>
@@ -176,9 +291,6 @@
 
 
 {% block extrabody %}
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <script src="{% static 'estoque/dashboard_estoque.js' %}?v=20251224_99"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{% static 'estoque/dashboard_estoque.js' %}?v=20251224_99"></script>
 {% endblock %}
-
-
-

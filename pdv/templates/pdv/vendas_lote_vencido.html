@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block content %}
+<div class="sj-wrap" style="max-width:980px;margin:18px auto;padding:0 12px;">
+
+  <div class="sj-card" style="
+      background:rgba(10,16,28,.88);
+      border:1px solid rgba(47,191,113,.22);
+      border-radius:18px;
+      box-shadow:0 10px 30px rgba(0,0,0,.35);
+      overflow:hidden;
+  ">
+    <div style="
+        padding:14px 16px;
+        background:linear-gradient(135deg,#1f7a3a,#2fbf71);
+        color:#fff;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:12px;
+    ">
+      <div>
+        <div style="font-weight:800;font-size:1.05rem;line-height:1.1;">🧾 Vendas com Override de Lote</div>
+        <div style="opacity:.9;font-size:.9rem;">(vendas que tiveram justificativa de lote vencido)</div>
+      </div>
+
+      <a href="/pdv/" style="
+          text-decoration:none;
+          color:#fff;
+          font-weight:700;
+          padding:8px 12px;
+          border-radius:999px;
+          border:1px solid rgba(255,255,255,.25);
+          background:rgba(255,255,255,.12);
+          white-space:nowrap;
+      ">
+        ← Voltar ao PDV
+      </a>
+    </div>
+
+    <div style="padding:14px 16px;color:#e8f0ff;">
+      {% if vendas %}
+        <div style="overflow:auto;">
+          <table style="width:100%;border-collapse:collapse;min-width:760px;">
+            <thead>
+              <tr style="text-align:left;font-size:.85rem;opacity:.85;">
+                <th style="padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.10);">Venda</th>
+                <th style="padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.10);">Data</th>
+                <th style="padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.10);">Operador</th>
+                <th style="padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.10);">Forma</th>
+                <th style="padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.10);text-align:right;">Total</th>
+                <th style="padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.10);">Justificativa</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for v in vendas %}
+              <tr style="vertical-align:top;">
+                <td style="padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.08);">
+                  <span style="
+                      display:inline-block;
+                      padding:6px 10px;
+                      border-radius:999px;
+                      border:1px solid rgba(255,107,107,.25);
+                      background:rgba(255,107,107,.10);
+                      color:#ff8b8b;
+                      font-weight:800;
+                  ">
+                    #{{ v.id }}
+                  </span>
+                </td>
+
+                <td style="padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.08);opacity:.9;">
+                  {{ v.criado_em|date:"d/m/Y H:i" }}
+                </td>
+
+                <td style="padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.08);opacity:.95;">
+                  {{ v.operador }}
+                </td>
+
+                <td style="padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.08);opacity:.9;">
+                  {{ v.get_forma_pagamento_display }}
+                </td>
+
+                <td style="padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.08);text-align:right;font-weight:800;">
+                  R$ {{ v.total|floatformat:2 }}
+                </td>
+
+                <td style="padding:10px 8px;border-bottom:1px solid rgba(255,255,255,.08);">
+                  <div style="
+                      border:1px solid rgba(255,255,255,.10);
+                      background:rgba(255,255,255,.06);
+                      border-radius:12px;
+                      padding:8px 10px;
+                      line-height:1.25;
+                      white-space:pre-wrap;
+                  ">
+                    {{ v.justificativa_lote }}
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div style="margin-top:10px;opacity:.75;font-size:.9rem;">
+          Mostrando as últimas <strong>{{ vendas|length }}</strong> vendas com justificativa.
+        </div>
+      {% else %}
+        <div style="
+            padding:14px 12px;
+            border-radius:14px;
+            border:1px solid rgba(255,255,255,.10);
+            background:rgba(255,255,255,.06);
+            opacity:.9;
+        ">
+          ✅ Nenhuma venda com override/justificativa de lote encontrada.
+        </div>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

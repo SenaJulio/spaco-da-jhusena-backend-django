@@ -20,7 +20,6 @@
   const cartTotalEl = $("#cartTotal");
   const btnFinalizar = $("#btnFinalizar");
 
-
   if (!listaProdutos || !buscaProduto || !cartItemsEl || !cartTotalEl || !btnFinalizar) {
     console.warn("[PDV] Elementos não encontrados. Confere IDs no HTML.");
     return;
@@ -41,7 +40,6 @@
     btnFinalizar.click();
   });
 
-
   // ========= Estado =========
   // cart = { [id]: { id, nome, preco, qtd, estoque } }
   const cart = {};
@@ -59,16 +57,53 @@
     const nome = String(li.dataset.nome || li.querySelector(".nome")?.textContent || "").trim();
     const preco = Number(String(li.dataset.preco ?? "0").replace(",", "."));
 
-
     if (!id || !nome) return;
     if (!(preco > 0)) {
       alert("Produto sem preço cadastrado. Ajuste no admin 🙂");
       return;
     }
 
-
     addToCart({ id, nome, preco, estoque });
   });
+
+  // ========= Checagem lote vencido (carrinho) =========
+  async function checarLoteVencidoCarrinho(carrinhoItens) {
+    for (const it of carrinhoItens) {
+      const form = new FormData();
+      form.append("produto_id", it.produto_id);
+      form.append("qtd", it.qtd);
+
+      const resp = await fetch("/pdv/api/check-lote-vencido/", {
+        method: "POST",
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+          "X-CSRFToken": getCsrfToken(),
+        },
+        credentials: "same-origin",
+        body: form,
+      });
+
+      const contentType = resp.headers.get("content-type") || "";
+      const text = await resp.text();
+      let data = null;
+
+      if (contentType.includes("application/json")) {
+        try {
+          data = JSON.parse(text);
+        } catch (_e) {}
+      }
+
+      if (!resp.ok || !data?.ok) {
+        const detalhe = data?.erro || text.slice(0, 200) || ("HTTP " + resp.status);
+        throw new Error(detalhe);
+      }
+
+      // ✅ se o backend detectou lote vencido, ele devolve motivo/politica/detalhes
+      if (data?.motivo === "LOTE_VENCIDO") return data;
+    }
+
+    return { ok: true, motivo: null, bloquear: false, avisar: false, politica: null, detalhes: [] };
+  }
 
   // ========= Busca =========
   buscaProduto.addEventListener("input", () => {
@@ -108,6 +143,82 @@
       return;
     }
 
+    // monta itens uma vez (vai usar no check e no finalizar)
+    const itens = Object.values(cart).map((it) => ({
+      produto_id: Number(it.id),
+      qtd: Number(it.qtd),
+    }));
+
+    // ✅ 1) checa lote vencido antes do confirm
+    let justificativaLote = "";
+
+    try {
+      const check = await checarLoteVencidoCarrinho(itens);
+
+      // Só entra se achou lote vencido
+      if (check?.motivo === "LOTE_VENCIDO") {
+        // 1) LIVRE: só avisa e segue
+        if (check.politica === "livre") {
+          alert("⚠️ Aviso: existe lote vencido com saldo. Venda permitida pela política da empresa.");
+        }
+
+        // 2) BLOQUEAR: trava e não deixa vender
+        else if (check.politica === "bloquear") {
+          alert("⛔ Venda BLOQUEADA: lote vencido. Política da empresa: bloquear sempre.");
+          return;
+        }
+
+        // 3) JUSTIFICAR: modal obrigatório
+        else if (check.politica === "justificar" && check.exige_justificativa) {
+          const modalEl = document.getElementById("modalLoteVencido");
+          if (!modalEl) {
+            alert("🚨 Lote vencido detectado, mas o modal não foi encontrado no HTML.");
+            return;
+          }
+
+          const det = (check.detalhes || [])
+            .map((d) => `• ${d.lote} (val: ${d.validade}) — qtd aprox: ${d.qtd}`)
+            .join("<br>");
+
+          const detEl = document.getElementById("mvDetalhes");
+          if (detEl) detEl.innerHTML = det ? `<div class="text-danger">${det}</div>` : "";
+
+          const txt = document.getElementById("justificativaLote");
+          if (txt) txt.value = "";
+
+          const modal = new bootstrap.Modal(modalEl);
+          modal.show();
+
+          const continuar = await new Promise((resolve) => {
+            const btn = document.getElementById("btnContinuarComJustificativa");
+
+            btn.onclick = () => {
+              const j = (document.getElementById("justificativaLote")?.value || "").trim();
+              if (!j) {
+                alert("Informe a justificativa para continuar.");
+                return;
+              }
+              justificativaLote = j;
+              modal.hide();
+              resolve(true);
+            };
+
+            modalEl.addEventListener("hidden.bs.modal", () => resolve(false), { once: true });
+          });
+
+          if (!continuar) return; // cancelou/fechou
+        } else {
+          // fallback: política desconhecida → segurança
+          alert("⚠️ Política de lote vencido inválida. Por segurança, venda bloqueada.");
+          return;
+        }
+      }
+    } catch (e) {
+      alert("❌ Falha na checagem de lote: " + (e?.message || e));
+      return;
+    }
+
+    // ✅ 2) confirmação normal
     const ok = confirm(`Confirmar venda no valor de ${fmtBRL(total)}?`);
     if (!ok) return;
 
@@ -119,11 +230,6 @@
     btnFinalizar.textContent = "FINALIZANDO...";
 
     try {
-      const itens = Object.values(cart).map((it) => ({
-        produto_id: Number(it.id),
-        qtd: Number(it.qtd),
-      }));
-
       const res = await fetch("/pdv/api/finalizar/", {
         method: "POST",
         headers: {
@@ -136,6 +242,7 @@
           itens,
           forma_pagamento: "pix",
           observacao: "",
+          justificativa_lote: justificativaLote || "",
         }),
       });
 
@@ -144,7 +251,9 @@
       const text = await res.text();
       let data = null;
       if (contentType.includes("application/json")) {
-        try { data = JSON.parse(text); } catch (_e) { }
+        try {
+          data = JSON.parse(text);
+        } catch (_e) {}
       }
 
       if (!res.ok || !data?.ok) {
@@ -155,14 +264,13 @@
 
           if (cart[pid]) {
             if (max <= 0) {
-              delete cart[pid]; // remove se não tem mais estoque
+              delete cart[pid];
             } else {
-              cart[pid].qtd = Math.min(cart[pid].qtd, max); // limita a qtd ao máximo permitido
+              cart[pid].qtd = Math.min(cart[pid].qtd, max);
               if (cart[pid].qtd <= 0) delete cart[pid];
             }
             renderCart();
 
-            // volta o foco pra busca (fluxo de balcão)
             if (buscaProduto) {
               buscaProduto.value = "";
               buscaProduto.focus();
@@ -170,23 +278,22 @@
           }
 
           alert("⚠️ Estoque mudou. Ajustei seu carrinho automaticamente.\n\n" + (data.erro || ""));
-          return; // não dispara throw
+          return;
         }
 
         const detalhe = data?.erro || text.slice(0, 200) || ("HTTP " + res.status);
         throw new Error(detalhe);
       }
 
-
       // ✅ sucesso: limpa carrinho e re-render
       Object.keys(cart).forEach((k) => delete cart[k]);
       renderCart();
+
       const busca = document.getElementById("buscaProduto");
       if (busca) {
         busca.value = "";
         busca.focus();
       }
-
 
       alert(`✅ Venda #${data.venda_id} registrada! Total: ${fmtBRL(Number(data.total))}`);
     } catch (err) {
@@ -198,7 +305,6 @@
       btnFinalizar.textContent = txtOriginal;
     }
   });
-
 
   // ========= Funções =========
   function addToCart(prod) {

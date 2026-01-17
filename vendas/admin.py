@@ -69,7 +69,7 @@ class VendaAdmin(admin.ModelAdmin):
     list_display = ("id", "data", "total", "observacao")
     list_filter = ("data",)
     search_fields = ("observacao",)
-    readonly_fields = ("total",)
+    readonly_fields = ("total","justificativa_lote", "motivo_lote")
     inlines = [ItemVendaInline]
 
     def save_model(self, request, obj, form, change):

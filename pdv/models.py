@@ -37,6 +37,7 @@ class Venda(models.Model):
     total = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
     observacao = models.CharField(max_length=255, blank=True, default="")
     status = models.CharField(max_length=20, default="concluida")  # futuro: cancelada, estornada
+    justificativa_lote = models.CharField(max_length=255, blank=True, default="")
 
     def __str__(self):
         return f"Venda #{self.id} - {self.total} - {self.criado_em:%d/%m %H:%M}"

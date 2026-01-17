@@ -9,6 +9,10 @@ from django.db.models.functions import TruncMonth
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
+from core.models import Perfil
+from django.apps import apps
+
+
 
 from .models import MovimentoEstoque, Produto, LoteProduto
 from .services_lotes import gerar_textos_alerta_lotes
@@ -30,9 +34,13 @@ def dashboard_estoque(request):
     - Ranking dos produtos por saldo
     - Série mensal de entradas x saídas
     """
+    perfil = Perfil.objects.select_related("empresa").filter(user=request.user).first()
+    if not perfil or not perfil.empresa_id:
+        return render(request, "estoque/dashboard_estoque.html", {"erro": "Usuário sem empresa."})
+    empresa = perfil.empresa
 
     # 1) Produtos com saldo e vendidos
-    produtos_qs = Produto.objects.filter(controla_estoque=True, ativo=True).annotate(
+    produtos_qs = Produto.objects.filter(empresa=empresa,controla_estoque=True, ativo=True).annotate(
         saldo=Sum(
             Case(
                 When(movimentos__tipo="E", then=F("movimentos__quantidade")),
@@ -64,7 +72,7 @@ def dashboard_estoque(request):
 
     # 2) Série mensal entradas x saídas
     mov_qs = (
-        MovimentoEstoque.objects.all()
+        MovimentoEstoque.objects.filter(empresa=empresa)
         .annotate(mes=TruncMonth("data"))
         .values("mes", "tipo")
         .annotate(total=Sum("quantidade"))
@@ -112,8 +120,14 @@ def dashboard_estoque_dados(request):
       - top_produtos: saldo atual e quantidade vendida por produto
       - movimento_mensal: entradas x saídas por mês
     """
+    perfil = Perfil.objects.select_related("empresa").filter(user=request.user).first()
+    if not perfil or not perfil.empresa_id:
+        return JsonResponse({"ok": False, "erro": "Usuário sem empresa."}, status=400)
 
-    movimentos = MovimentoEstoque.objects.select_related("produto")
+    empresa = request.user.perfil.empresa
+
+    movimentos = MovimentoEstoque.objects.filter(empresa=empresa).select_related("produto")
+        
 
     # -------- Top produtos por vendas (saída) --------
     vendas = (
@@ -247,3 +261,225 @@ def api_lotes_prestes_vencer(request):
         "items": msgs,
     }
     return JsonResponse(data, json_dumps_params={"ensure_ascii": False})
+
+from django.db.models.functions import Coalesce
+
+@login_required
+def api_ranking_estoque_critico(request):
+    perfil = Perfil.objects.select_related("empresa").filter(user=request.user).first()
+    if not perfil or not perfil.empresa_id:
+        return JsonResponse({"ok": False, "erro": "Usuário sem empresa."}, status=400)
+
+    empresa = perfil.empresa
+
+    try:
+        top = int(request.GET.get("top", 10))
+    except ValueError:
+        top = 10
+
+    dec_out = DecimalField(max_digits=10, decimal_places=3)
+
+    saldo_expr = Coalesce(
+        Sum(
+            Case(
+                When(movimentos__tipo="E", then=F("movimentos__quantidade")),
+                When(movimentos__tipo="S", then=-F("movimentos__quantidade")),
+                default=Decimal("0.000"),
+                output_field=dec_out,
+            ),
+            output_field=dec_out,
+        ),
+        Decimal("0.000"),
+        output_field=dec_out,
+    )
+
+    qs = (
+        Produto.objects.filter(empresa=empresa, ativo=True, controla_estoque=True)
+        .annotate(saldo=saldo_expr)
+        .filter(saldo__lte=F("estoque_minimo"))
+        .order_by("saldo", "nome")[:top]
+    )
+
+    itens = []
+    for p in qs:
+        saldo = p.saldo or Decimal("0.000")
+        minimo = getattr(p, "estoque_minimo", None) or Decimal("0.000")
+        itens.append(
+            {
+                "id": p.id,
+                "nome": p.nome,
+                "saldo": float(saldo),
+                "minimo": float(minimo),
+                "status": "CRITICO" if saldo <= 0 else "ATENCAO",
+            }
+        )
+
+    return JsonResponse({"ok": True, "itens": itens})
+
+from django.views.decorators.http import require_GET
+from django.db.models import Sum, Case, When, F, DecimalField
+
+@require_GET
+@login_required
+def api_ranking_critico(request):
+    """
+    Ranking de itens críticos: saldo <= minimo.
+    Retorna:
+    { ok: true, itens: [{id,nome,saldo,minimo,status}, ...] }
+    """
+    try:
+        top = int(request.GET.get("top", 10))
+    except ValueError:
+        top = 10
+
+    # pega empresa do perfil
+    empresa = request.user.perfil.empresa
+
+    # saldo por produto (entradas - saídas)
+    qs = (
+        Produto.objects.filter(empresa=empresa, controla_estoque=True, ativo=True)
+        .annotate(
+            saldo=Sum(
+                Case(
+                    When(movimentos__tipo="E", then=F("movimentos__quantidade")),
+                    When(movimentos__tipo="S", then=-F("movimentos__quantidade")),
+                    default=0,
+                    output_field=DecimalField(),
+                )
+            )
+        )
+    )
+
+    itens = []
+    for p in qs:
+        saldo = float(p.saldo or 0)
+
+        # 👉 aqui é o “estoque mínimo”:
+        # se você AINDA não tem campo no model, a gente usa 3 como padrão
+        minimo = float(getattr(p, "estoque_minimo", None) or 3)
+
+        if saldo <= minimo:
+            status = "CRITICO" if saldo <= 0 else "ATENCAO"
+            itens.append(
+                {
+                    "id": p.id,
+                    "nome": p.nome,
+                    "saldo": saldo,
+                    "minimo": minimo,
+                    "status": status,
+                }
+            )
+
+    # ordena: mais crítico primeiro
+    itens.sort(key=lambda x: (x["saldo"] - x["minimo"]))
+
+    return JsonResponse({"ok": True, "itens": itens[:top]})
+
+
+
+
+def _saldo_lote_atual(lote, empresa=None):
+    """
+    Saldo do lote = soma(movimentos E) - soma(movimentos S)
+    """
+    MovimentoEstoque = apps.get_model("estoque", "MovimentoEstoque")
+
+    qs = MovimentoEstoque.objects.filter(lote=lote)
+
+    # filtra por empresa se o movimento tiver empresa
+    if empresa and any(f.name == "empresa" for f in MovimentoEstoque._meta.fields):
+        qs = qs.filter(empresa=empresa)
+
+    agg = qs.aggregate(
+        saldo=Sum(
+            Case(
+                When(tipo="E", then=F("quantidade")),
+                When(tipo="S", then=-F("quantidade")),
+                default=0,
+                output_field=DecimalField(),
+            )
+        )
+    )
+    return agg["saldo"] or Decimal("0")
+
+
+@require_GET
+@login_required
+def api_lotes_criticos(request):
+    perfil = (
+        Perfil.objects.filter(user=request.user)
+        .select_related("empresa")
+        .first()
+    )
+    if not perfil or not getattr(perfil, "empresa_id", None):
+        return JsonResponse({"ok": False, "erro": "Usuário sem empresa vinculada."}, status=400)
+
+    empresa = perfil.empresa
+    hoje = timezone.localdate()
+
+    qs = LoteProduto.objects.select_related("produto").all()
+
+    # filtra por empresa se existir no LoteProduto
+    if hasattr(LoteProduto, "empresa_id"):
+        qs = qs.filter(empresa=empresa)
+
+    # ordena por validade e FIFO
+    qs = qs.order_by("validade", "criado_em", "codigo")[:80]  # pega um pouco mais e filtramos por saldo
+
+    items = []
+
+    for lote in qs:
+        saldo_dec = _saldo_lote_atual(lote, empresa=empresa)
+
+        # só entra no ranking se tiver saldo > 0
+        if saldo_dec <= 0:
+            continue
+
+        validade = lote.validade
+        saldo = float(saldo_dec)
+
+        if validade is None:
+            dias = None
+            prioridade = 2
+            status = "OK"
+        else:
+            dias = (validade - hoje).days
+
+            if dias < 0 or dias <= 7:
+                prioridade = 0
+                status = "ACAO_IMEDIATA"
+            elif dias <= 30:
+                prioridade = 1
+                status = "ATENCAO"
+            else:
+                prioridade = 2
+                status = "OK"
+
+        items.append({
+            "produto_id": lote.produto_id,
+            "produto": getattr(lote.produto, "nome", str(lote.produto_id)),
+            "lote_id": lote.id,
+            "lote": getattr(lote, "codigo", None) or str(lote),
+            "validade": validade.isoformat() if validade else None,
+            "dias_para_vencer": dias,
+            "saldo": saldo,
+            "prioridade": prioridade,
+            "status": status,
+        })
+
+    # ordena por criticidade (mais urgente primeiro)
+    items.sort(
+        key=lambda x: (
+            x["prioridade"],
+            x["dias_para_vencer"] if x["dias_para_vencer"] is not None else 9999
+        )
+    )
+
+    # limita top 50 já ordenado
+    items = items[:50]
+
+    return JsonResponse({"ok": True, "items": items})
+
+@login_required
+def lotes_criticos_page(request):
+    return render(request, "estoque/lotes_criticos.html")
