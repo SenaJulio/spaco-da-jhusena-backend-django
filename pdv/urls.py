@@ -11,6 +11,6 @@ urlpatterns = [
     "vendas/lote-vencido/",
     views.vendas_com_lote_vencido,
     name="vendas_lote_vencido",
-),
-
+    ),
+    
 ]
