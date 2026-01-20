@@ -199,9 +199,10 @@ def _baixar_estoque_fifo(produto, qtd, empresa=None, observacao="", venda_id=Non
             f"Estoque insuficiente em lotes para {getattr(produto,'nome',produto)} (faltou {restante})."
         )
 
-
+from core.decorators import bloquear_demo
 @require_POST
 @login_required
+@bloquear_demo
 @json_guard
 def api_finalizar_venda(request):
     # empresa SEMPRE do perfil (safe)

@@ -13,6 +13,12 @@
     return "";
   }
 
+  function getApiErrorMessage(data, fallback = "Falha ao finalizar.") {
+    if (!data) return fallback;
+    if (typeof data === "string") return data;
+    return data.error || data.erro || data.detail || data.message || fallback;
+  }
+
   // ========= DOM =========
   const listaProdutos = $("#listaProdutos");
   const buscaProduto = $("#buscaProduto");
@@ -83,18 +89,15 @@
         body: form,
       });
 
-      const contentType = resp.headers.get("content-type") || "";
-      const text = await resp.text();
       let data = null;
-
-      if (contentType.includes("application/json")) {
-        try {
-          data = JSON.parse(text);
-        } catch (_e) { }
+      try {
+        data = await resp.json();
+      } catch (e) {
+        data = null;
       }
 
       if (!resp.ok || !data?.ok) {
-        const detalhe = data?.erro || text.slice(0, 200) || ("HTTP " + resp.status);
+        const detalhe = getApiErrorMessage(data, "Falha na checagem de lote.");
         throw new Error(detalhe);
       }
 
@@ -164,36 +167,34 @@
 
         // 2) BLOQUEAR: trava e não deixa vender
         else if (check.politica === "bloquear") {
-          // 🔴 Toast de bloqueio (profissional, sem popup do navegador)
           sjToast(`
-    <div style="display:flex; flex-direction:column; gap:6px;">
-      <div style="font-weight:900;">⛔ Venda BLOQUEADA</div>
-      <div style="opacity:.9;">
-        Lote vencido detectado. Política da empresa: <b>bloquear</b>.
-      </div>
-    </div>
-    <div style="
-      margin-top:8px;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 10px;
-      border-radius:12px;
-      border:1px solid rgba(255,99,99,.45);
-      background: rgba(255,99,99,.12);
-      color:#ffb3b3;
-      font-weight:700;
-      width:fit-content;
-    ">
-      <span>AÇÃO IMEDIATA</span>
-      <span style="font-weight:500; opacity:.9;">
-        Retire o produto do carrinho ou ajuste o estoque/lote.
-      </span>
-    </div>
-  `);
+            <div style="display:flex; flex-direction:column; gap:6px;">
+              <div style="font-weight:900;">⛔ Venda BLOQUEADA</div>
+              <div style="opacity:.9;">
+                Lote vencido detectado. Política da empresa: <b>bloquear</b>.
+              </div>
+            </div>
+            <div style="
+              margin-top:8px;
+              display:inline-flex;
+              align-items:center;
+              gap:8px;
+              padding:8px 10px;
+              border-radius:12px;
+              border:1px solid rgba(255,99,99,.45);
+              background: rgba(255,99,99,.12);
+              color:#ffb3b3;
+              font-weight:700;
+              width:fit-content;
+            ">
+              <span>AÇÃO IMEDIATA</span>
+              <span style="font-weight:500; opacity:.9;">
+                Retire o produto do carrinho ou ajuste o estoque/lote.
+              </span>
+            </div>
+          `);
           return;
         }
-
 
         // 3) JUSTIFICAR: modal obrigatório
         else if (check.politica === "justificar" && check.exige_justificativa) {
@@ -273,17 +274,23 @@
         }),
       });
 
-      // ✅ lê resposta com segurança (JSON ou HTML)
-      const contentType = res.headers.get("content-type") || "";
-      const text = await res.text();
+      // lê JSON (se vier)
       let data = null;
-      if (contentType.includes("application/json")) {
-        try {
-          data = JSON.parse(text);
-        } catch (_e) { }
+      try {
+        data = await res.json();
+      } catch (e) {
+        data = null;
       }
 
-      if (!res.ok || !data?.ok) {
+      // 1) erro HTTP (ex: DEMO 403)
+      if (!res.ok) {
+        const msg = getApiErrorMessage(data, `HTTP ${res.status}`);
+        sjToast(`<div style="font-weight:800;">${escapeHtml(msg)}</div>`);
+        return;
+      }
+
+      // 2) erro de negócio (HTTP ok mas ok=false)
+      if (!data?.ok) {
         // ✅ Auto-correção de carrinho quando backend sinaliza estoque insuficiente
         if (data?.produto_id != null && data?.max_qtd != null) {
           const pid = String(data.produto_id);
@@ -304,11 +311,11 @@
             }
           }
 
-          alert("⚠️ Estoque mudou. Ajustei seu carrinho automaticamente.\n\n" + (data.erro || ""));
+          alert("⚠️ Estoque mudou. Ajustei seu carrinho automaticamente.\n\n" + (data.erro || data.error || ""));
           return;
         }
 
-        const detalhe = data?.erro || text.slice(0, 200) || ("HTTP " + res.status);
+        const detalhe = getApiErrorMessage(data, "Falha ao finalizar.");
         throw new Error(detalhe);
       }
 
@@ -322,7 +329,6 @@
         busca.focus();
       }
 
-
       // ✅ sucesso: toast profissional com badge quando houver override
       const teveOverride =
         Boolean(justificativaLote && justificativaLote.trim()) ||
@@ -330,38 +336,36 @@
         Boolean(data?.override_lote === true);
 
       let html = `
-  <div style="display:flex; flex-direction:column; gap:6px;">
-    <div style="font-weight:800;">✅ Venda #${data.venda_id} registrada!</div>
-    <div style="opacity:.9;">Total: ${fmtBRL(Number(data.total))}</div>
-  </div>
-`;
+        <div style="display:flex; flex-direction:column; gap:6px;">
+          <div style="font-weight:800;">✅ Venda #${data.venda_id} registrada!</div>
+          <div style="opacity:.9;">Total: ${fmtBRL(Number(data.total))}</div>
+        </div>
+      `;
 
       if (teveOverride) {
         html += `
-    <div style="
-      margin-top:8px;
-      display:inline-flex;
-      align-items:center;
-      gap:8px;
-      padding:8px 10px;
-      border-radius:12px;
-      border:1px solid rgba(255,193,7,.45);
-      background: rgba(255,193,7,.12);
-      color:#ffe08a;
-      font-weight:700;
-      width:fit-content;
-    ">
-      <span>⚠ Override de Lote</span>
-      <span style="font-weight:500; opacity:.9;">
-        Venda realizada com lote vencido conforme política da empresa.
-      </span>
-    </div>
-  `;
+          <div style="
+            margin-top:8px;
+            display:inline-flex;
+            align-items:center;
+            gap:8px;
+            padding:8px 10px;
+            border-radius:12px;
+            border:1px solid rgba(255,193,7,.45);
+            background: rgba(255,193,7,.12);
+            color:#ffe08a;
+            font-weight:700;
+            width:fit-content;
+          ">
+            <span>⚠ Override de Lote</span>
+            <span style="font-weight:500; opacity:.9;">
+              Venda realizada com lote vencido conforme política da empresa.
+            </span>
+          </div>
+        `;
       }
 
       sjToast(html);
-
-
     } catch (err) {
       alert("❌ Falha ao finalizar: " + (err?.message || err));
     } finally {
@@ -472,13 +476,12 @@
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
   }
+
   // ✅ Toast Spaço da Jhuséna (Bootstrap)
   function sjToast(html) {
     const toastEl = document.getElementById("sjToastVenda");
     const bodyEl = document.getElementById("sjToastBody");
 
-    console.log("[SJToast] bootstrap =", typeof bootstrap);
-    console.log("[SJToast] toastEl/bodyEl =", !!toastEl, !!bodyEl);
     // fallback de segurança (se o HTML não estiver na página)
     if (!toastEl || !bodyEl || typeof bootstrap === "undefined") {
       alert(String(html).replace(/<[^>]*>/g, "")); // remove tags
