@@ -4,13 +4,16 @@ from decimal import Decimal
 from django.apps import apps
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from django.db.models import Sum, Case, When, F, DecimalField
+from django.db.models import Sum, Case, When, F, DecimalField, Count
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
+from django.db.models.functions import Coalesce
 from functools import wraps
+
+from urllib3 import request
 from core.models import Perfil
 from .models import Venda, VendaItem
 import traceback
@@ -99,7 +102,6 @@ def pdv_home(request):
             "overrides_count": overrides_count,
         },
     )
-
 
 
 
@@ -613,15 +615,67 @@ def vendas_com_lote_vencido(request):
     perfil = request.user.perfil
     empresa = perfil.empresa
 
-    vendas = (
-        Venda.objects
-        .filter(empresa=empresa)
-        .exclude(justificativa_lote="")
-        .order_by("-criado_em")[:50]
+    base_qs = (
+            Venda.objects
+            .filter(empresa=empresa)
+            .filter(justificativa_lote__isnull=False)
+            .exclude(justificativa_lote__exact="")
+            .select_related("operador")
+        )
+
+        # lista (só para a tabela)
+    vendas = base_qs.order_by("-criado_em")[:50]
+
+
+    override_qtd = base_qs.count()
+
+    override_valor = base_qs.aggregate(
+        s=Coalesce(Sum("total"), Decimal("0.00"))
+    )["s"]
+
+    top_operador = (
+        base_qs.values("operador__username")
+        .annotate(qtd=Count("id"))
+        .order_by("-qtd")
+        .first()
     )
+    top_operador_nome = (top_operador or {}).get("operador__username") or "-"
+    top_operador_qtd = (top_operador or {}).get("qtd") or 0
+
+    # Produto mais afetado (pode ajustar o related_name depois)
+    top_produto_nome = "-"
+    top_produto_qtd = 0
+
+    VendaItem = apps.get_model("pdv", "VendaItem")
+
+    vendas_ids = base_qs.values_list("id", flat=True)
+
+    top_produto = (
+        VendaItem.objects
+        .filter(vendas_id__in=vendas_ids)
+        .values("produto__nome")
+        .annotate(qtd=Count("id"))
+        .order_by("-qtd")
+        .first()
+    )
+
+    top_produto_nome = (top_produto or {}).get("produto__nome") or "-"
+    top_produto_qtd = (top_produto or {}).get("qtd") or 0
+
 
     return render(
         request,
         "pdv/vendas_lote_vencido.html",
-        {"vendas": vendas},
+        {
+            "vendas": vendas,
+            "override_qtd": override_qtd,
+            "override_valor": override_valor,
+            "top_operador_nome": top_operador_nome,
+            "top_operador_qtd": top_operador_qtd,
+            "top_produto_nome": top_produto_nome,
+            "top_produto_qtd": top_produto_qtd,
+        },
     )
+
+
+

@@ -90,7 +90,7 @@
       if (contentType.includes("application/json")) {
         try {
           data = JSON.parse(text);
-        } catch (_e) {}
+        } catch (_e) { }
       }
 
       if (!resp.ok || !data?.ok) {
@@ -164,9 +164,36 @@
 
         // 2) BLOQUEAR: trava e não deixa vender
         else if (check.politica === "bloquear") {
-          alert("⛔ Venda BLOQUEADA: lote vencido. Política da empresa: bloquear sempre.");
+          // 🔴 Toast de bloqueio (profissional, sem popup do navegador)
+          sjToast(`
+    <div style="display:flex; flex-direction:column; gap:6px;">
+      <div style="font-weight:900;">⛔ Venda BLOQUEADA</div>
+      <div style="opacity:.9;">
+        Lote vencido detectado. Política da empresa: <b>bloquear</b>.
+      </div>
+    </div>
+    <div style="
+      margin-top:8px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:12px;
+      border:1px solid rgba(255,99,99,.45);
+      background: rgba(255,99,99,.12);
+      color:#ffb3b3;
+      font-weight:700;
+      width:fit-content;
+    ">
+      <span>AÇÃO IMEDIATA</span>
+      <span style="font-weight:500; opacity:.9;">
+        Retire o produto do carrinho ou ajuste o estoque/lote.
+      </span>
+    </div>
+  `);
           return;
         }
+
 
         // 3) JUSTIFICAR: modal obrigatório
         else if (check.politica === "justificar" && check.exige_justificativa) {
@@ -253,7 +280,7 @@
       if (contentType.includes("application/json")) {
         try {
           data = JSON.parse(text);
-        } catch (_e) {}
+        } catch (_e) { }
       }
 
       if (!res.ok || !data?.ok) {
@@ -295,7 +322,46 @@
         busca.focus();
       }
 
-      alert(`✅ Venda #${data.venda_id} registrada! Total: ${fmtBRL(Number(data.total))}`);
+
+      // ✅ sucesso: toast profissional com badge quando houver override
+      const teveOverride =
+        Boolean(justificativaLote && justificativaLote.trim()) ||
+        Boolean(data?.justificativa_lote && String(data.justificativa_lote).trim()) ||
+        Boolean(data?.override_lote === true);
+
+      let html = `
+  <div style="display:flex; flex-direction:column; gap:6px;">
+    <div style="font-weight:800;">✅ Venda #${data.venda_id} registrada!</div>
+    <div style="opacity:.9;">Total: ${fmtBRL(Number(data.total))}</div>
+  </div>
+`;
+
+      if (teveOverride) {
+        html += `
+    <div style="
+      margin-top:8px;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:8px 10px;
+      border-radius:12px;
+      border:1px solid rgba(255,193,7,.45);
+      background: rgba(255,193,7,.12);
+      color:#ffe08a;
+      font-weight:700;
+      width:fit-content;
+    ">
+      <span>⚠ Override de Lote</span>
+      <span style="font-weight:500; opacity:.9;">
+        Venda realizada com lote vencido conforme política da empresa.
+      </span>
+    </div>
+  `;
+      }
+
+      sjToast(html);
+
+
     } catch (err) {
       alert("❌ Falha ao finalizar: " + (err?.message || err));
     } finally {
@@ -405,6 +471,24 @@
       .replaceAll(">", "&gt;")
       .replaceAll('"', "&quot;")
       .replaceAll("'", "&#039;");
+  }
+  // ✅ Toast Spaço da Jhuséna (Bootstrap)
+  function sjToast(html) {
+    const toastEl = document.getElementById("sjToastVenda");
+    const bodyEl = document.getElementById("sjToastBody");
+
+    console.log("[SJToast] bootstrap =", typeof bootstrap);
+    console.log("[SJToast] toastEl/bodyEl =", !!toastEl, !!bodyEl);
+    // fallback de segurança (se o HTML não estiver na página)
+    if (!toastEl || !bodyEl || typeof bootstrap === "undefined") {
+      alert(String(html).replace(/<[^>]*>/g, "")); // remove tags
+      return;
+    }
+
+    bodyEl.innerHTML = html;
+
+    const t = bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 4500 });
+    t.show();
   }
 
   // Render inicial
