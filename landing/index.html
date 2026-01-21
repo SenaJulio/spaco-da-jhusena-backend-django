@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Spaço da Jhuséna — Gestão simples. Estoque seguro. Vendas sem risco.</title>
+  <meta name="description" content="Sistema profissional para pequenos negócios: PDV, estoque por lote, auditoria e Modo DEMO seguro." />
+
+  <style>
+    :root{
+      --bg:#0b1220;
+      --card:rgba(10,16,28,.88);
+      --text:#e8f0ff;
+      --muted:rgba(232,240,255,.72);
+      --border:rgba(47,191,113,.22);
+      --shadow:0 14px 34px rgba(0,0,0,.42);
+      --grad:linear-gradient(135deg,#1f7a3a,#2fbf71);
+      --pill:rgba(255,255,255,.06);
+      --pillBorder:rgba(255,255,255,.12);
+    }
+
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      background:radial-gradient(1200px 600px at 20% -10%, rgba(47,191,113,.22), transparent 55%),
+                 radial-gradient(900px 500px at 90% 10%, rgba(71,138,255,.18), transparent 55%),
+                 var(--bg);
+      color:var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji","Segoe UI Emoji";
+      line-height:1.45;
+    }
+
+    .wrap{ max-width:980px; margin:0 auto; padding:26px 16px 54px; }
+    header{
+      display:flex; gap:10px; justify-content:space-between; align-items:center;
+      padding:14px 16px;
+      border:1px solid var(--border);
+      border-radius:16px;
+      background:rgba(10,16,28,.6);
+      box-shadow: var(--shadow);
+    }
+
+    .brand{ display:flex; gap:10px; align-items:center; }
+    .logo{
+      width:38px; height:38px; border-radius:12px;
+      background:var(--grad);
+      box-shadow:0 10px 24px rgba(47,191,113,.25);
+      flex:0 0 auto;
+    }
+    .brand h1{ font-size:1rem; margin:0; letter-spacing:.2px; }
+    .brand p{ margin:0; font-size:.85rem; color:var(--muted); }
+
+    .top-actions{ display:flex; gap:10px; flex-wrap:wrap; }
+    .btn{
+      display:inline-flex; align-items:center; justify-content:center;
+      gap:8px; padding:10px 12px;
+      border-radius:12px;
+      border:1px solid var(--pillBorder);
+      background:var(--pill);
+      color:var(--text);
+      text-decoration:none;
+      font-weight:650;
+      transition:transform .12s ease, filter .12s ease, border-color .12s ease;
+      white-space:nowrap;
+    }
+    .btn:hover{ transform: translateY(-1px); filter:brightness(1.05); border-color:rgba(47,191,113,.45); }
+    .btn.primary{
+      background:var(--grad);
+      border-color:rgba(47,191,113,.55);
+      box-shadow:0 12px 26px rgba(47,191,113,.18);
+    }
+
+    .hero{
+      margin-top:18px;
+      padding:22px 18px;
+      border-radius:18px;
+      border:1px solid var(--border);
+      background:var(--card);
+      box-shadow: var(--shadow);
+      overflow:hidden;
+      position:relative;
+    }
+    .hero:before{
+      content:"";
+      position:absolute; inset:-2px;
+      background:radial-gradient(700px 260px at 25% 0%, rgba(47,191,113,.18), transparent 60%);
+      pointer-events:none;
+    }
+    .hero-inner{ position:relative; }
+    .kicker{
+      display:inline-flex; gap:8px; align-items:center;
+      padding:6px 10px;
+      border-radius:999px;
+      border:1px solid rgba(47,191,113,.35);
+      background:rgba(47,191,113,.08);
+      color:rgba(232,240,255,.88);
+      font-weight:700;
+      font-size:.82rem;
+      letter-spacing:.2px;
+    }
+    .hero h2{ margin:10px 0 6px; font-size:2rem; line-height:1.15; }
+    .hero p{ margin:0; color:var(--muted); font-size:1.05rem; max-width:62ch; }
+    .hero-actions{ margin-top:14px; display:flex; gap:10px; flex-wrap:wrap; }
+
+    .grid{
+      margin-top:16px;
+      display:grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap:14px;
+    }
+    .card{
+      grid-column: span 12;
+      border:1px solid var(--border);
+      background:var(--card);
+      border-radius:18px;
+      box-shadow: var(--shadow);
+      padding:18px;
+    }
+    .card h3{ margin:0 0 8px; font-size:1.12rem; }
+    .card p{ margin:0; color:var(--muted); }
+
+    .list{
+      margin:10px 0 0;
+      padding:0;
+      list-style:none;
+      display:grid;
+      gap:10px;
+    }
+    .li{
+      display:flex; gap:10px; align-items:flex-start;
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px solid rgba(255,255,255,.08);
+      background:rgba(255,255,255,.04);
+    }
+    .dot{
+      width:10px; height:10px; border-radius:999px;
+      margin-top:5px;
+      background:rgba(47,191,113,.95);
+      box-shadow:0 0 0 4px rgba(47,191,113,.16);
+      flex:0 0 auto;
+    }
+
+    .two{ grid-column: span 12; }
+    @media (min-width: 860px){
+      .two{ grid-column: span 6; }
+      .hero h2{ font-size:2.35rem; }
+    }
+
+    .pillrow{ display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; }
+    .pill{
+      padding:8px 10px;
+      border-radius:999px;
+      border:1px solid rgba(255,255,255,.10);
+      background:rgba(255,255,255,.05);
+      color:rgba(232,240,255,.85);
+      font-weight:650;
+      font-size:.9rem;
+    }
+
+    .cta{
+      margin-top:16px;
+      padding:18px;
+      border-radius:18px;
+      border:1px solid rgba(47,191,113,.35);
+      background:linear-gradient(135deg, rgba(47,191,113,.18), rgba(10,16,28,.85));
+      box-shadow: var(--shadow);
+    }
+    .cta h3{ margin:0 0 6px; font-size:1.25rem; }
+    .cta p{ margin:0; color:var(--muted); }
+    footer{ margin-top:18px; color:rgba(232,240,255,.55); font-size:.85rem; text-align:center; }
+    .small{ font-size:.9rem; color:rgba(232,240,255,.7); }
+  </style>
+</head>
+
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <h1>Spaço da Jhuséna</h1>
+          <p>PDV • Estoque por lote • Auditoria • Modo DEMO seguro</p>
+        </div>
+      </div>
+
+      <div class="top-actions">
+        <!-- Troque o link abaixo pelo seu WhatsApp real, se quiser -->
+        <a class="btn primary" href="https://wa.me/5531984796598" target="_blank" rel="noopener">Falar no WhatsApp</a>
+        <a class="btn" href="#demo">Ver Demonstração</a>
+      </div>
+    </header>
+
+    <section class="hero" id="topo">
+      <div class="hero-inner">
+        <span class="kicker">🟢 Produto demonstrável e seguro</span>
+        <h2>Gestão simples. Estoque seguro. Vendas sem risco.</h2>
+        <p>Sistema profissional para pequenos negócios que não podem errar no dia a dia. Regras no sistema, não na cabeça do operador.</p>
+
+        <div class="hero-actions">
+          <a class="btn primary" href="#contato">Solicitar demonstração</a>
+          <a class="btn" href="#funcionalidades">Ver funcionalidades</a>
+        </div>
+        <p class="small" style="margin-top:10px;">🧪 Modo DEMO: apresentação sem risco — nada altera dados reais.</p>
+      </div>
+    </section>
+
+    <section class="grid" id="problema">
+      <div class="card two">
+        <h3>❗ O problema</h3>
+        <p>Pequenos negócios perdem dinheiro todos os dias porque o controle não protege o dia a dia.</p>
+        <ul class="list">
+          <li class="li"><span class="dot"></span><div>O estoque não bate</div></li>
+          <li class="li"><span class="dot"></span><div>Vendas erradas passam sem controle</div></li>
+          <li class="li"><span class="dot"></span><div>Sem histórico confiável e auditoria</div></li>
+          <li class="li"><span class="dot"></span><div>Planilhas não evitam erro humano</div></li>
+        </ul>
+      </div>
+
+      <div class="card two" id="solucao">
+        <h3>✅ A solução</h3>
+        <p>O <strong>Spaço da Jhuséna</strong> foi pensado para <strong>proteger o negócio</strong> e manter o controle real do que acontece.</p>
+        <div class="pillrow">
+          <span class="pill">PDV simples</span>
+          <span class="pill">Estoque por lote</span>
+          <span class="pill">Vencimento</span>
+          <span class="pill">Regras no backend</span>
+          <span class="pill">UX clara</span>
+          <span class="pill">Multiempresa</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="grid" id="funcionalidades">
+      <div class="card">
+        <h3>⚙️ Funcionalidades principais</h3>
+        <ul class="list">
+          <li class="li"><span class="dot"></span><div><strong>PDV</strong> com carrinho e cálculo automático</div></li>
+          <li class="li"><span class="dot"></span><div><strong>Estoque por lote</strong> com controle de saldo</div></li>
+          <li class="li"><span class="dot"></span><div><strong>Política de lote vencido</strong> (bloquear / justificar / livre)</div></li>
+          <li class="li"><span class="dot"></span><div><strong>Auditoria</strong> de override com histórico</div></li>
+          <li class="li"><span class="dot"></span><div><strong>Modo DEMO seguro</strong> (sem alterar dados reais)</div></li>
+          <li class="li"><span class="dot"></span><div><strong>Multiempresa</strong> (isolamento de dados)</div></li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="grid" id="diferencial">
+      <div class="card two">
+        <h3>🧠 Diferencial</h3>
+        <ul class="list">
+          <li class="li"><span class="dot"></span><div><strong>Backend soberano:</strong> regras ficam no sistema</div></li>
+          <li class="li"><span class="dot"></span><div><strong>Modo DEMO real:</strong> dá pra apresentar sem medo</div></li>
+          <li class="li"><span class="dot"></span><div><strong>Pronto pra crescer:</strong> evolui com o negócio</div></li>
+        </ul>
+      </div>
+
+      <div class="card two" id="publico">
+        <h3>👥 Para quem é</h3>
+        <p>Perfeito para quem trabalha com estoque e precisa de controle real.</p>
+        <div class="pillrow">
+          <span class="pill">Pet shops</span>
+          <span class="pill">Clínicas veterinárias</span>
+          <span class="pill">Varejo com estoque</span>
+          <span class="pill">Serviços</span>
+          <span class="pill">Negócios familiares</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="cta" id="demo">
+      <h3>🧪 Demonstração sem risco</h3>
+      <p>O Modo DEMO permite simular o sistema com segurança — sem registrar vendas reais e sem alterar estoque real.</p>
+      <div class="hero-actions" style="margin-top:12px;">
+        <a class="btn primary" href="#contato">Quero uma demo</a>
+        <a class="btn" href="#topo">Voltar ao topo</a>
+      </div>
+    </section>
+
+    <section class="cta" id="contato" style="margin-top:14px;">
+      <h3>📞 Vamos conversar?</h3>
+      <p>Quer ver funcionando na prática? Solicite uma demonstração e eu te mostro o fluxo completo.</p>
+      <div class="hero-actions" style="margin-top:12px;">
+        <a class="btn primary" href="https://wa.me/5531984796598" target="_blank" rel="noopener">Chamar no WhatsApp</a>
+        <a class="btn" href="#funcionalidades">Rever funcionalidades</a>
+      </div>
+      <p class="small" style="margin-top:10px;">Dica: depois a gente pode trocar esse botão por um formulário.</p>
+    </section>
+
+    <footer>
+      <div>© 2026 — Spaço da Jhuséna</div>
+      <div class="small">Sistema demonstrável • Seguro • Pronto para validação comercial</div>
+    </footer>
+  </div>
+</body>
+</html>
