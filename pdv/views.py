@@ -9,6 +9,7 @@ from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
+from core.decorators import bloquear_demo
 
 from django.db.models.functions import Coalesce
 from functools import wraps
@@ -199,7 +200,7 @@ def _baixar_estoque_fifo(produto, qtd, empresa=None, observacao="", venda_id=Non
             f"Estoque insuficiente em lotes para {getattr(produto,'nome',produto)} (faltou {restante})."
         )
 
-from core.decorators import bloquear_demo
+
 @require_POST
 @login_required
 @bloquear_demo
@@ -478,8 +479,10 @@ def _checar_lote_vencido_fifo(empresa, produto, qtd):
 
 @require_POST
 @login_required
+@bloquear_demo
 @json_guard
 def api_pdv_check_lote_vencido(request):
+
     try:
         perfil = (
             Perfil.objects.filter(user=request.user)

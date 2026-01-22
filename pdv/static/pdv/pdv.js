@@ -13,6 +13,15 @@
     return "";
   }
 
+  function escapeHtml(str) {
+    return String(str)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
   function getApiErrorMessage(data, fallback = "Falha ao finalizar.") {
     if (!data) return fallback;
     if (typeof data === "string") return data;
@@ -50,6 +59,106 @@
   // cart = { [id]: { id, nome, preco, qtd, estoque } }
   const cart = {};
 
+  // ========= Toasts =========
+  function toastHtml(titulo, msg, tipo = "info") {
+    const map = {
+      success: { badge: "✅", border: "rgba(47,191,113,.45)", bg: "rgba(47,191,113,.12)", color: "#bff5d6" },
+      warning: { badge: "⚠️", border: "rgba(255,193,7,.45)", bg: "rgba(255,193,7,.12)", color: "#ffe08a" },
+      danger: { badge: "⛔", border: "rgba(255,99,99,.45)", bg: "rgba(255,99,99,.12)", color: "#ffb3b3" },
+      info: { badge: "ℹ️", border: "rgba(255,255,255,.14)", bg: "rgba(255,255,255,.06)", color: "#e8f0ff" },
+    };
+    const s = map[tipo] || map.info;
+
+    return `
+      <div style="display:flex; flex-direction:column; gap:6px;">
+        <div style="font-weight:900;">${s.badge} ${escapeHtml(titulo)}</div>
+        <div style="opacity:.92;">${escapeHtml(msg)}</div>
+      </div>
+      <div style="
+        margin-top:8px;
+        display:inline-flex;
+        align-items:center;
+        gap:8px;
+        padding:8px 10px;
+        border-radius:12px;
+        border:1px solid ${s.border};
+        background:${s.bg};
+        color:${s.color};
+        font-weight:700;
+        width:fit-content;
+      ">
+        <span>${escapeHtml(tipo.toUpperCase())}</span>
+      </div>
+    `;
+  }
+
+  function sjToast(html, tipo = "info") {
+    const toastEl = document.getElementById("sjToastVenda");
+    const bodyEl = document.getElementById("sjToastBody");
+
+    // ✅ fallback: cria toast simples sem Bootstrap (sem alert)
+    if (!toastEl || !bodyEl || typeof bootstrap === "undefined") {
+      simpleToast(String(html).replace(/<[^>]*>/g, ""), tipo);
+      return;
+    }
+
+    bodyEl.innerHTML = html;
+
+    const t = bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 4500 });
+    t.show();
+  }
+
+  // fallback sem bootstrap: toast minimalista no canto
+  function simpleToast(text, tipo = "info") {
+    const id = "sjToastSimple";
+    let box = document.getElementById(id);
+
+    if (!box) {
+      box = document.createElement("div");
+      box.id = id;
+      box.style.position = "fixed";
+      box.style.right = "16px";
+      box.style.bottom = "16px";
+      box.style.zIndex = "99999";
+      box.style.maxWidth = "360px";
+      box.style.padding = "12px 12px";
+      box.style.borderRadius = "14px";
+      box.style.boxShadow = "0 18px 36px rgba(0,0,0,.45)";
+      box.style.border = "1px solid rgba(255,255,255,.14)";
+      box.style.background = "rgba(10,16,28,.92)";
+      box.style.color = "#e8f0ff";
+      box.style.fontWeight = "700";
+      box.style.fontSize = "0.95rem";
+      box.style.opacity = "0";
+      box.style.transform = "translateY(6px)";
+      box.style.transition = "all .18s ease";
+      document.body.appendChild(box);
+    }
+
+    const prefix =
+      tipo === "success" ? "✅ " :
+      tipo === "warning" ? "⚠️ " :
+      tipo === "danger" ? "⛔ " : "ℹ️ ";
+
+    box.textContent = prefix + text;
+
+    requestAnimationFrame(() => {
+      box.style.opacity = "1";
+      box.style.transform = "translateY(0)";
+    });
+
+    window.clearTimeout(simpleToast._t);
+    simpleToast._t = window.setTimeout(() => {
+      box.style.opacity = "0";
+      box.style.transform = "translateY(6px)";
+    }, 3800);
+  }
+
+  function toastInfo(titulo, msg) { sjToast(toastHtml(titulo, msg, "info"), "info"); }
+  function toastWarn(titulo, msg) { sjToast(toastHtml(titulo, msg, "warning"), "warning"); }
+  function toastOk(titulo, msg) { sjToast(toastHtml(titulo, msg, "success"), "success"); }
+  function toastErr(titulo, msg) { sjToast(toastHtml(titulo, msg, "danger"), "danger"); }
+
   // ========= Produtos (clique) =========
   listaProdutos.addEventListener("click", (ev) => {
     const li = ev.target.closest(".produto");
@@ -65,7 +174,7 @@
 
     if (!id || !nome) return;
     if (!(preco > 0)) {
-      alert("Produto sem preço cadastrado. Ajuste no admin 🙂");
+      toastWarn("Sem preço cadastrado", "Ajuste o preço do produto no admin para vender.");
       return;
     }
 
@@ -98,7 +207,7 @@
 
       if (!resp.ok || !data?.ok) {
         const detalhe = getApiErrorMessage(data, "Falha na checagem de lote.");
-        throw new Error(detalhe);
+        return { ok: false, error: detalhe };
       }
 
       // ✅ se o backend detectou lote vencido, ele devolve motivo/politica/detalhes
@@ -142,7 +251,7 @@
     if (finalizando) return; // evita clique duplo
     const total = calcTotal();
     if (total <= 0) {
-      alert("Carrinho vazio 🙂");
+      toastInfo("Carrinho vazio", "Adicione pelo menos 1 item antes de finalizar.");
       return;
     }
 
@@ -155,98 +264,101 @@
     // ✅ 1) checa lote vencido antes do confirm
     let justificativaLote = "";
 
-    try {
-      const check = await checarLoteVencidoCarrinho(itens);
+    const check = await checarLoteVencidoCarrinho(itens);
 
-      // Só entra se achou lote vencido
-      if (check?.motivo === "LOTE_VENCIDO") {
-        // 1) LIVRE: só avisa e segue
-        if (check.politica === "livre") {
-          alert("⚠️ Aviso: existe lote vencido com saldo. Venda permitida pela política da empresa.");
-        }
-
-        // 2) BLOQUEAR: trava e não deixa vender
-        else if (check.politica === "bloquear") {
-          sjToast(`
-            <div style="display:flex; flex-direction:column; gap:6px;">
-              <div style="font-weight:900;">⛔ Venda BLOQUEADA</div>
-              <div style="opacity:.9;">
-                Lote vencido detectado. Política da empresa: <b>bloquear</b>.
-              </div>
-            </div>
-            <div style="
-              margin-top:8px;
-              display:inline-flex;
-              align-items:center;
-              gap:8px;
-              padding:8px 10px;
-              border-radius:12px;
-              border:1px solid rgba(255,99,99,.45);
-              background: rgba(255,99,99,.12);
-              color:#ffb3b3;
-              font-weight:700;
-              width:fit-content;
-            ">
-              <span>AÇÃO IMEDIATA</span>
-              <span style="font-weight:500; opacity:.9;">
-                Retire o produto do carrinho ou ajuste o estoque/lote.
-              </span>
-            </div>
-          `);
-          return;
-        }
-
-        // 3) JUSTIFICAR: modal obrigatório
-        else if (check.politica === "justificar" && check.exige_justificativa) {
-          const modalEl = document.getElementById("modalLoteVencido");
-          if (!modalEl) {
-            alert("🚨 Lote vencido detectado, mas o modal não foi encontrado no HTML.");
-            return;
-          }
-
-          const det = (check.detalhes || [])
-            .map((d) => `• ${d.lote} (val: ${d.validade}) — qtd aprox: ${d.qtd}`)
-            .join("<br>");
-
-          const detEl = document.getElementById("mvDetalhes");
-          if (detEl) detEl.innerHTML = det ? `<div class="text-danger">${det}</div>` : "";
-
-          const txt = document.getElementById("justificativaLote");
-          if (txt) txt.value = "";
-
-          const modal = new bootstrap.Modal(modalEl);
-          modal.show();
-
-          const continuar = await new Promise((resolve) => {
-            const btn = document.getElementById("btnContinuarComJustificativa");
-
-            btn.onclick = () => {
-              const j = (document.getElementById("justificativaLote")?.value || "").trim();
-              if (!j) {
-                alert("Informe a justificativa para continuar.");
-                return;
-              }
-              justificativaLote = j;
-              modal.hide();
-              resolve(true);
-            };
-
-            modalEl.addEventListener("hidden.bs.modal", () => resolve(false), { once: true });
-          });
-
-          if (!continuar) return; // cancelou/fechou
-        } else {
-          // fallback: política desconhecida → segurança
-          alert("⚠️ Política de lote vencido inválida. Por segurança, venda bloqueada.");
-          return;
-        }
-      }
-    } catch (e) {
-      alert("❌ Falha na checagem de lote: " + (e?.message || e));
+    if (check?.ok === false) {
+      toastWarn("Falha na checagem de lote", check?.error || "Não foi possível checar o lote.");
       return;
     }
 
-    // ✅ 2) confirmação normal
+    // Só entra se achou lote vencido
+    if (check?.motivo === "LOTE_VENCIDO") {
+      // 1) LIVRE: só avisa e segue
+      if (check.politica === "livre") {
+        toastWarn("Aviso", "Existe lote vencido com saldo. Venda permitida pela política da empresa.");
+      }
+      // 2) BLOQUEAR: trava e não deixa vender
+      else if (check.politica === "bloquear") {
+        sjToast(`
+          <div style="display:flex; flex-direction:column; gap:6px;">
+            <div style="font-weight:900;">⛔ Venda BLOQUEADA</div>
+            <div style="opacity:.9;">
+              Lote vencido detectado. Política da empresa: <b>bloquear</b>.
+            </div>
+          </div>
+          <div style="
+            margin-top:8px;
+            display:inline-flex;
+            align-items:center;
+            gap:8px;
+            padding:8px 10px;
+            border-radius:12px;
+            border:1px solid rgba(255,99,99,.45);
+            background: rgba(255,99,99,.12);
+            color:#ffb3b3;
+            font-weight:700;
+            width:fit-content;
+          ">
+            <span>AÇÃO IMEDIATA</span>
+            <span style="font-weight:500; opacity:.9;">
+              Retire o produto do carrinho ou ajuste o estoque/lote.
+            </span>
+          </div>
+        `, "danger");
+        return;
+      }
+      // 3) JUSTIFICAR: modal obrigatório
+      else if (check.politica === "justificar" && check.exige_justificativa) {
+        const modalEl = document.getElementById("modalLoteVencido");
+        if (!modalEl) {
+          toastErr("Erro de layout", "Lote vencido detectado, mas o modal não existe no HTML.");
+          return;
+        }
+
+        const det = (check.detalhes || [])
+          .map((d) => `• ${escapeHtml(d.lote)} (val: ${escapeHtml(d.validade)}) — qtd aprox: ${escapeHtml(d.qtd)}`)
+          .join("<br>");
+
+        const detEl = document.getElementById("mvDetalhes");
+        if (detEl) detEl.innerHTML = det ? `<div class="text-danger">${det}</div>` : "";
+
+        const txt = document.getElementById("justificativaLote");
+        if (txt) txt.value = "";
+
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+
+        const continuar = await new Promise((resolve) => {
+          const btn = document.getElementById("btnContinuarComJustificativa");
+          if (!btn) {
+            toastErr("Erro de layout", "Botão do modal não encontrado.");
+            resolve(false);
+            return;
+          }
+
+          btn.onclick = () => {
+            const j = (document.getElementById("justificativaLote")?.value || "").trim();
+            if (!j) {
+              toastWarn("Justificativa obrigatória", "Informe a justificativa para continuar.");
+              return;
+            }
+            justificativaLote = j;
+            modal.hide();
+            resolve(true);
+          };
+
+          modalEl.addEventListener("hidden.bs.modal", () => resolve(false), { once: true });
+        });
+
+        if (!continuar) return; // cancelou/fechou
+      } else {
+        // fallback: política desconhecida → segurança
+        toastErr("Política inválida", "Política de lote vencido inválida. Por segurança, venda bloqueada.");
+        return;
+      }
+    }
+
+    // ✅ 2) confirmação normal (mantém confirm)
     const ok = confirm(`Confirmar venda no valor de ${fmtBRL(total)}?`);
     if (!ok) return;
 
@@ -285,7 +397,7 @@
       // 1) erro HTTP (ex: DEMO 403)
       if (!res.ok) {
         const msg = getApiErrorMessage(data, `HTTP ${res.status}`);
-        sjToast(`<div style="font-weight:800;">${escapeHtml(msg)}</div>`);
+        toastWarn("Ação bloqueada", msg);
         return;
       }
 
@@ -311,22 +423,25 @@
             }
           }
 
-          alert("⚠️ Estoque mudou. Ajustei seu carrinho automaticamente.\n\n" + (data.erro || data.error || ""));
+          toastWarn(
+            "Estoque mudou",
+            "Ajustei seu carrinho automaticamente. " + (data.erro || data.error || "")
+          );
           return;
         }
 
         const detalhe = getApiErrorMessage(data, "Falha ao finalizar.");
-        throw new Error(detalhe);
+        toastErr("Falha ao finalizar", detalhe);
+        return;
       }
 
       // ✅ sucesso: limpa carrinho e re-render
       Object.keys(cart).forEach((k) => delete cart[k]);
       renderCart();
 
-      const busca = document.getElementById("buscaProduto");
-      if (busca) {
-        busca.value = "";
-        busca.focus();
+      if (buscaProduto) {
+        buscaProduto.value = "";
+        buscaProduto.focus();
       }
 
       // ✅ sucesso: toast profissional com badge quando houver override
@@ -337,7 +452,7 @@
 
       let html = `
         <div style="display:flex; flex-direction:column; gap:6px;">
-          <div style="font-weight:800;">✅ Venda #${data.venda_id} registrada!</div>
+          <div style="font-weight:900;">✅ Venda #${escapeHtml(data.venda_id)} registrada!</div>
           <div style="opacity:.9;">Total: ${fmtBRL(Number(data.total))}</div>
         </div>
       `;
@@ -365,9 +480,9 @@
         `;
       }
 
-      sjToast(html);
+      sjToast(html, "success");
     } catch (err) {
-      alert("❌ Falha ao finalizar: " + (err?.message || err));
+      toastErr("Falha ao finalizar", err?.message || String(err));
     } finally {
       // UI volta ao normal
       finalizando = false;
@@ -382,7 +497,7 @@
     const novaQtd = (cur?.qtd || 0) + 1;
 
     if (novaQtd > prod.estoque) {
-      alert(`Sem estoque suficiente. Disponível: ${prod.estoque}`);
+      toastWarn("Sem estoque suficiente", `Disponível: ${prod.estoque}`);
       return;
     }
 
@@ -402,7 +517,7 @@
     if (!item) return;
 
     if (item.qtd + 1 > item.estoque) {
-      alert(`Sem estoque suficiente. Disponível: ${item.estoque}`);
+      toastWarn("Sem estoque suficiente", `Disponível: ${item.estoque}`);
       return;
     }
     item.qtd += 1;
@@ -466,32 +581,6 @@
       .join("");
 
     cartTotalEl.textContent = fmtBRL(calcTotal());
-  }
-
-  function escapeHtml(str) {
-    return String(str)
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
-  }
-
-  // ✅ Toast Spaço da Jhuséna (Bootstrap)
-  function sjToast(html) {
-    const toastEl = document.getElementById("sjToastVenda");
-    const bodyEl = document.getElementById("sjToastBody");
-
-    // fallback de segurança (se o HTML não estiver na página)
-    if (!toastEl || !bodyEl || typeof bootstrap === "undefined") {
-      alert(String(html).replace(/<[^>]*>/g, "")); // remove tags
-      return;
-    }
-
-    bodyEl.innerHTML = html;
-
-    const t = bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 4500 });
-    t.show();
   }
 
   // Render inicial
