@@ -56,3 +56,16 @@ Arquivos prováveis:
 - pdv/views.py
 - pdv/static/pdv/pdv.js
 - templates/base.html
+
+
+## ✅ Estado atual (confirmado)
+Landing page pública no ar (GitHub Pages) + Modo DEMO blindado.
+No DEMO: qualquer ação POST no PDV é bloqueada com 403 e toast profissional (sem alerts).
+Backend soberano com decorator bloquear_demo.
+
+## 🚦 Smoke Test (2 min)
+1) Login demo → /pdv/ → tentar finalizar → toast “Ação desabilitada no MODO DEMO.” (sem popup)
+2) Login real → finalizar venda → registra normalmente
+
+## 🎯 Próximo micro-passo (1 só)
+Aplicar @bloquear_demo nos endpoints de escrita fora do PDV (financeiro/vendas) e padronizar mensagens.
