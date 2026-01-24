@@ -881,11 +881,34 @@ const gradientFillPlugin = {
         }
 
         var series = data.series;
+
+        // 1) Se não tem nada: limpa e sai (e opcionalmente mostra msg de vazio)
         if (!series.length) {
           var ctxClear = elCanvas.getContext("2d");
           ctxClear.clearRect(0, 0, elCanvas.width, elCanvas.height);
+
+          const msg = document.getElementById("msgGraficoMensalIA");
+          if (msg) {
+            msg.style.display = "block";
+            msg.textContent = "Sem dados suficientes ainda. Registre receitas e despesas para a IA montar a evolução mensal.";
+          }
           return;
         }
+
+        // 2) Se tem 1 mês: mostra aviso de “preciso de 2”
+        if (series.length < 2) {
+          const msg = document.getElementById("msgGraficoMensalIA");
+          if (msg) {
+            msg.style.display = "block";
+            msg.textContent =
+              "Preciso de pelo menos 2 meses de dados pra mostrar a evolução. Por enquanto, exibi apenas o mês atual.";
+          }
+        } else {
+          // se tiver 2+ meses, pode esconder a msg
+          const msg = document.getElementById("msgGraficoMensalIA");
+          if (msg) msg.style.display = "none";
+        }
+
         function toNumberBR(v) {
           if (v === null || v === undefined) return 0;
           if (typeof v === "number") return Number.isFinite(v) ? v : 0;
@@ -898,8 +921,6 @@ const gradientFillPlugin = {
           var n = Number(s);
           return Number.isFinite(n) ? n : 0;
         }
-
-
         // ---------- Séries base ----------
         var receitas = series.map(function (s) {
           return toNumberBR(s.total_receitas);
@@ -1266,9 +1287,40 @@ const gradientFillPlugin = {
           data: {
             labels: labels,
             datasets: [
-              { label: "Receitas", data: receitas, tension: 0.3 },
-              { label: "Despesas", data: despesas, tension: 0.3 },
-              { label: "Saldo", data: saldos, tension: 0.3 },
+              {
+                label: "Receitas",
+                data: receitas,
+                tension: 0.3,
+                borderColor: "#22c55e",
+                backgroundColor: "rgba(34,197,94,.12)",
+                borderWidth: 3,
+                pointRadius: 5,
+                pointHoverRadius: 8,
+                pointBackgroundColor: "#22c55e",
+              },
+              {
+                label: "Despesas",
+                data: despesas,
+                tension: 0.3,
+                borderColor: "#ef4444",
+                backgroundColor: "rgba(239,68,68,.10)",
+                borderWidth: 3,
+                pointRadius: 5,
+                pointHoverRadius: 8,
+                pointBackgroundColor: "#ef4444",
+              },
+              {
+                label: "Saldo",
+                data: saldos,
+                tension: 0.3,
+                borderColor: "#3b82f6",
+                backgroundColor: "rgba(59,130,246,.10)",
+                borderWidth: 3,
+                pointRadius: 5,
+                pointHoverRadius: 8,
+                pointBackgroundColor: "#3b82f6",
+              },
+
               {
                 label: "_Tendência",
                 data: trendShadeData,
@@ -1315,12 +1367,15 @@ const gradientFillPlugin = {
               legend: {
                 position: "bottom",
                 labels: {
+                  color: "#e5e7eb", // ✅ legenda visível no dark
                   filter: function (item) {
                     return item.text && item.text.indexOf("_") !== 0;
                   },
                 },
               },
               tooltip: {
+                titleColor: "#e5e7eb",
+                bodyColor: "#e5e7eb",
                 callbacks: {
                   label: function (context) {
                     var dsLabel = context.dataset.label || "";
@@ -1367,15 +1422,22 @@ const gradientFillPlugin = {
               },
             },
             scales: {
+              x: {
+                ticks: { color: "#cbd5e1" },                 // ✅ eixo X visível
+                grid: { color: "rgba(255,255,255,.08)" },    // ✅ grid X
+              },
               y: {
                 ticks: {
+                  color: "#cbd5e1",                           // ✅ eixo Y visível
                   callback: function (value) {
                     return "R$ " + value.toLocaleString("pt-BR");
                   },
                 },
+                grid: { color: "rgba(255,255,255,.08)" },     // ✅ grid Y
               },
             },
-          },
+          }
+
         });
       })
       .catch(function (err) {
@@ -3209,6 +3271,18 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     const top = itens.slice(0, 3);
+    // ===== Impacto financeiro =====
+    const impacto = itens.reduce((acc, it) => {
+      const dias = Number(it.dias_para_vencer ?? it.dias_restantes ?? it.dias ?? 0);
+      const saldo = Number(it.saldo ?? it.saldo_lote ?? 0);
+      const preco = Number(it.preco_unit ?? it.preco ?? 0);
+
+      if (dias < 0 && saldo > 0) {
+        acc.itens += saldo;
+        acc.valor += saldo * preco;
+      }
+      return acc;
+    }, { itens: 0, valor: 0 });
 
     box.innerHTML = top.map((it) => {
       const nome = it.produto_nome || it.produto || "Produto";
@@ -3241,7 +3315,10 @@ document.addEventListener("DOMContentLoaded", function () {
     }).join("");
 
     if (footer) {
-      footer.innerHTML = `Total críticos: <strong>${total}</strong>`;
+      footer.innerHTML = impacto.valor > 0
+        ? `💸 Risco estimado: <strong style="color: rgba(255,255,255,.95)">R$ ${impacto.valor.toFixed(2)}</strong> 
+      <span style="color: rgba(255,255,255,.72)">(${impacto.itens} itens)</span>`
+        : `<span style="color: rgba(255,255,255,.72)">Sem impacto financeiro no momento.</span>`;
     }
   }
 

@@ -1,893 +1,657 @@
 /* === Spaço da Jhuséna — Painel Financeiro === */
-/* ✅ CSS consolidado (sem regras duplicadas / sem brigas) */
+/* ✅ CSS consolidado (sem duplicações / sem brigas) */
 
 /* ---------------- Tema base (cores) ---------------- */
-:root {
-  --sj-bg: #f4fdf5;
-  --sj-text: #2e7d32;
-  --sj-accent: #2e7d32;
-  --sj-accent-dark: #256b28;
-  --sj-card-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+:root{
+  --sj-bg:#f4fdf5;
+  --sj-text:#2e7d32;
+  --sj-accent:#2e7d32;
+  --sj-accent-dark:#256b28;
+  --sj-card-shadow:0 2px 6px rgba(0,0,0,.08);
 
   /* Dark-friendly (IA / seções escuras) */
-  --sj-verde-borda: rgba(76, 175, 80, 0.45);
-  --sj-verde-fundo: rgba(46, 125, 50, 0.18);
-  --sj-ambar-borda: rgba(255, 193, 7, 0.55);
-  --sj-ambar-fundo: rgba(255, 193, 7, 0.2);
-  --sj-cinza-borda: rgba(255, 255, 255, 0.18);
-  --sj-cinza-fundo: rgba(255, 255, 255, 0.08);
+  --sj-verde-borda:rgba(76,175,80,.45);
+  --sj-verde-fundo:rgba(46,125,50,.18);
+  --sj-ambar-borda:rgba(255,193,7,.55);
+  --sj-ambar-fundo:rgba(255,193,7,.20);
+  --sj-cinza-borda:rgba(255,255,255,.18);
+  --sj-cinza-fundo:rgba(255,255,255,.08);
 }
 
 /* ---------------- Base do tema claro ---------------- */
-html,
-body {
-  background: var(--sj-bg) !important;
-  color: var(--sj-text) !important;
+html,body{
+  background:var(--sj-bg)!important;
+  color:var(--sj-text)!important;
 }
 
-body {
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
-  margin: 0;
-  padding: 1.5rem;
+body{
+  font-family:"Segoe UI",Tahoma,Geneva,Verdana,sans-serif;
+  margin:0;
+  padding:0; /* ✅ definitivo: evita empurrar navbar */
+}
+
+/* área principal (sem mexer no nav) */
+main,.dashboard-container,.container{
+  padding-top:1.5rem!important;
 }
 
 /* Títulos */
-h1,
-h2,
-h3,
-h4 {
-  color: #1b5e20;
-  font-weight: 700;
+h1,h2,h3,h4{
+  color:#1b5e20;
+  font-weight:700;
 }
 
 /* Container principal */
-.dashboard-container,
-.container {
-  max-width: 1100px;
-  margin: auto;
+.dashboard-container,.container{
+  max-width:1100px;
+  margin:auto;
 }
 
 /* ---------------- Cards gerais ---------------- */
-.card {
-  border-radius: 12px;
-  box-shadow: var(--sj-card-shadow);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  background: #fff;
+.card{
+  border-radius:12px;
+  box-shadow:var(--sj-card-shadow);
+  transition:transform .2s ease, box-shadow .2s ease;
+  background:#fff;
 }
 
-.card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+.card:hover{
+  transform:translateY(-3px);
+  box-shadow:0 4px 12px rgba(0,0,0,.12);
 }
 
 /* Cards de totais (KPI) */
-.card.border-success {
-  border: 1px solid #81c784 !important;
-  background: #e8f7ef;
-}
-.card.border-danger {
-  border: 1px solid #ef9a9a !important;
-  background: #ffeaea;
-}
-.card.border-primary {
-  border: 1px solid #90caf9 !important;
-  background: #e8f0fe;
-}
+.card.border-success{ border:1px solid #81c784!important; background:#e8f7ef; }
+.card.border-danger{  border:1px solid #ef9a9a!important; background:#ffeaea; }
+.card.border-primary{ border:1px solid #90caf9!important; background:#e8f0fe; }
 
 /* ---------------- Botões ---------------- */
-.btn {
-  border-radius: 8px;
-  font-weight: 600;
-  transition: background-color 0.2s ease;
+.btn{
+  border-radius:8px;
+  font-weight:600;
+  transition:background-color .2s ease;
 }
 
-.btn-success {
-  background: var(--sj-accent);
-  border-color: var(--sj-accent);
+.btn-success{
+  background:var(--sj-accent);
+  border-color:var(--sj-accent);
 }
 
-.btn-success:hover {
-  background: var(--sj-accent-dark);
-  border-color: var(--sj-accent-dark);
+.btn-success:hover{
+  background:var(--sj-accent-dark);
+  border-color:var(--sj-accent-dark);
 }
 
-.btn-outline-success:hover {
-  background: var(--sj-accent);
-  color: #fff;
+.btn-outline-success:hover{
+  background:var(--sj-accent);
+  color:#fff;
 }
 
 /* ---------------- Filtros / inputs ---------------- */
-.filtro-financeiro label,
-form label {
-  font-weight: 700;
-  color: var(--sj-text);
+.filtro-financeiro label, form label{
+  font-weight:700;
+  color:var(--sj-text);
 }
 
 .filtro-financeiro input,
-form input[type="date"] {
-  width: 100%;
-  max-width: 180px;
-  padding: 0.5rem;
-  border: 1px solid #81c784;
-  border-radius: 6px;
+form input[type="date"]{
+  width:100%;
+  max-width:180px;
+  padding:.5rem;
+  border:1px solid #81c784;
+  border-radius:6px;
 }
 
 /* =====================================================
-   GRÁFICOS — PRESET CONSOLIDADO (FIX DEFINITIVO!)
+   GRÁFICOS — preset consolidado (sem duplicar chart-box)
    ===================================================== */
-.chart-box {
-  position: relative;
-  width: 100%;
-  min-height: 260px;
-  height: auto;
-  aspect-ratio: 16 / 9;
-  overflow: visible;
+.chart-box{
+  position:relative;
+  width:100%;
+  height:260px;         /* ✅ altura definida (não some) */
+  min-height:260px;
+  overflow:hidden;       /* ✅ canvas não vaza do card */
+  border-radius:12px;
 }
 
-.chart-box canvas {
-  position: absolute;
-  inset: 0;
-  width: 100% !important;
-  height: 100% !important;
-  display: block !important;
+.chart-box canvas{
+  position:absolute;
+  inset:0;
+  width:100%!important;
+  height:100%!important;
+  display:block!important;
 }
 
-#graficoEvolucao,
-#graficoCategorias {
-  display: block;
-  width: 100%;
-  height: 100%;
-  background: #1f2937;
-  border: 1px dashed #888;
+#graficoEvolucao,#graficoCategorias{
+  display:block;
+  width:100%;
+  height:100%;
+  background:#1f2937;
+  border:1px dashed #888;
+  border-radius:12px;
 }
 
-.card.h-100 {
-  z-index: 5;
+.sem-dados{
+  font-style:italic;
+  color:#666;
+  text-align:center;
 }
 
-.sem-dados {
-  font-style: italic;
-  color: #666;
-  text-align: center;
-}
-
-.chartjs-render-monitor,
-canvas {
-  image-rendering: auto;
+.chartjs-render-monitor,canvas{
+  image-rendering:auto;
 }
 
 /* ---------------- Badges de tipo (Resumo / fora do histórico) ---------------- */
-.badge-tipo {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  font-weight: 600;
-  font-size: 0.75rem;
-  line-height: 1;
-  padding: 0.35rem 0.5rem;
-  border-radius: 999px;
-  border: 1px solid transparent;
+.badge-tipo{
+  display:inline-flex;
+  align-items:center;
+  gap:.35rem;
+  font-weight:600;
+  font-size:.75rem;
+  line-height:1;
+  padding:.35rem .5rem;
+  border-radius:999px;
+  border:1px solid transparent;
 }
 
-.badge-positiva {
-  background: #e8f7ef;
-  color: #106a39;
-  border-color: #bfe8cf;
-}
+.badge-positiva{ background:#e8f7ef; color:#106a39; border-color:#bfe8cf; }
+.badge-alerta{   background:#fff3e8; color:#8a3b00; border-color:#ffd6ad; }
+.badge-neutra{   background:#eef1f5; color:#2f3a4a; border-color:#d7dde6; }
 
-.badge-alerta {
-  background: #fff3e8;
-  color: #8a3b00;
-  border-color: #ffd6ad;
-}
-
-.badge-neutra {
-  background: #eef1f5;
-  color: #2f3a4a;
-  border-color: #d7dde6;
-}
-
-.badge-dot {
-  width: 0.5rem;
-  height: 0.5rem;
-  border-radius: 50%;
-  background: currentColor;
-  opacity: 0.7;
+.badge-dot{
+  width:.5rem;
+  height:.5rem;
+  border-radius:50%;
+  background:currentColor;
+  opacity:.7;
 }
 
 /* ================= Bloco Plano IA (30d) ================= */
-#analise30dPlano {
-  border-radius: 0.8rem !important;
-  border-width: 1px !important;
-  border-style: solid !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03),
-    0 0 0 1px rgba(0, 0, 0, 0.12) !important;
-  backdrop-filter: saturate(120%) !important;
-  transition: all 0.25s ease;
+#analise30dPlano{
+  border-radius:.8rem!important;
+  border:1px solid transparent!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.03), 0 0 0 1px rgba(0,0,0,.12)!important;
+  backdrop-filter:saturate(120%)!important;
+  transition:all .25s ease;
 }
 
-[data-analise-tipo="positiva"] #analise30dPlano {
-  background-color: var(--sj-verde-fundo) !important;
-  border-color: var(--sj-verde-borda) !important;
-  color: #bde5c5 !important;
+[data-analise-tipo="positiva"] #analise30dPlano{
+  background-color:var(--sj-verde-fundo)!important;
+  border-color:var(--sj-verde-borda)!important;
+  color:#bde5c5!important;
 }
 
-[data-analise-tipo="alerta"] #analise30dPlano {
-  background-color: var(--sj-ambar-fundo) !important;
-  border-color: var(--sj-ambar-borda) !important;
-  color: #ffe08a !important;
+[data-analise-tipo="alerta"] #analise30dPlano{
+  background-color:var(--sj-ambar-fundo)!important;
+  border-color:var(--sj-ambar-borda)!important;
+  color:#ffe08a!important;
 }
 
-[data-analise-tipo="neutra"] #analise30dPlano {
-  background-color: var(--sj-cinza-fundo) !important;
-  border-color: var(--sj-cinza-borda) !important;
-  color: #d6d6d6 !important;
+[data-analise-tipo="neutra"] #analise30dPlano{
+  background-color:var(--sj-cinza-fundo)!important;
+  border-color:var(--sj-cinza-borda)!important;
+  color:#d6d6d6!important;
 }
 
 /* KPIs 30d */
-#analise30dKPIs .border {
-  border-radius: 0.6rem !important;
-  transition: border-color 0.4s ease, box-shadow 0.4s ease;
+#analise30dKPIs .border{
+  border-radius:.6rem!important;
+  transition:border-color .4s ease, box-shadow .4s ease;
 }
 
-[data-analise-tipo="positiva"] #analise30dKPIs .border {
-  border-color: var(--sj-verde-borda) !important;
-  box-shadow: 0 0 4px var(--sj-verde-borda);
+[data-analise-tipo="positiva"] #analise30dKPIs .border{
+  border-color:var(--sj-verde-borda)!important;
+  box-shadow:0 0 4px var(--sj-verde-borda);
+}
+[data-analise-tipo="alerta"] #analise30dKPIs .border{
+  border-color:var(--sj-ambar-borda)!important;
+  box-shadow:0 0 4px var(--sj-ambar-borda);
+}
+[data-analise-tipo="neutra"] #analise30dKPIs .border{
+  border-color:var(--sj-cinza-borda)!important;
+  box-shadow:0 0 4px var(--sj-cinza-borda);
 }
 
-[data-analise-tipo="alerta"] #analise30dKPIs .border {
-  border-color: var(--sj-ambar-borda) !important;
-  box-shadow: 0 0 4px var(--sj-ambar-borda);
+/* Bloco verde (card “success-subtle”) */
+.card.bg-success-subtle{
+  background-color:rgba(46,125,50,.12)!important;
+  border-color:rgba(76,175,80,.45)!important;
+  box-shadow:0 2px 14px rgba(76,175,80,.10)!important;
+  backdrop-filter:saturate(115%);
+  border-radius:14px;
 }
 
-[data-analise-tipo="neutra"] #analise30dKPIs .border {
-  border-color: var(--sj-cinza-borda) !important;
-  box-shadow: 0 0 4px var(--sj-cinza-borda);
-}
-
-/* Bloco verde */
-.card.bg-success-subtle {
-  background-color: rgba(46, 125, 50, 0.12) !important;
-  border-color: rgba(76, 175, 80, 0.45) !important;
-  box-shadow: 0 2px 14px rgba(76, 175, 80, 0.1) !important;
-  backdrop-filter: saturate(115%);
-  border-radius: 14px;
-}
-
-.text-success-emphasis {
-  color: #bde5c5 !important;
-}
+.text-success-emphasis{ color:#bde5c5!important; }
 
 /* ================= HISTÓRICO IA (cards + chips) ================= */
-.ia-card {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 0.6rem;
-  border: 1px solid #262626;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.25);
-  margin-bottom: 0.75rem;
-  padding: 12px 16px;
-  transition: all 0.2s ease-in-out;
-  position: relative;
+.ia-card{
+  background:rgba(0,0,0,.2);
+  border-radius:.6rem;
+  border:1px solid #262626;
+  box-shadow:0 2px 4px rgba(0,0,0,.25);
+  margin-bottom:.75rem;
+  padding:12px 16px;
+  transition:all .2s ease-in-out;
+  position:relative;
 }
 
-.ia-card:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-  transform: translateY(-1px);
+.ia-card:hover{
+  box-shadow:0 2px 8px rgba(0,0,0,.35);
+  transform:translateY(-1px);
 }
 
-.ia-card.is-new {
-  border-color: rgba(0, 200, 83, 0.7);
-  box-shadow: 0 0 18px rgba(0, 200, 83, 0.25);
+.ia-card.is-new{
+  border-color:rgba(0,200,83,.7);
+  box-shadow:0 0 18px rgba(0,200,83,.25);
 }
 
 .ia-card .conteudo,
 .ia-card p,
-.ia-card div {
-  font-size: 0.92rem;
-  line-height: 1.4rem;
+.ia-card div{
+  font-size:.92rem;
+  line-height:1.4rem;
 }
 
-.ia-card small.text-muted {
-  font-size: 0.8rem;
+.ia-card small.text-muted{ font-size:.8rem; }
+
+.ia-card.fade-in{ animation:fadeIn .25s ease-out; }
+
+.ia-card.just-added{
+  background:linear-gradient(90deg,#e8fce9,#ffffff);
+  border-left:4px solid #2ecc71;
+  box-shadow:0 0 10px rgba(46,204,113,.4);
+  transform:translateY(-1px);
+  transition:all .4s ease;
 }
 
-.ia-card.fade-in {
-  animation: fadeIn 0.25s ease-out;
+.ia-card.just-added::after{
+  content:"Nova dica adicionada";
+  position:absolute;
+  right:16px;
+  top:-10px;
+  padding:2px 8px;
+  font-size:.7rem;
+  border-radius:999px;
+  background:#28a745;
+  color:#fff;
+  animation:iaBadge 1.8s ease-out forwards;
+  opacity:0;
 }
 
-.ia-card.just-added {
-  background: linear-gradient(90deg, #e8fce9, #ffffff);
-  border-left: 4px solid #2ecc71;
-  box-shadow: 0 0 10px rgba(46, 204, 113, 0.4);
-  transform: translateY(-1px);
-  transition: all 0.4s ease;
-}
-
-.ia-card.just-added::after {
-  content: "Nova dica adicionada";
-  position: absolute;
-  right: 16px;
-  top: -10px;
-  padding: 2px 8px;
-  font-size: 0.7rem;
-  border-radius: 999px;
-  background: #28a745;
-  color: #fff;
-  animation: iaBadge 1.8s ease-out forwards;
-  opacity: 0;
-}
-
+/* chips/badges do histórico */
 .ia-card .chip,
-.ia-card .badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.1rem 0.8rem;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  border: 1px solid transparent;
-}
-
-.chip-success,
-.ia-card .badge-positiva,
-.ia-card .badge-success {
-  background: rgba(34, 197, 94, 0.16);
-  color: #4ade80;
-  border-color: rgba(34, 197, 94, 0.55);
-}
-
-.chip-warning,
-.ia-card .badge-alerta,
-.ia-card .badge-danger {
-  background: rgba(245, 158, 11, 0.14);
-  color: #fbbf24;
-  border-color: rgba(245, 158, 11, 0.55);
-}
-
-.chip-neutral,
-.ia-card .badge-neutra,
-.ia-card .badge-secondary {
-  background: rgba(148, 163, 184, 0.16);
-  color: #e5e7eb;
-  border-color: rgba(148, 163, 184, 0.55);
-}
-
-.ia-card .ia-text-positiva {
-  color: #22c55e;
-  font-weight: 500;
-}
-.ia-card .ia-text-alerta {
-  color: #ff9800;
-  font-weight: 500;
-}
-.ia-card .ia-text-neutra {
-  color: #9ca3af;
+.ia-card .badge{
+  display:inline-flex;
+  align-items:center;
+  gap:.35rem;
+  padding:.10rem .8rem;
+  border-radius:999px;
+  font-size:.75rem;
+  font-weight:600;
+  text-transform:uppercase;
+  letter-spacing:.03em;
+  border:1px solid transparent;
+  transition:.15s ease;
 }
 
 .ia-card .chip:hover,
-.ia-card .badge:hover {
-  transform: translateY(-1px);
-  filter: brightness(1.05);
+.ia-card .badge:hover{
+  transform:translateY(-1px);
+  filter:brightness(1.05);
 }
+
+/* variações (histórico) */
+.ia-card .chip-success,
+.ia-card .badge-positiva,
+.ia-card .badge-success{
+  background:rgba(34,197,94,.16);
+  color:#4ade80;
+  border-color:rgba(34,197,94,.55);
+}
+
+.ia-card .chip-warning,
+.ia-card .badge-alerta,
+.ia-card .badge-danger{
+  background:rgba(245,158,11,.14);
+  color:#fbbf24;
+  border-color:rgba(245,158,11,.55);
+}
+
+.ia-card .chip-neutral,
+.ia-card .badge-neutra,
+.ia-card .badge-secondary{
+  background:rgba(148,163,184,.16);
+  color:#e5e7eb;
+  border-color:rgba(148,163,184,.55);
+}
+
+.ia-card .ia-text-positiva{ color:#22c55e; font-weight:500; }
+.ia-card .ia-text-alerta{   color:#ff9800; font-weight:500; }
+.ia-card .ia-text-neutra{   color:#9ca3af; }
 
 /* ================= Animações ================= */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+@keyframes fadeIn{
+  from{ opacity:0; transform:translateY(4px); }
+  to{ opacity:1; transform:translateY(0); }
 }
 
-@keyframes iaBadge {
-  0% {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  20% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-  70% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
+@keyframes iaBadge{
+  0%{ opacity:0; transform:translateY(-4px); }
+  20%{ opacity:1; transform:translateY(0); }
+  70%{ opacity:1; }
+  100%{ opacity:0; }
 }
 
 /* ================= Impressão ================= */
-@page {
-  size: A4 landscape;
-  margin: 12mm;
+@page{ size:A4 landscape; margin:12mm; }
+
+*{
+  -webkit-print-color-adjust:exact!important;
+  print-color-adjust:exact!important;
 }
 
-* {
-  -webkit-print-color-adjust: exact !important;
-  print-color-adjust: exact !important;
-}
+@media print{
+  .no-print,.no-print *{ display:none!important; }
 
-@media print {
-  .no-print,
-  .no-print * {
-    display: none !important;
+  .card,.list-group-item,.position-relative{
+    break-inside:avoid;
+    page-break-inside:avoid;
   }
 
-  .card,
-  .list-group-item,
-  .position-relative {
-    break-inside: avoid;
-    page-break-inside: avoid;
-  }
-
-  .container,
-  .container-fluid {
-    max-width: 100% !important;
-  }
+  .container,.container-fluid{ max-width:100%!important; }
 }
 
 /* ================= Responsivo ================= */
-@media (max-width: 768px) {
-  body {
-    padding: 1rem;
-  }
-
-  .btn {
-    width: 100%;
-  }
-
-  .chart-box {
-    min-height: 260px;
-  }
+@media (max-width:768px){
+  .btn{ width:100%; }
+  .chart-box{ min-height:260px; }
 }
 
 /* =========================
    MODO ESCURO PROFISSIONAL
    ========================= */
-body.sj-dark {
-  background: #050816 !important;
-  color: #e5e7eb !important;
+/* =========================
+   MODO ESCURO — ÚNICO BLOCO (CONSOLIDADO)
+   ========================= */
+body.sj-dark{
+  background:#050816!important;
+  color:rgba(255,255,255,.92)!important;
 }
 
-body.sj-dark .card {
-  background: #0b1120;
-  border-color: #1f2937;
-  color: #e5e7eb;
+body.sj-dark .card{
+  background:#0b1120;
+  border-color:#1f2937;
+  color:rgba(255,255,255,.92);
 }
 
-body.sj-dark .alert {
-  background: #020617;
-  border-color: #22c55e;
-  color: #e5e7eb;
+body.sj-dark .card-header,
+body.sj-dark .card-body{
+  color:rgba(255,255,255,.92);
 }
 
+/* muted legível no dark */
+body.sj-dark .text-muted,
+body.sj-dark small,
+body.sj-dark .small{
+  color:rgba(255,255,255,.72)!important;
+}
+
+/* títulos */
 body.sj-dark h1,
 body.sj-dark h2,
 body.sj-dark h3,
-body.sj-dark h4 {
-  color: #bbf7d0;
+body.sj-dark h4{
+  color:#bbf7d0;
 }
 
-body.sj-dark .btn-success {
-  background: #16a34a;
-  border-color: #15803d;
+/* alertas */
+body.sj-dark .alert{
+  background:#020617;
+  border-color:#22c55e;
+  color:rgba(255,255,255,.92);
 }
 
-body.sj-dark .btn-success:hover {
-  background: #22c55e;
-  border-color: #16a34a;
+/* IA card no dark */
+body.sj-dark .ia-card{
+  background:#020617;
+  border-color:#1f2937;
+  color:rgba(255,255,255,.92);
 }
 
-body.sj-dark .ia-card {
-  background: #020617;
-  border-color: #1f2937;
-  color: #e5e7eb;
-}
-
-body.sj-dark .chip-success {
-  background: rgba(34, 197, 94, 0.12);
-  color: #4ade80;
-  border-color: rgba(34, 197, 94, 0.7);
-}
-
-body.sj-dark .chip-warning {
-  background: rgba(251, 191, 36, 0.1);
-  color: #facc15;
-  border-color: rgba(251, 191, 36, 0.8);
-}
-
-body.sj-dark .chip-neutral {
-  background: rgba(148, 163, 184, 0.12);
-  color: #e2e8f0;
-  border-color: rgba(148, 163, 184, 0.7);
-}
-
-body.sj-dark .ia-card .ia-text-positiva {
-  color: #4ade80;
-}
-
-body.sj-dark .ia-card .ia-text-alerta {
-  color: #fdba74;
-}
-
-body.sj-dark .ia-card .ia-text-neutra {
-  color: #e5e7eb;
-}
-
-body.sj-dark .chart-box {
-  background: #020617;
-  border-radius: 12px;
-}
 
 /* =========================
    CHIPS PREMIUM (botões)
+   (scopado: só afeta quando tiver .chip-btn)
    ========================= */
-.chip-btn {
-  padding: 6px 12px;
-  font-size: 0.85rem;
-  border-radius: 6px;
-  border: none;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: 0.15s ease-in-out;
-  white-space: nowrap;
+.chip-btn{
+  padding:6px 12px;
+  font-size:.85rem;
+  border-radius:6px;
+  border:none;
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-weight:500;
+  cursor:pointer;
+  transition:.15s ease-in-out;
+  white-space:nowrap;
 }
 
-.chip-success {
-  background: #d4f6df;
-  color: #0a6c2f;
-}
+.chip-btn.chip-success{ background:#d4f6df; color:#0a6c2f; }
+.chip-btn.chip-success:hover{ background:#c2efcf; }
 
-.chip-success:hover {
-  background: #c2efcf;
-}
+.chip-btn.chip-primary{ background:#dce9ff; color:#0a3c8c; }
+.chip-btn.chip-primary:hover{ background:#c6dbff; }
 
-.chip-primary {
-  background: #dce9ff;
-  color: #0a3c8c;
-}
-
-.chip-primary:hover {
-  background: #c6dbff;
-}
-
-.chip-warning {
-  background: #fff3cd;
-  color: #8a6d00;
-}
-
-.chip-warning:hover {
-  background: #ffe9a6;
-}
+.chip-btn.chip-warning{ background:#fff3cd; color:#8a6d00; }
+.chip-btn.chip-warning:hover{ background:#ffe9a6; }
 
 /* =========================
    LOTE CRÍTICO (alertas)
    ========================= */
-.ia-card-lote-critico {
-  border: 2px solid #dc3545 !important;
-  box-shadow: 0 0 0 0.15rem rgba(220, 53, 69, 0.15);
+.ia-card-lote-critico{
+  border:2px solid #dc3545!important;
+  box-shadow:0 0 0 .15rem rgba(220,53,69,.15);
 }
 
-.ia-card-lote-critico .card-body {
-  background: rgba(220, 53, 69, 0.04);
+.ia-card-lote-critico .card-body{
+  background:rgba(220,53,69,.10);
 }
 
 /* Card base */
-.lotes-criticos-item {
-  transition: all 0.2s ease;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background: rgba(255, 255, 255, 0.03);
+.lotes-criticos-item{
+  transition:all .2s ease;
+  background:rgba(255,255,255,.08);
+  border:1px solid rgba(255,255,255,.12);
 }
 
 /* Hover geral */
-.lotes-criticos-item:hover {
-  filter: brightness(1.06);
-  transform: translateY(-1px);
+.lotes-criticos-item:hover{
+  background:rgba(255,255,255,.12);
+  filter:none;
+  transform:translateY(-1px);
 }
 
 /* 🔥 AÇÃO IMEDIATA */
-.lote-critico-red {
-  border: 1px solid rgba(255, 80, 80, 0.85) !important;
-  background: linear-gradient(
-    90deg,
-    rgba(255, 80, 80, 0.14),
-    rgba(255, 80, 80, 0.04)
-  );
+.lote-critico-red{
+  border:1px solid rgba(255,80,80,.85)!important;
+  background:linear-gradient(90deg, rgba(255,80,80,.14), rgba(255,80,80,.04));
   box-shadow:
-    0 0 0 1px rgba(255, 80, 80, 0.25) inset,
-    0 0 10px rgba(255, 80, 80, 0.15);
-  animation: pulseCritico 2.4s ease-in-out infinite;
+    0 0 0 1px rgba(255,80,80,.25) inset,
+    0 0 10px rgba(255,80,80,.15);
+  animation:pulseCritico 2.4s ease-in-out infinite;
 }
 
-/* Hover específico do crítico */
-.lote-critico-red:hover {
-  filter: brightness(1.1);
-}
+.lote-critico-red:hover{ filter:brightness(1.1); }
 
-/* 🎯 Animação sutil (não cansa) */
-@keyframes pulseCritico {
-  0% {
+@keyframes pulseCritico{
+  0%{
     box-shadow:
-      0 0 0 1px rgba(255, 80, 80, 0.25) inset,
-      0 0 6px rgba(255, 80, 80, 0.12);
+      0 0 0 1px rgba(255,80,80,.25) inset,
+      0 0 6px rgba(255,80,80,.12);
   }
-  50% {
+  50%{
     box-shadow:
-      0 0 0 1px rgba(255, 80, 80, 0.35) inset,
-      0 0 14px rgba(255, 80, 80, 0.28);
+      0 0 0 1px rgba(255,80,80,.35) inset,
+      0 0 14px rgba(255,80,80,.28);
   }
-  100% {
+  100%{
     box-shadow:
-      0 0 0 1px rgba(255, 80, 80, 0.25) inset,
-      0 0 6px rgba(255, 80, 80, 0.12);
+      0 0 0 1px rgba(255,80,80,.25) inset,
+      0 0 6px rgba(255,80,80,.12);
   }
 }
-
 
 /* =========================
-   SISTEMA “SaaS” (SEM QUEBRAR BOOTSTRAP)
+   SISTEMA “SaaS” (sem quebrar Bootstrap)
    ========================= */
 .sj-row > [class^="col-"],
-.sj-row > [class*=" col-"] {
-  display: flex;
+.sj-row > [class*=" col-"]{ display:flex; }
+
+.sj-row .sj-card{
+  width:100%;
+  display:flex;
+  flex-direction:column;
+  border-radius:14px;
+  height:100%;
 }
 
-.sj-row .sj-card {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  border-radius: 14px;
-  height: 100%;
-}
-
-.sj-row .sj-card .card-header {
-  flex: 0 0 auto;
-}
-
-.sj-row .sj-card .card-body {
-  flex: 1 1 auto;
-  min-height: 0;
+.sj-row .sj-card .card-header{ flex:0 0 auto; }
+.sj-row .sj-card .card-body{
+  flex:1 1 auto;
+  min-height:0;
 }
 
 /* Área rolável padrão */
-.sj-scroll {
-  overflow-y: auto;
-  overflow-x: hidden;
-  min-height: 0;
-  flex: 1;           /* ESSENCIAL quando tá dentro de flex */
-  max-height: none;  /* tira o “teto” fixo */
+.sj-scroll{
+  overflow-y:auto;
+  overflow-x:hidden;
+  min-height:0;
+  flex:1;
+  max-height:none;
 }
 
-.sj-card-col {
-  height: 420px;           /* ajuste fino */
-  display: flex;
-  flex-direction: column;
+.sj-card-col{
+  height:420px;
+  display:flex;
+  flex-direction:column;
 }
 
 .sj-card-col .card-body{
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  min-height:0;
 }
 
 /* tamanhos */
-.sj-sm {
-  min-height: 160px;
-}
+.sj-sm{ min-height:160px; }
+.sj-md{ min-height:320px; }
+.sj-lg{ min-height:360px; }
 
-.sj-md {
-  min-height: 320px;
-}
-
-.sj-lg {
-  min-height: 360px;
-}
-
-.sj-chart {
-  height: 220px;
-}
-
-.sj-lg .sj-chart {
-  height: 300px;
-}
-
-/* =========================
-   FIX: Últimas transações (SEM INLINE)
-   ========================= */
-#cardUltimasTransacoes {
-  height: 360px;
-  display: flex;
-  flex-direction: column;
-}
-
-#cardUltimasTransacoes .card-header {
-  flex: 0 0 auto;
-}
-
-#cardUltimasTransacoes .card-body {
-  flex: 1 1 auto;
-  min-height: 0;
-  overflow: auto;
-}
-
-/* Correção definitiva: gráficos dentro de cards */
-.card .chart-box {
-  position: relative;
-  width: 100%;
-  height: 260px;
-}
-
-.card .chart-box canvas {
-  position: absolute;
-  inset: 0;
-  width: 100% !important;
-  height: 100% !important;
-}
-
-.card-body {
-  overflow: visible !important;
-}
-
-.card .chart-box {
-  overflow: hidden; /* ⬅ segura o canvas dentro do card */
-  border-radius: 12px; /* ⬅ dá acabamento */
-}
-
-#graficoCategorias,
-#graficoEvolucao {
-  border-radius: 12px; /* ⬅ acompanha o card */
-}
-/* ===== FIX NAVBAR ===== */
-
-/* Restaura fundo visível */
-.navbar {
-  background: #0b1120 !important;   /* fundo escuro original */
-  color: #e5e7eb !important;
-  border-bottom: 1px solid #1f2937;
-}
-
-/* Restaura cor dos textos e ícones */
-.navbar * {
-  color: #e5e7eb !important;
-}
-
-/* Corrige botões (Início / Modo escuro) */
-.navbar a.btn,
-.navbar button.btn {
-  color: #e5e7eb !important;
-  border-color: #e5e7eb !important;
-}
-
-.navbar a.btn:hover,
-.navbar button.btn:hover {
-  background: #22c55e !important;
-  color: #0b1120 !important;
-}
-
-/* ===== FIX GLOBAL NAVBAR — ignora sabotagens anteriores ===== */
-nav.navbar {
-  display: block !important;
-  position: relative !important;
-  z-index: 9999 !important;
-
-  background-color: #198754 !important; /* bg-success */
-  color: #fff !important;
-}
-
-nav.navbar .navbar-brand,
-nav.navbar a,
-nav.navbar a.btn {
-  color: #fff !important;
-}
-
-nav.navbar a.btn-outline-light {
-  border-color: #fff !important;
-}
-
-nav.navbar a.btn-outline-light:hover {
-  background: #fff !important;
-  color: #198754 !important;
-}
-/* ===== FIX DEFINITIVO: impedir que o padding do body empurre a navbar ===== */
-body {
-  padding: 0 !important;
-}
-
-main, .dashboard-container, .container {
-  padding-top: 1.5rem !important;
-}
-
-.sj-ia-explain{
-  margin-top: 8px;
-  padding: 8px 10px;
-  border-radius: 12px;
-  font-size: 0.92rem;
-  line-height: 1.25;
-  border: 1px solid rgba(76,175,80,.35);
-  background: rgba(46,125,50,.12);
-}
-
-.sj-ia-explain{ margin-top:8px; padding:8px 10px; border-radius: 999px; font-size:.92rem; line-height:1.25; border:1px solid; }
-.sj-ia-explain.pos{ border-color: rgba(76,175,80,.45); background: rgba(46,125,50,.12); }
-.sj-ia-explain.neu{ border-color: rgba(255,193,7,.55); background: rgba(255,193,7,.14); }
-.sj-ia-explain.ale{ border-color: rgba(244,67,54,.55); background: rgba(244,67,54,.12); }
-
-/* === FIX definitivo: gráfico mensal IA sumindo === */
 .sj-chart{
-  position: relative;
-  height: 260px;      /* pode subir pra 300 se quiser */
-  min-height: 260px;
-  width: 100%;
+  position:relative;
+  height:260px;
+  min-height:260px;
+  width:100%;
 }
 
 .sj-chart canvas{
-  display: block;
-  width: 100% !important;
-  height: 100% !important;
+  display:block;
+  width:100%!important;
+  height:100%!important;
 }
 
-#msgGraficoMensalIA{
-  padding: 6px 10px;
-  border-radius: 10px;
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(102,187,106,0.18);
-}
-/* Card de transações como coluna (header fixo, body ocupa) */
+.sj-lg .sj-chart{ height:300px; }
+
+/* =========================
+   ÚLTIMAS TRANSAÇÕES — scroll definitivo
+   ========================= */
 #cardUltimasTransacoes{
-  display: flex;
-  flex-direction: column;
+  height:360px;
+  display:flex;
+  flex-direction:column;
 }
 
-/* body vira área rolável (aqui mora o scroll) */
-#cardUltimasTransacoes .sj-body-scroll{
-  flex: 1;
-  min-height: 0;          /* essencial p/ scroll em flex */
-  overflow-y: auto;
-  overflow-x: hidden;
-  max-height: 320px;      /* ajuste: 280/360 como preferir */
-}
-/* ÚLTIMAS TRANSAÇÕES — SCROLL BLINDADO */
+#cardUltimasTransacoes .card-header{ flex:0 0 auto; }
+
 #cardUltimasTransacoes .card-body{
-  max-height: 240px !important;  /* pode subir p/ 300 */
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
+  flex:1 1 auto;
+  min-height:0;
+  overflow-y:auto!important;
+  overflow-x:hidden!important;
+  max-height:240px!important; /* ajuste fino: 240/300 */
 }
 
-/* opcional: evita padding "empurrando" o scroll */
-#cardUltimasTransacoes .card-body ul.list-group{
-  margin: 0;
+#cardUltimasTransacoes .card-body ul.list-group{ margin:0; }
+
+/* =========================
+   NAVBAR — regra única (sem guerra)
+   ========================= */
+nav.navbar{
+  display:block!important;
+  position:relative!important;
+  z-index:9999!important;
+
+  background-color:#198754!important; /* bg-success */
+  color:#fff!important;
+  border-bottom:1px solid rgba(255,255,255,.18);
 }
 
-.sj-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 20px;
+nav.navbar *{ color:#fff!important; }
+
+nav.navbar a.btn-outline-light{
+  border-color:#fff!important;
 }
 
-@media (max-width: 991px) {
-  .sj-grid {
-    grid-template-columns: 1fr;
-  }
-}
-/* deixa as colunas esticarem igual */
-.sj-row-eq {
-  align-items: stretch;
+nav.navbar a.btn-outline-light:hover{
+  background:#fff!important;
+  color:#198754!important;
 }
 
-/* card ocupa toda a altura da coluna */
-.sj-row-eq > [class*="col-"] > .card {
-  height: 100%;
+/* =========================
+   “Explain” IA (pílulas)
+   ========================= */
+.sj-ia-explain{
+  margin-top:8px;
+  padding:8px 10px;
+  border-radius:999px;
+  font-size:.92rem;
+  line-height:1.25;
+  border:1px solid rgba(76,175,80,.35);
+  background:rgba(46,125,50,.12);
 }
+
+.sj-ia-explain.pos{ border-color:rgba(76,175,80,.45); background:rgba(46,125,50,.12); }
+.sj-ia-explain.neu{ border-color:rgba(255,193,7,.55); background:rgba(255,193,7,.14); }
+.sj-ia-explain.ale{ border-color:rgba(244,67,54,.55); background:rgba(244,67,54,.12); }
+
+/* msg do gráfico mensal IA */
+#msgGraficoMensalIA{
+  padding:6px 10px;
+  border-radius:10px;
+  background:rgba(255,255,255,.04);
+  border:1px solid rgba(102,187,106,.18);
+}
+
+/* =========================
+   Layout grid auxiliar
+   ========================= */
+.sj-grid{
+  display:grid;
+  grid-template-columns:repeat(2,1fr);
+  gap:20px;
+}
+
+@media (max-width:991px){
+  .sj-grid{ grid-template-columns:1fr; }
+}
+
+/* colunas esticarem igual */
+.sj-row-eq{ align-items:stretch; }
+.sj-row-eq > [class*="col-"] > .card{ height:100%; }
+
+/* botões estilo “SaaS” */
 .sj-btn{
   margin-top:auto;
   display:inline-flex;
@@ -902,20 +666,21 @@ main, .dashboard-container, .container {
   font-weight:700;
   transition:.15s ease;
 }
+
 .sj-btn:hover{
   transform:translateY(-1px);
   background:rgba(34,197,94,.18);
 }
+
 .sj-btn.secondary{
   background:rgba(255,255,255,.06);
   border-color:rgba(255,255,255,.14);
 }
 
-
 .actions{
   margin-top:auto;
   display:grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns:1fr 1fr;
   gap:10px;
 }
 
@@ -929,9 +694,40 @@ main, .dashboard-container, .container {
   text-overflow:ellipsis;
 }
 
-@media (max-width: 420px){
-  .actions{ grid-template-columns: 1fr; }
+@media (max-width:420px){
+  .actions{ grid-template-columns:1fr; }
 }
 
+/* =================================================
+   Lotes Críticos — Edge/Chrome (legibilidade primeiro)
+   ================================================= */
+#cardLotesCriticos,
+#cardLotesCriticos *{
+  filter:none!important;
+  backdrop-filter:none!important;
+  opacity:1!important;
+}
 
+#cardLotesCriticos{
+  background-color:#0b1120!important;
+  color:#ffffff!important;
+}
 
+#cardLotesCriticos .card-body{
+  background-color:#0b1120!important;
+}
+
+#cardLotesCriticos .lotes-criticos-item{
+  background-color:rgba(255,255,255,.10)!important;
+  border-color:rgba(255,255,255,.14)!important;
+  color:#ffffff!important;
+}
+
+#cardLotesCriticos .small,
+#cardLotesCriticos .text-muted{
+  color:rgba(255,255,255,.80)!important;
+}
+
+#cardLotesCriticos .lote-critico-red{
+  background:linear-gradient(90deg, rgba(255,80,80,.18), rgba(255,80,80,.08))!important;
+}

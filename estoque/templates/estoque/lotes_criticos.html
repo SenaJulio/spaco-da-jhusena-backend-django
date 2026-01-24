@@ -2,36 +2,36 @@
 {% block content %}
 
 <div class="container" style="max-width:1100px;">
-    <div class="d-flex align-items-center justify-content-between mb-3">
-        <div>
-            <h3 class="mb-0">Lotes Críticos</h3>
-            <small class="text-muted">Lista completa (validade + saldo). Prioridade primeiro.</small>
-        </div>
-        <a href="/estoque/dashboard/" class="btn btn-sm btn-outline-light">Voltar ao Dashboard</a>
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <div>
+      <h3 class="mb-0">Lotes Críticos</h3>
+      <small class="text-muted">Lista completa (validade + saldo). Prioridade primeiro.</small>
     </div>
+    <a href="/estoque/dashboard/" class="btn btn-sm btn-outline-light">Voltar ao Dashboard</a>
+  </div>
 
-    <div class="card sj-card">
-        <div class="card-body">
-            <div id="lcMsg" class="text-muted">Carregando...</div>
+  <div class="card sj-card">
+    <div class="card-body">
+      <div id="lcMsg" class="text-muted">Carregando...</div>
 
-            <div class="table-responsive" id="lcWrap" style="display:none;">
-                <table class="table table-dark table-hover align-middle mb-0">
-                    <thead>
-                        <tr>
-                            <th>Status</th>
-                            <th>Produto</th>
-                            <th>Lote</th>
-                            <th>Validade</th>
-                            <th>Dias</th>
-                            <th>Ação</th>
-                            <th class="text-end">Saldo</th>
-                        </tr>
-                    </thead>
-                    <tbody id="lcBody"></tbody>
-                </table>
-            </div>
-        </div>
+      <div class="table-responsive" id="lcWrap" style="display:none;">
+        <table class="table table-dark table-hover align-middle mb-0">
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Produto</th>
+              <th>Lote</th>
+              <th>Validade</th>
+              <th>Dias</th>
+              <th>Ação</th>
+              <th class="text-end">Saldo</th>
+            </tr>
+          </thead>
+          <tbody id="lcBody"></tbody>
+        </table>
+      </div>
     </div>
+  </div>
 </div>
 
 <script>
@@ -57,8 +57,16 @@
 
       if (!items.length) {
         msg.textContent = "Nenhum lote crítico com saldo ✅";
+
+        // limpa estado visual
+        lista.innerHTML = "";
+
+        // limpa estado persistido (badge NOVO)
+        localStorage.removeItem("hash_lotes_criticos");
+
         return;
       }
+
 
       msg.textContent = "";
       wrap.style.display = "block";

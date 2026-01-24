@@ -6,8 +6,8 @@
 {# Aqui o block stylesheet deve retornar APENAS a URL, pois o base_site.html já tem o
 <link> #}
 {% block stylesheet %}
-<link rel="stylesheet" href="{% static 'financeiro/style.css' %}">
 <link rel="stylesheet" href="{% static 'financeiro/admin_override.css' %}">
+<link id="cssFinanceiro" rel="stylesheet" href="{% static 'financeiro/style.css' %}">
 {% endblock %}
 
 
