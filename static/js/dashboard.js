@@ -3165,10 +3165,22 @@ document.addEventListener("DOMContentLoaded", function () {
   function renderLotesCriticos(json) {
     const box = document.getElementById("lotesCriticosBox");
     const footer = document.getElementById("lotesCriticosFooter");
+    const badgeNovo = document.getElementById("badgeNovoLotes");
     if (!box) return;
 
     const itens = json?.items || json?.itens || json?.results || [];
     const total = json?.total ?? json?.count ?? itens.length;
+
+    const temCritico = itens.some((it) => {
+      const dias = Number(it.dias_para_vencer ?? it.dias_restantes ?? it.dias ?? 0);
+      const saldo = Number(it.saldo ?? it.saldo_lote ?? 0);
+      return dias < 0 && saldo > 0; // AÇÃO IMEDIATA
+    });
+
+    const visto = localStorage.getItem("lotesCriticosVisto") === "1";
+    if (badgeNovo) {
+      badgeNovo.style.display = temCritico && !visto ? "inline-block" : "none";
+    }
 
     if (!itens.length) {
       box.innerHTML = "✅ Estoque em dia! Nenhum lote crítico.";
@@ -3177,6 +3189,9 @@ document.addEventListener("DOMContentLoaded", function () {
     }
 
     const top = itens.slice(0, 3);
+
+    // ...continua seu render aqui...
+
 
     box.innerHTML = top.map((it) => {
       const nome = it.produto_nome || it.produto || "Produto";
@@ -3239,9 +3254,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // botão atualizar
   document
-    .getElementById("btnAtualizarLotesCriticos")
-    ?.addEventListener("click", atualizarLotesCriticos);
-
+  .getElementById("btnAtualizarLotesCriticos")
+  ?.addEventListener("click", () => {
+    localStorage.setItem("lotesCriticosVisto", "1");
+    atualizarLotesCriticos();
+  });
 })();
 
 
@@ -3406,13 +3423,13 @@ document.addEventListener("DOMContentLoaded", function () {
   document.addEventListener("DOMContentLoaded", function () {
     sjCarregarResumoMensalIA();
     document.addEventListener("DOMContentLoaded", () => {
-  const tooltipTriggerList = [].slice.call(
-    document.querySelectorAll('[data-bs-toggle="tooltip"]')
-  );
-  tooltipTriggerList.forEach((el) => {
-    new bootstrap.Tooltip(el);
+      const tooltipTriggerList = [].slice.call(
+        document.querySelectorAll('[data-bs-toggle="tooltip"]')
+      );
+      tooltipTriggerList.forEach((el) => {
+        new bootstrap.Tooltip(el);
+      });
+    })
   });
-}) 
-});
 })();
 
