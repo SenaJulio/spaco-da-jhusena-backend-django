@@ -16,6 +16,8 @@ from rest_framework import generics
 from django.utils.timezone import localdate
 
 from django.contrib.auth.decorators import login_required
+from core.decorators import bloquear_demo
+
 
 
 from .forms import AgendamentoForm
@@ -223,12 +225,15 @@ def dashboard_dados_ajax(request):
     )
 
 
+@login_required
 @require_POST
+@bloquear_demo
 def criar_agendamento(request):
     try:
         data = json.loads(request.body or "{}")
     except json.JSONDecodeError:
         return JsonResponse({"erro": "JSON inválido."}, status=400)
+
 
     required = ["nomeTutor", "nomePet", "telefone", "email", "servico", "data", "hora"]
     faltando = [k for k in required if not data.get(k)]
@@ -287,6 +292,7 @@ def dashboard_hoje(request):
 
 @login_required
 @require_POST
+@bloquear_demo
 def acao_agendamento(request, id):
     ag = get_object_or_404(Agendamento, id=id)
 

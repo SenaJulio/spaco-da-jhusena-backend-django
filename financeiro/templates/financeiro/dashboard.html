@@ -3,22 +3,23 @@
 
 {% block title %}📊 Painel Financeiro — TESTE{% endblock %}
 
-{# Aqui o block stylesheet deve retornar APENAS a URL, pois o base_site.html já tem o <link> #}
+{# Aqui o block stylesheet deve retornar APENAS a URL, pois o base_site.html já tem o
+<link> #}
 {% block stylesheet %}
-  <link rel="stylesheet" href="{% static 'financeiro/style.css' %}">
-  <link rel="stylesheet" href="{% static 'financeiro/admin_override.css' %}">
+<link rel="stylesheet" href="{% static 'financeiro/style.css' %}">
+<link rel="stylesheet" href="{% static 'financeiro/admin_override.css' %}">
 {% endblock %}
 
 
 
 {% block extrahead %}
-  {{ block.super }}
-  <meta name="csrf-token" content="{{ csrf_token }}"/>
+{{ block.super }}
+<meta name="csrf-token" content="{{ csrf_token }}" />
 {% endblock %}
 
 {% block content %}
 <!-- todo o painel aqui -->
- 
+
 
 <h2 class="mb-3">📊 Painel Financeiro Inteligente</h2>
 
@@ -32,30 +33,30 @@
 <div id="boxResumoMensal" class="alert alert-info d-none"></div>
 
 <script>
-  const MESES = ["","Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
-  const brl = new Intl.NumberFormat("pt-BR",{style:"currency",currency:"BRL"});
-  const num = (x)=> (typeof x==="number"? x : Number(x)||0);
+  const MESES = ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+  const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+  const num = (x) => (typeof x === "number" ? x : Number(x) || 0);
 
-  function getCsrfToken(){
-    const m=document.querySelector('meta[name="csrf-token"]');
-    if(m?.content) return m.content;
-    const match=document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
-    return match? decodeURIComponent(match[2]) : "";
+  function getCsrfToken() {
+    const m = document.querySelector('meta[name="csrf-token"]');
+    if (m?.content) return m.content;
+    const match = document.cookie.match(/(^|;)\s*csrftoken=([^;]+)/);
+    return match ? decodeURIComponent(match[2]) : "";
   }
 
-  async function carregarResumoMensal(){
-    const box=document.getElementById("boxResumoMensal");
-    if(!box) return;
-    try{
-      const url=window.URL_RESUMO_MENSAL || "/financeiro/ia/resumo-mensal/";
-      const r=await fetch(url,{headers:{"X-Requested-With":"XMLHttpRequest"},credentials:"same-origin"});
-      if(!r.ok) throw new Error(`HTTP ${r.status}`);
-      const d=await r.json();
-      const mes=Number(d.mes)||0;
-      const ano=d.ano||"";
-      const mesLabel=(mes>=1 && mes<=12)? `${MESES[mes]}/${ano}` : `${mes}/${ano}`;
+  async function carregarResumoMensal() {
+    const box = document.getElementById("boxResumoMensal");
+    if (!box) return;
+    try {
+      const url = window.URL_RESUMO_MENSAL || "/financeiro/ia/resumo-mensal/";
+      const r = await fetch(url, { headers: { "X-Requested-With": "XMLHttpRequest" }, credentials: "same-origin" });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const d = await r.json();
+      const mes = Number(d.mes) || 0;
+      const ano = d.ano || "";
+      const mesLabel = (mes >= 1 && mes <= 12) ? `${MESES[mes]}/${ano}` : `${mes}/${ano}`;
 
-      box.classList.remove("d-none","alert-warning");
+      box.classList.remove("d-none", "alert-warning");
       box.classList.add("alert-info");
       box.innerHTML = `
         <strong>📅 ${mesLabel}</strong><br>
@@ -63,18 +64,18 @@
         Despesas: ${brl.format(num(d.total_despesas))} |
         Saldo: ${brl.format(num(d.saldo))}
       `;
-      if(d.dica){
-        const dicaEl=document.createElement("div");
-        dicaEl.textContent=`💡 ${d.dica}`;
+      if (d.dica) {
+        const dicaEl = document.createElement("div");
+        dicaEl.textContent = `💡 ${d.dica}`;
         box.appendChild(dicaEl);
       }
       document.getElementById("placeholderInsights")?.classList.add("d-none");
       document.getElementById("placeholderInsightCard")?.classList.add("d-none");
-    }catch(e){
-      box.classList.remove("d-none","alert-info");
+    } catch (e) {
+      box.classList.remove("d-none", "alert-info");
       box.classList.add("alert-warning");
-      box.textContent="Não foi possível carregar o resumo mensal agora.";
-      console.error("Falha ao carregar resumo mensal:",e);
+      box.textContent = "Não foi possível carregar o resumo mensal agora.";
+      console.error("Falha ao carregar resumo mensal:", e);
     }
   }
   document.addEventListener("DOMContentLoaded", carregarResumoMensal);
@@ -118,11 +119,7 @@
       <span class="badge sj-badge-beta">β Mini-IA</span>
     </div>
 
-    <button
-      id="btnGerarDicaIA"
-      type="button"
-      class="btn btn-sm btn-primary d-flex align-items-center gap-1"
-    >
+    <button id="btnGerarDicaIA" type="button" class="btn btn-sm btn-primary d-flex align-items-center gap-1">
       <span id="iaIcon">⚡</span>
       <span>Gerar dica dos últimos 30 dias</span>
     </button>
@@ -140,7 +137,7 @@
         Período: <span id="turboPeriodo">—</span>
         &nbsp;•&nbsp;
         Tipo: <span id="turboTipo" class="sj-ia-chip sj-ia-chip-neutral">—</span>
-        <div id="turboExplicacao" class="sj-ia-explain"></div>
+      <div id="turboExplicacao" class="sj-ia-explain"></div>
       </p>
 
       <p id="turboDica" class="sj-ia-text mb-2">—</p>
@@ -148,11 +145,7 @@
     </div>
 
     <div class="d-flex justify-content-end gap-2 mt-3">
-      <button
-        id="btnEnviarDicaTelegram"
-        type="button"
-        class="btn btn-outline-success btn-sm"
-      >
+      <button id="btnEnviarDicaTelegram" type="button" class="btn btn-outline-success btn-sm">
         Enviar última dica para Telegram
       </button>
     </div>
@@ -196,17 +189,12 @@
       <h4 class="m-0">🧠 Histórico de Dicas da IA</h4>
       <span id="badgeNovasDicas" class="badge bg-success d-none">Novas dicas: 0</span>
 
-      <button id="btnHistoricoIA"
-              class="btn btn-sm btn-outline-success ms-auto me-2"
-              type="button"
-              data-bs-toggle="modal"
-              data-bs-target="#modalHistoricoIA">
+      <button id="btnHistoricoIA" class="btn btn-sm btn-outline-success ms-auto me-2" type="button"
+        data-bs-toggle="modal" data-bs-target="#modalHistoricoIA">
         Ver Histórico
       </button>
 
-      <button id="btnReloadDicas"
-              class="btn btn-sm btn-outline-primary me-2"
-              type="button">
+      <button id="btnReloadDicas" class="btn btn-sm btn-outline-primary me-2" type="button">
         Atualizar histórico
       </button>
     </div>
@@ -216,35 +204,23 @@
 <!-- 🔎 Filtros do Histórico da IA -->
 <div class="d-flex align-items-center gap-2 flex-wrap mb-3 mt-2">
   <div class="btn-group" role="group" aria-label="Filtros IA">
-    <button id="btnTodas"
-            class="btn btn-outline-secondary active btn-filtro"
-            type="button"
-            data-filtro="todas"
-            data-ia-filtro="todas">
+    <button id="btnTodas" class="btn btn-outline-secondary active btn-filtro" type="button" data-filtro="todas"
+      data-ia-filtro="todas">
       Todas (<span id="countAll">0</span>)
     </button>
 
-    <button id="btnPositivas"
-            class="btn btn-outline-success btn-filtro"
-            type="button"
-            data-filtro="positiva"
-            data-ia-filtro="positiva">
+    <button id="btnPositivas" class="btn btn-outline-success btn-filtro" type="button" data-filtro="positiva"
+      data-ia-filtro="positiva">
       Positivas (<span id="countPos">0</span>)
     </button>
 
-    <button id="btnAlertas"
-            class="btn btn-outline-warning btn-filtro"
-            type="button"
-            data-filtro="alerta"
-            data-ia-filtro="alerta">
+    <button id="btnAlertas" class="btn btn-outline-warning btn-filtro" type="button" data-filtro="alerta"
+      data-ia-filtro="alerta">
       Alertas (<span id="countAlerta">0</span>)
     </button>
 
-    <button id="btnNeutras"
-            class="btn btn-outline-secondary btn-filtro"
-            type="button"
-            data-filtro="neutra"
-            data-ia-filtro="neutra">
+    <button id="btnNeutras" class="btn btn-outline-secondary btn-filtro" type="button" data-filtro="neutra"
+      data-ia-filtro="neutra">
       Neutras (<span id="countNeutra">0</span>)
     </button>
   </div>
@@ -268,11 +244,11 @@
       </div>
 
       <div class="modal-body">
-        <div id="listaHistoricoModal"
-             class="list-group list-group-flush"
-             data-feed-url="{% url 'financeiro:ia_historico_feed_v2' %}">
+        <div id="listaHistoricoModal" class="list-group list-group-flush"
+          data-feed-url="{% url 'financeiro:ia_historico_feed_v2' %}">
         </div>
-        <button id="btnVerMaisHistoricoModal" class="btn btn-outline-secondary btn-sm mt-2" type="button">Ver mais</button>
+        <button id="btnVerMaisHistoricoModal" class="btn btn-outline-secondary btn-sm mt-2" type="button">Ver
+          mais</button>
       </div>
 
       <div class="modal-footer">
@@ -390,19 +366,19 @@
 
       <div class="card-body small sj-body-scroll">
         {% if ultimas_transacoes %}
-          <ul class="list-group list-group-flush">
-            {% for t in ultimas_transacoes %}
-              <li class="list-group-item d-flex justify-content-between align-items-center">
-                <div>
-                  <div class="fw-semibold">{{ t.descricao }}</div>
-                  <div class="text-muted">{{ t.data }} • {{ t.tipo }} • {{ t.categoria|default:"-" }}</div>
-                </div>
-                <div class="fw-bold">R$ {{ t.valor }}</div>
-              </li>
-            {% endfor %}
-          </ul>
+        <ul class="list-group list-group-flush">
+          {% for t in ultimas_transacoes %}
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+              <div class="fw-semibold">{{ t.descricao }}</div>
+              <div class="text-muted">{{ t.data }} • {{ t.tipo }} • {{ t.categoria|default:"-" }}</div>
+            </div>
+            <div class="fw-bold">R$ {{ t.valor }}</div>
+          </li>
+          {% endfor %}
+        </ul>
         {% else %}
-          <div class="text-muted">Sem transações ainda.</div>
+        <div class="text-muted">Sem transações ainda.</div>
         {% endif %}
       </div>
     </div>
@@ -425,9 +401,9 @@
       <div class="card-header d-flex justify-content-between align-items-center">
         <strong>
           {% if qtd_pendentes_valor|default:0|add:0 > 0 %}
-            ⚠️ Receitas pendentes de valor
+          ⚠️ Receitas pendentes de valor
           {% else %}
-            ✅ Receitas pendentes de valor
+          ✅ Receitas pendentes de valor
           {% endif %}
         </strong>
 
@@ -444,26 +420,25 @@
 
       <div class="card-body small sj-scroll">
         {% if pendentes_valor %}
-          <ul class="list-group list-group-flush">
-            {% for t in pendentes_valor %}
-              <li class="list-group-item">
-                <div class="fw-semibold">{{ t.descricao }}</div>
-                <div class="text-muted">{{ t.data }} • Categoria: {{ t.categoria|default:"-" }}</div>
+        <ul class="list-group list-group-flush">
+          {% for t in pendentes_valor %}
+          <li class="list-group-item">
+            <div class="fw-semibold">{{ t.descricao }}</div>
+            <div class="text-muted">{{ t.data }} • Categoria: {{ t.categoria|default:"-" }}</div>
 
-                <a class="btn btn-sm btn-outline-warning mt-2"
-                   href="/admin/financeiro/transacao/{{ t.id }}/change/"
-                   target="_blank">
-                  Definir valor
-                </a>
-              </li>
-            {% endfor %}
-          </ul>
+            <a class="btn btn-sm btn-outline-warning mt-2" href="/admin/financeiro/transacao/{{ t.id }}/change/"
+              target="_blank">
+              Definir valor
+            </a>
+          </li>
+          {% endfor %}
+        </ul>
 
-          <div class="text-muted mt-2">
-            Dica: defina o preço do serviço para lançar valor automático.
-          </div>
+        <div class="text-muted mt-2">
+          Dica: defina o preço do serviço para lançar valor automático.
+        </div>
         {% else %}
-          <div class="text-muted">Nenhuma pendência encontrada. 🎉</div>
+        <div class="text-muted">Nenhuma pendência encontrada. 🎉</div>
         {% endif %}
       </div>
     </div>
@@ -483,7 +458,7 @@
     </div>
   </div>
 
-</div>  
+</div>
 
 <div class="row g-3 mt-2 sj-row-eq">
   <div class="col-12 col-lg-6">
@@ -543,36 +518,53 @@
     </div>
   </div>
 
-  <div class="col-12 col-lg-6">
-    <div class="card sj-card" id="cardLotesCriticos">
-      <div class="card-header d-flex align-items-center justify-content-between">
-        <div class="fw-semibold">📦 Lotes críticos</div>
-        <button id="btnAtualizarLotesCriticos" class="btn btn-sm btn-outline-secondary" type="button">
+ <div class="col-12 col-lg-6">
+  <div class="card sj-card" id="cardLotesCriticos">
+
+    <div class="card-header d-flex align-items-center justify-content-between">
+      <div class="fw-semibold">📦 Lotes críticos</div>
+
+      <div class="d-flex gap-2">
+        <a href="{% url 'estoque:dashboard_estoque' %}"
+           class="btn btn-sm btn-outline-light">
+          Ir para estoque
+        </a>
+
+        <button id="btnAtualizarLotesCriticos"
+                class="btn btn-sm btn-outline-secondary"
+                type="button">
           Atualizar
         </button>
       </div>
+    </div>
 
-      <div class="card-body">
-        <div id="lotesCriticosBox" class="small text-muted">Carregando…</div>
-        <div id="lotesCriticosFooter" class="small mt-2"></div>
+    <!-- ✅ CARD-BODY NO LUGAR CERTO -->
+    <div class="card-body">
+      <div id="lotesCriticosBox" class="small text-muted">
+        Carregando…
       </div>
+      <div id="lotesCriticosFooter" class="small mt-2"></div>
+    </div>
+
+  </div>
+</div>
+
+
+
+<div class="col-12">
+  <div class="card sj-card mb-3">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <span>💡 Análise Mensal (IA)</span>
+      <small class="text-muted">Modo Analytics Turbo</small>
+    </div>
+    <div class="card-body">
+      <div id="iaAnaliseMensalMsg" class="small text-muted mb-2" style="display:none"></div>
+      <p class="mb-1 fw-semibold" id="iaAnaliseMensalResumo">—</p>
+      <p class="mb-1 small" id="iaAnaliseMensalDetalhe">—</p>
+      <p class="mb-0 small text-success" id="iaAnaliseMensalRecomendacao">—</p>
     </div>
   </div>
-
-  <div class="col-12">
-    <div class="card sj-card mb-3">
-      <div class="card-header d-flex justify-content-between align-items-center">
-        <span>💡 Análise Mensal (IA)</span>
-        <small class="text-muted">Modo Analytics Turbo</small>
-      </div>
-      <div class="card-body">
-        <div id="iaAnaliseMensalMsg" class="small text-muted mb-2" style="display:none"></div>
-        <p class="mb-1 fw-semibold" id="iaAnaliseMensalResumo">—</p>
-        <p class="mb-1 small" id="iaAnaliseMensalDetalhe">—</p>
-        <p class="mb-0 small text-success" id="iaAnaliseMensalRecomendacao">—</p>
-      </div>
-    </div>
-  </div>
+</div>
 </div>
 
 <!-- 📊 Análise 30D — Beta Avançado -->
@@ -643,9 +635,31 @@
 
 
 <style>
-  .loading-overlay{position:absolute;inset:0;z-index:10;background:rgba(255,255,255,.6);display:flex;align-items:center;justify-content:center}
-  .fade-in{animation:fadeIn .4s ease-out}
-  @keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .loading-overlay {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    background: rgba(255, 255, 255, .6);
+    display: flex;
+    align-items: center;
+    justify-content: center
+  }
+
+  .fade-in {
+    animation: fadeIn .4s ease-out
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(4px)
+    }
+
+    to {
+      opacity: 1;
+      transform: none
+    }
+  }
 </style>
 
 <div id="placeholderInsights" class="mt-3">
@@ -660,29 +674,29 @@
 
 <div id="cardsInsight" class="mt-3">
   {% if ultimo_insight %}
-    <div data-insight-bloco class="card border-success">
-      <div class="card-body">
-        <div class="small text-muted">Insight • {{ ultimo_insight.created_at|date:"d/m/Y H:i" }}</div>
-        <h5 class="card-title mb-1">{{ ultimo_insight.title|default:"Nova dica"|escape }}</h5>
-        <p class="mb-2" style="white-space:pre-wrap">{{ ultimo_insight.text|default:"" }}</p>
-        <span class="badge bg-success-subtle text-success border border-success-subtle">
-          {{ ultimo_insight.get_kind_display }}
-          {% if ultimo_insight.categoria_dominante %} • {{ ultimo_insight.categoria_dominante }}{% endif %}
-        </span>
-        {% if ultimo_insight.score %}
-          <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle ms-1">
-            Score: {{ ultimo_insight.score }}
-          </span>
-        {% else %}
-          <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle ms-1">Sem score</span>
-        {% endif %}
-      </div>
+  <div data-insight-bloco class="card border-success">
+    <div class="card-body">
+      <div class="small text-muted">Insight • {{ ultimo_insight.created_at|date:"d/m/Y H:i" }}</div>
+      <h5 class="card-title mb-1">{{ ultimo_insight.title|default:"Nova dica"|escape }}</h5>
+      <p class="mb-2" style="white-space:pre-wrap">{{ ultimo_insight.text|default:"" }}</p>
+      <span class="badge bg-success-subtle text-success border border-success-subtle">
+        {{ ultimo_insight.get_kind_display }}
+        {% if ultimo_insight.categoria_dominante %} • {{ ultimo_insight.categoria_dominante }}{% endif %}
+      </span>
+      {% if ultimo_insight.score %}
+      <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle ms-1">
+        Score: {{ ultimo_insight.score }}
+      </span>
+      {% else %}
+      <span class="badge bg-secondary-subtle text-secondary border border-secondary-subtle ms-1">Sem score</span>
+      {% endif %}
     </div>
+  </div>
   {% else %}
-    <div id="placeholderInsightCard" class="alert alert-secondary">
-      <div class="small text-muted">Insight</div>
-      <p class="mb-0">Ainda não há dicas. Em breve vamos gerar a primeira automaticamente.</p>
-    </div>
+  <div id="placeholderInsightCard" class="alert alert-secondary">
+    <div class="small text-muted">Insight</div>
+    <p class="mb-0">Ainda não há dicas. Em breve vamos gerar a primeira automaticamente.</p>
+  </div>
   {% endif %}
 </div>
 
@@ -699,27 +713,27 @@
     if (!btn) return;
 
     function aplicarTema(tema) {
-    const root = document.getElementById("sjFinanceiroRoot") || document.body;
+      const root = document.getElementById("sjFinanceiroRoot") || document.body;
 
-    if (tema === "dark") {
-      root.classList.add("sj-dark");
-      btn.textContent = "☀️ Modo claro";
-      btn.classList.remove("btn-outline-dark");
-      btn.classList.add("btn-outline-light");
-    } else {
-      root.classList.remove("sj-dark");
-      btn.textContent = "🌙 Modo escuro";
-      btn.classList.remove("btn-outline-light");
-      btn.classList.add("btn-outline-dark");
-    } 
-  }
-  
-function alternarTema() {
-  const root = document.getElementById("sjFinanceiroRoot") || document.body;
-  const ativo = root.classList.contains("sj-dark");
+      if (tema === "dark") {
+        root.classList.add("sj-dark");
+        btn.textContent = "☀️ Modo claro";
+        btn.classList.remove("btn-outline-dark");
+        btn.classList.add("btn-outline-light");
+      } else {
+        root.classList.remove("sj-dark");
+        btn.textContent = "🌙 Modo escuro";
+        btn.classList.remove("btn-outline-light");
+        btn.classList.add("btn-outline-dark");
+      }
+    }
 
-  aplicarTema(ativo ? "light" : "dark");
-}
+    function alternarTema() {
+      const root = document.getElementById("sjFinanceiroRoot") || document.body;
+      const ativo = root.classList.contains("sj-dark");
+
+      aplicarTema(ativo ? "light" : "dark");
+    }
 
 
     // Carrega tema salvo
@@ -727,18 +741,18 @@ function alternarTema() {
     aplicarTema(salvo);
 
     btn.addEventListener("click", () => {
-    const root = document.getElementById("sjFinanceiroRoot") || document.body;
-    const ativo = root.classList.contains("sj-dark");
-    const proximo = ativo ? "light" : "dark";
+      const root = document.getElementById("sjFinanceiroRoot") || document.body;
+      const ativo = root.classList.contains("sj-dark");
+      const proximo = ativo ? "light" : "dark";
 
-    localStorage.setItem(STORAGE_KEY, proximo);
-    aplicarTema(proximo);
-  });
+      localStorage.setItem(STORAGE_KEY, proximo);
+      aplicarTema(proximo);
+    });
   })();
 </script>
 
 <!-- Ordem correta -->
- {% load static %}
+{% load static %}
 <script src="{% static 'js/utils.js' %}"></script>
 <script src="{% static 'vendor/chartjs/chart.umd.min.js' %}"></script>
 <script src="{% static 'js/mini_ia.js' %}?v=20251110"></script>
@@ -750,9 +764,11 @@ function alternarTema() {
   <div class="card-body text-center text-muted">
     <h6 class="text-success fw-bold mb-1">🐾 Spaço da Jhuséna — Painel Financeiro Inteligente 💚</h6>
     <p class="mb-2">
-      Sistema de <strong>gestão financeira e IA analítica</strong> em <strong>Django + Bootstrap + Chart.js</strong>.<br>
+      Sistema de <strong>gestão financeira e IA analítica</strong> em <strong>Django + Bootstrap +
+        Chart.js</strong>.<br>
       Gera <em>dicas automáticas</em>, analisa últimos 30 dias e classifica insights em
-      <span class="text-success">Positivas</span>, <span class="text-warning">Alertas</span> e <span class="text-secondary">Neutras</span>.
+      <span class="text-success">Positivas</span>, <span class="text-warning">Alertas</span> e <span
+        class="text-secondary">Neutras</span>.
     </p>
     <div class="d-flex justify-content-center flex-wrap gap-2 mb-2">
       <span class="badge bg-success-subtle text-success border border-success">IA Financeira</span>

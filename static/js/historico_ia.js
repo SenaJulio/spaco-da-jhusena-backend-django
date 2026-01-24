@@ -334,48 +334,48 @@ function normalizeTipoIA(rawTipo) {
   }
 
   function renderLista(cont, countersEls, badgeEl, count) {
-  // ✅ usa o cont recebido, não variável global
-  const container = cont || document.getElementById("listaHistorico");
-  if (!container) return;
+    // ✅ usa o cont recebido, não variável global
+    const container = cont || document.getElementById("listaHistorico");
+    if (!container) return;
 
-  count = count || lastCount;
-  lastCount = count;
+    count = count || lastCount;
+    lastCount = count;
 
-  const filtered = filtroCategoria
-    ? allItems.filter((i) => i.tipo === filtroCategoria)
-    : allItems;
+    const filtered = filtroCategoria
+      ? allItems.filter((i) => i.tipo === filtroCategoria)
+      : allItems;
 
-  if (!filtered.length) {
-    container.replaceChildren();
-    const alertDiv = document.createElement("div");
-    alertDiv.className = "alert alert-secondary mb-2 text-center fst-italic";
+    if (!filtered.length) {
+      container.replaceChildren();
+      const alertDiv = document.createElement("div");
+      alertDiv.className = "alert alert-secondary mb-2 text-center fst-italic";
 
-    const msg = filtroCategoria
-      ? "Nenhuma dica encontrada para este filtro ainda. Gere uma nova dica ou ajuste o período."
-      : "Nenhuma dica encontrada ainda. Gere uma nova dica no botão acima.";
+      const msg = filtroCategoria
+        ? "Nenhuma dica encontrada para este filtro ainda. Gere uma nova dica ou ajuste o período."
+        : "Nenhuma dica encontrada ainda. Gere uma nova dica no botão acima.";
 
-    alertDiv.appendChild(textNode(msg));
-    container.appendChild(alertDiv);
-    atualizarBadgeTotal(badgeEl);
-    atualizarContadoresUI(countersEls, lastCount);
-    return;
-  }
-
-  try {
-    renderListaSafe(container, filtered);
-  } catch (e) {
-    console.error("[Historico] Erro no renderListaSafe:", e);
-  }
-
-  requestAnimationFrame(() => {
-    for (const el of container.querySelectorAll(".ia-card")) {
-      el.classList.add("fade-in");
+      alertDiv.appendChild(textNode(msg));
+      container.appendChild(alertDiv);
+      atualizarBadgeTotal(badgeEl);
+      atualizarContadoresUI(countersEls, lastCount);
+      return;
     }
-  });
 
-  atualizarContadoresUI(countersEls, lastCount);
-  atualizarBadgeTotal(badgeEl);
-}
+    try {
+      renderListaSafe(container, filtered);
+    } catch (e) {
+      console.error("[Historico] Erro no renderListaSafe:", e);
+    }
+
+    requestAnimationFrame(() => {
+      for (const el of container.querySelectorAll(".ia-card")) {
+        el.classList.add("fade-in");
+      }
+    });
+
+    atualizarContadoresUI(countersEls, lastCount);
+    atualizarBadgeTotal(badgeEl);
+  }
 
 
   // ---------- Auto refresh ----------
@@ -512,7 +512,7 @@ function normalizeTipoIA(rawTipo) {
     const raw = (json && (json.items || json.results || json.data)) || [];
     const items = normalizeItems(raw);
     const hasMore = !!(json && (json.has_more === true || json.hasMore === true || json.has_more === 1));
-    
+
     if (json?.count && typeof setContadoresBackend === "function") {
       try {
         setContadoresBackend(json.count);
@@ -522,7 +522,7 @@ function normalizeTipoIA(rawTipo) {
     }
     const count = json?.count || null;
     return { items, hasMore, offset, count };
- }
+  }
 
   function updateStateAfterFetch(result, args) {
     const { items, hasMore } = result;
@@ -603,7 +603,7 @@ function normalizeTipoIA(rawTipo) {
       _inFlight = true;
 
       let result; // ✅ declarado no escopo 
-      
+
       try {
         const overlayEl = document.getElementById("ovlHistorico");
         const btnReload =
@@ -651,7 +651,7 @@ function normalizeTipoIA(rawTipo) {
 
 
         if (!args?.append) maybeScrollToNew();
-           
+
       } catch (e) {
         if (e?.name !== "AbortError") {
           err("Falha ao carregar histórico:", e);
@@ -971,7 +971,7 @@ function normalizeTipoIA(rawTipo) {
       startAutoRefresh();
       const cont = document.getElementById("listaHistorico");
       const badge = document.getElementById("badgeNovasDicas");
-      
+
     })();
 
     (function diag() {
@@ -993,6 +993,7 @@ function normalizeTipoIA(rawTipo) {
     })();
   });
 })();
+
 (function () {
   const btnLotes = document.getElementById("btnAtualizarLotes");
   if (!btnLotes) return;
@@ -1003,40 +1004,60 @@ function normalizeTipoIA(rawTipo) {
     btnLotes.innerHTML = "⏳ Atualizando...";
 
     try {
-      const resp = await fetch("/estoque/lotes/criticos/?dias=30&limit=5");
-
-      // se não for JSON
+      const resp = await fetch("/estoque/api/ranking-critico/?dias=365&limit=50", {
+        method: "GET",
+        headers: {
+          "X-Requested-With": "XMLHttpRequest",
+          "Accept": "application/json",
+        },
+        credentials: "same-origin",
+      });
+       
       const contentType = resp.headers.get("content-type") || "";
       if (!contentType.includes("application/json")) {
         const txt = await resp.text();
-        console.error("Resposta não JSON:", resp.status, txt);
-        alert("Erro ao gerar alertas de lote (status " + resp.status + ").");
+        console.error("[LOTE] Resposta NÃO JSON (primeiros 300 chars):", txt.slice(0, 300));
+        alert("Erro: servidor devolveu HTML (não JSON). Veja o console.");
         return;
       }
 
       const data = await resp.json();
 
+      // resposta JSON já validada acima
       if (!data.ok) {
-        lastCount = data.count || lastCount;
-        alert(
-          "Erro ao gerar alertas de lote: " + (data.error || "desconhecido")
-        );
-      } else {
-        if (globalThis.__HistoricoIA?.recarregar) {
-          globalThis.__HistoricoIA.recarregar();
-        } else if (globalThis.__HistoricoIA?.reload) {
-          globalThis.__HistoricoIA.reload();
-        } else {
-          location.reload();
-        }
+        alert("Erro ao gerar alertas de lote: " + (data.error || "desconhecido"));
+        return;
       }
+
+      const items = Array.isArray(data.items) ? data.items : [];
+
+      // ✅ resultado válido, mas vazio = NÃO é erro
+      if (items.length === 0) {
+        if (typeof sjToast === "function") {
+          sjToast(`<div style="font-weight:800;">✅ Nenhum lote crítico com saldo.</div>`);
+        } else {
+          alert("✅ Nenhum lote crítico com saldo.");
+        }
+        return;
+      }
+
+      // ✅ só recarrega se realmente houve alertas
+      if (globalThis.__HistoricoIA?.recarregar) {
+        globalThis.__HistoricoIA.recarregar();
+      } else if (globalThis.__HistoricoIA?.reload) {
+        globalThis.__HistoricoIA.reload();
+      } else {
+        location.reload();
+      }
+   
     } catch (err) {
-      console.error("Erro:", err);
-      alert("Falha na comunicação com o servidor.");
-    } finally {
-      btnLotes.disabled = false;
-      btnLotes.innerHTML = original;
-    }
-  });
-})();
+    console.error("Erro:", err);
+    alert("Falha na comunicação com o servidor.");
+  } finally {
+    btnLotes.disabled = false;
+    btnLotes.innerHTML = original;
+  }
+
+});
+}) ();
 

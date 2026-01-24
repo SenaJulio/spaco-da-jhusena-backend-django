@@ -581,15 +581,57 @@ body.sj-dark .chart-box {
   background: rgba(220, 53, 69, 0.04);
 }
 
-.lote-critico-red {
-  border: 1px solid rgba(255, 80, 80, 0.65) !important;
-  box-shadow: 0 0 0 1px rgba(255, 80, 80, 0.15) inset;
-  background: rgba(255, 80, 80, 0.06);
+/* Card base */
+.lotes-criticos-item {
+  transition: all 0.2s ease;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
 }
 
+/* Hover geral */
 .lotes-criticos-item:hover {
-  filter: brightness(1.05);
+  filter: brightness(1.06);
+  transform: translateY(-1px);
 }
+
+/* 🔥 AÇÃO IMEDIATA */
+.lote-critico-red {
+  border: 1px solid rgba(255, 80, 80, 0.85) !important;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 80, 80, 0.14),
+    rgba(255, 80, 80, 0.04)
+  );
+  box-shadow:
+    0 0 0 1px rgba(255, 80, 80, 0.25) inset,
+    0 0 10px rgba(255, 80, 80, 0.15);
+  animation: pulseCritico 2.4s ease-in-out infinite;
+}
+
+/* Hover específico do crítico */
+.lote-critico-red:hover {
+  filter: brightness(1.1);
+}
+
+/* 🎯 Animação sutil (não cansa) */
+@keyframes pulseCritico {
+  0% {
+    box-shadow:
+      0 0 0 1px rgba(255, 80, 80, 0.25) inset,
+      0 0 6px rgba(255, 80, 80, 0.12);
+  }
+  50% {
+    box-shadow:
+      0 0 0 1px rgba(255, 80, 80, 0.35) inset,
+      0 0 14px rgba(255, 80, 80, 0.28);
+  }
+  100% {
+    box-shadow:
+      0 0 0 1px rgba(255, 80, 80, 0.25) inset,
+      0 0 6px rgba(255, 80, 80, 0.12);
+  }
+}
+
 
 /* =========================
    SISTEMA “SaaS” (SEM QUEBRAR BOOTSTRAP)

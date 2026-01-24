@@ -2987,6 +2987,43 @@ document.addEventListener("DOMContentLoaded", function () {
     const value = "; " + document.cookie;
     const parts = value.split("; " + name + "=");
     if (parts.length === 2) return parts.pop().split(";").shift();
+    return "";
+  }
+
+  // toast simples (usa Bootstrap se tiver, senão cai no alert)
+  function toast(msg) {
+    try {
+      const toastEl = document.getElementById("sjToastVenda");
+      const bodyEl = document.getElementById("sjToastBody");
+      if (toastEl && bodyEl && typeof bootstrap !== "undefined") {
+        bodyEl.innerHTML = `<div style="font-weight:800;">${escapeHtml(msg)}</div>`;
+        bootstrap.Toast.getOrCreateInstance(toastEl, { delay: 4500 }).show();
+        return;
+      }
+    } catch (_) { }
+    alert(msg);
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  async function safeReadJson(resp) {
+    const ct = resp.headers.get("content-type") || "";
+    if (!ct.includes("application/json")) {
+      const txt = await resp.text();
+      return { __not_json: true, __text: txt };
+    }
+    try {
+      return await resp.json();
+    } catch (_) {
+      return null;
+    }
   }
 
   btn.addEventListener("click", async () => {
@@ -3001,36 +3038,67 @@ document.addEventListener("DOMContentLoaded", function () {
           "X-Requested-With": "XMLHttpRequest",
           "X-CSRFToken": getCookie("csrftoken"),
         },
+        credentials: "same-origin",
       });
 
-      const data = await resp.json();
+      const data = await safeReadJson(resp);
 
-      if (!resp.ok || data.ok === false) {
-        throw new Error(data.error || "Falha ao gerar dica.");
+      // ✅ DEMO: 403 é comportamento esperado
+      if (resp.status === 403) {
+        const msg =
+          (data && (data.error || data.erro || data.detail || data.message)) ||
+          "🧪 Ação desabilitada no MODO DEMO.";
+        toast(msg);
+        btn.textContent = originalText;
+        return;
+      }
+
+      // Se não veio JSON, mostra erro claro
+      if (data && data.__not_json) {
+        console.error("Resposta não JSON:", resp.status, data.__text);
+        throw new Error("Resposta inválida do servidor (não é JSON).");
+      }
+
+      // Erro HTTP ou ok=false
+      if (!resp.ok || (data && data.ok === false)) {
+        const msg =
+          (data && (data.error || data.erro || data.detail || data.message)) ||
+          `Falha ao gerar dica (HTTP ${resp.status}).`;
+        throw new Error(msg);
       }
 
       const dica =
-        (data.salvo && (data.salvo.texto || data.salvo.text)) ||
-        data.dica ||
+        (data?.salvo && (data.salvo.texto || data.salvo.text)) ||
+        data?.dica ||
         "Dica gerada com sucesso!";
 
       console.log("[IA Nova dica]", dica);
 
+      toast("✅ Dica gerada e salva no histórico!");
       btn.textContent = "Dica gerada!";
       setTimeout(() => {
         btn.textContent = originalText;
-      }, 1500);
+      }, 1200);
+
+      // se existir histórico no front, tenta recarregar
+      if (globalThis.__HistoricoIA?.recarregar) {
+        globalThis.__HistoricoIA.recarregar();
+      } else if (globalThis.__HistoricoIA?.reload) {
+        globalThis.__HistoricoIA.reload();
+      }
     } catch (e) {
       console.error(e);
+      toast("❌ " + (e?.message || "Erro ao gerar dica."));
       btn.textContent = "Erro ao gerar";
       setTimeout(() => {
         btn.textContent = originalText;
-      }, 2000);
+      }, 1600);
     } finally {
       btn.disabled = false;
     }
   });
 })();
+
 
 (function () {
   "use strict";
@@ -3092,118 +3160,92 @@ document.addEventListener("DOMContentLoaded", function () {
 (function () {
   "use strict";
 
-  async function carregarLotesCriticos() {
+  const API_URL = "/estoque/api/ranking-critico/?dias=30&limit=5";
+
+  function renderLotesCriticos(json) {
     const box = document.getElementById("lotesCriticosBox");
     const footer = document.getElementById("lotesCriticosFooter");
     if (!box) return;
 
-    box.textContent = "Carregando…";
-    if (footer) footer.innerHTML = "";
+    const itens = json?.items || json?.itens || json?.results || [];
+    const total = json?.total ?? json?.count ?? itens.length;
 
+    if (!itens.length) {
+      box.innerHTML = "✅ Estoque em dia! Nenhum lote crítico.";
+      if (footer) footer.innerHTML = "";
+      return;
+    }
+
+    const top = itens.slice(0, 3);
+
+    box.innerHTML = top.map((it) => {
+      const nome = it.produto_nome || it.produto || "Produto";
+      const saldo = it.saldo ?? "-";
+      const dias = it.dias_para_vencer ?? it.dias ?? 0;
+
+      const vencido = dias < 0;
+      const critico = vencido && Number(saldo) > 0;
+
+      const badge = critico
+        ? `<span class="badge bg-danger"
+            data-bs-toggle="tooltip"
+            data-bs-placement="top"
+            title="Lote vencido com saldo em estoque. Ação necessária para evitar prejuízo.">
+       AÇÃO IMEDIATA
+     </span>`
+        : vencido
+          ? "<span class='badge bg-danger'>VENCIDO</span>"
+          : "<span class='badge bg-warning text-dark'>MONITORAR</span>";
+      return `
+  <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+    <div>
+      <div class="fw-semibold">${nome}</div>
+      <div class="small text-muted">Saldo: ${saldo} • ${dias} dia(s)</div>
+    </div>
+    ${badge}
+  </div>
+`;
+
+    }).join("");
+
+    if (footer) {
+      footer.innerHTML = `Total críticos: <strong>${total}</strong>`;
+    }
+  }
+
+  async function atualizarLotesCriticos() {
     try {
-      const resp = await fetch("/financeiro/ia/alertas-lotes/?dias=30&limit=5", {
-        headers: { Accept: "application/json" },
+      const resp = await fetch(API_URL, {
+        headers: { "X-Requested-With": "XMLHttpRequest" },
         credentials: "same-origin",
       });
+
       if (!resp.ok) throw new Error("HTTP " + resp.status);
 
-      const data = await resp.json();
-      if (!data.ok) throw new Error("Resposta inválida");
-
-      const items = data.items || [];
-      if (!items.length) {
-        box.innerHTML = "<span class='text-success'>Nenhum lote crítico 🎉</span>";
-        return;
-      }
-
-      const temAcaoImediata = items.some(
-        (x) =>
-          String(x.status || "").toLowerCase() === "vencido" &&
-          Number(x.saldo_lote || 0) > 0
-      );
-
-      box.innerHTML = items
-        .map((it, idx) => {
-          const vencido = Number(it.dias_restantes || 0) < 0;
-          const saldo = Number(it.saldo_lote ?? it.saldo ?? 0);
-          const acaoImediata = vencido && saldo > 0;
-
-          const badge = acaoImediata
-            ? "<span class='badge bg-danger'>AÇÃO IMEDIATA</span>"
-            : vencido
-              ? "<span class='badge bg-danger'>VENCIDO</span>"
-              : "<span class='badge bg-warning text-dark'>A VENCER</span>";
-
-          const diasTxt = vencido
-            ? `há ${Math.abs(Number(it.dias_restantes || 0))} dia(s)`
-            : `em ${Number(it.dias_restantes || 0)} dia(s)`;
-
-          return `
-          <a href="${it.admin_url || "#"}" class="d-flex justify-content-between align-items-center text-decoration-none mb-2 p-2 rounded lotes-criticos-item ${acaoImediata ? "lote-critico-red" : ""
-            }">
-            <div class="me-2">
-              <div class="fw-semibold">${idx + 1}.${it.produto_nome || it.produto || "-"}</div>
-              <div class="text-muted">Lote ${it.lote_codigo || it.codigo || "-"} • ${diasTxt} • Val: ${it.validade || "-"
-            }</div>
-            </div>
-            <div class="text-end">
-              ${badge}
-              <div class="fw-semibold text-primary">Saldo em estoque: ${saldo}</div>
-            </div>
-          </a>
-        `;
-        })
-        .join("");
-
-      if (footer && temAcaoImediata) {
-        footer.innerHTML =
-          "<span class='text-warning'>⚠️ Lote vencido com saldo em estoque. Ação imediata recomendada.</span>";
-      }
-    } catch (e) {
-      console.error("[lotesCriticos]", e);
-      box.innerHTML = "<span class='text-danger'>Falha ao carregar lotes críticos.</span>";
-    }
-  }
-
-  document.addEventListener("DOMContentLoaded", carregarLotesCriticos);
-
-  function getCsrfToken() {
-    const m = /(^|;\s*)csrftoken=([^;]+)/.exec(document.cookie);
-    return m ? decodeURIComponent(m[2]) : "";
-  }
-
-  async function atualizarLotesERecarregar() {
-    const btnAtualizar = document.getElementById("btnAtualizarLotes");
-    if (btnAtualizar) {
-      btnAtualizar.disabled = true;
-      btnAtualizar.textContent = "Atualizando…";
-    }
-
-    try {
-      const resp = await fetch("/financeiro/ia/alertas-lotes/?dias=30&limit=5");
-      if (!resp.ok) throw new Error("HTTP " + resp.status);
       const json = await resp.json();
-      console.log("[alertas-lotes]", json);
+      console.log("[lotes-criticos]", json);
 
-      await carregarLotesCriticos();
+      renderLotesCriticos(json);
+
     } catch (e) {
-      console.error("[atualizarLotesERecarregar]", e);
-      alert("Não consegui atualizar agora. Tenta de novo em instantes.");
-    } finally {
-      const btnAtualizar2 = document.getElementById("btnAtualizarLotes");
-      if (btnAtualizar2) {
-        btnAtualizar2.disabled = false;
-        btnAtualizar2.textContent = "Atualizar";
-      }
+      const box = document.getElementById("lotesCriticosBox");
+      if (box) box.innerHTML = "⚠️ Erro ao carregar lotes críticos.";
+      console.error(e);
     }
   }
 
-  // Liga o botão REAL do HTML
-  const btnAtualizar = document.getElementById("btnAtualizarLotes");
-  if (btnAtualizar) {
-    btnAtualizar.onclick = atualizarLotesERecarregar;
-  }
+  // carregar ao abrir
+  document.addEventListener("DOMContentLoaded", atualizarLotesCriticos);
+
+  // botão atualizar
+  document
+    .getElementById("btnAtualizarLotesCriticos")
+    ?.addEventListener("click", atualizarLotesCriticos);
+
 })();
+
+
+
 
 // ===============================
 // Resumo Mensal IA (R x D x Saldo)
@@ -3363,6 +3405,14 @@ document.addEventListener("DOMContentLoaded", function () {
   // auto-load quando a página terminar de carregar
   document.addEventListener("DOMContentLoaded", function () {
     sjCarregarResumoMensalIA();
+    document.addEventListener("DOMContentLoaded", () => {
+  const tooltipTriggerList = [].slice.call(
+    document.querySelectorAll('[data-bs-toggle="tooltip"]')
+  );
+  tooltipTriggerList.forEach((el) => {
+    new bootstrap.Tooltip(el);
   });
+}) 
+});
 })();
 

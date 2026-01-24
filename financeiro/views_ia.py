@@ -6,8 +6,12 @@ from ia.services.ia import gerar_e_salvar_dica
 from financeiro.services.ia import generate_tip_last_30d, _map_tipo
 from financeiro.models import Transacao
 from financeiro.ia_estoque_bridge import registrar_alertas_lote_no_historico
+from core.decorators import bloquear_demo
 
+
+@login_required
 @require_POST
+@bloquear_demo
 def gerar_dica_30d(request):
     """
     Exemplo: você calcula a margem dos últimos 30 dias em outro lugar
@@ -31,8 +35,9 @@ def gerar_dica_30d(request):
     )
 
 
-@require_POST
 @login_required
+@require_POST
+@bloquear_demo
 def ia_gerar_dica_30d(request):
     dica, metrics, rec_id = generate_tip_last_30d(Transacao, usuario=request.user, auto_save=True)
     return JsonResponse(

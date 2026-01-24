@@ -15,6 +15,7 @@ import builtins
 from django.apps import apps
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
+from estoque.views import api_lotes_criticos
 from django.db.models.functions import TruncMonth
 from django.utils.timezone import now
 from django.core.paginator import Paginator
@@ -30,8 +31,9 @@ from django.db.models import (
     DecimalField,
     F,
     ExpressionWrapper,
-    
 )
+from psycopg import logger
+from .services.ia import _map_tipo as map_tipo_ia
 from django.db.models.functions import TruncDate, Coalesce, Abs, Cast
 from django.http import JsonResponse
 from django.shortcuts import redirect, render
@@ -44,10 +46,9 @@ from notificacoes.services import (
     formatar_mensagem_telegram,
 )
 
-from datetime import date
-from django.http import JsonResponse
-from django.db.models import Sum, F
 
+from django.db.models import Sum, F
+from core.decorators import bloquear_demo
 # IA (motor oficial do preview)
 from ia.services.analysis import analisar_30d_dict
 
@@ -55,10 +56,9 @@ from ia.services.analysis import analisar_30d_dict
 from .models import Transacao, Insight
 
 # Serviços locais de IA (geração e classificador oficial que já usa no projeto)
-from .services.ia import generate_tip_last_30d, _map_tipo as map_tipo_ia
+from .services.ia import generate_tip_last_30d, _map_tipo as map_tipo_oficial
 from financeiro.ia_estoque_bridge import registrar_alertas_lote_no_historico
 from financeiro.models import HistoricoIA, RecomendacaoIA
-
 
 
 # --- Modelos opcionais/legados ---
@@ -210,32 +210,29 @@ def map_tipo_textual(texto: str) -> str:
       - 'positiva'
       - 'alerta'
       - 'neutra'
-
-    Usa, na ordem:
-      1) map_tipo_oficial (se existir)
-      2) _map_tipo_texto (helper local)
-      3) _fallback_classify (hardcorezão)
     """
     tx = (texto or "").strip()
     if not tx:
         return "neutra"
 
-    # 1) tenta o classificador oficial (importado lá em cima com fallback)
+    # 1) classificador oficial (do services.ia)
+    k = ""
     try:
-        k = map_tipo_textual(tx)
-    except NameError:
+        k = (map_tipo_oficial(tx) or "").strip().lower()
+    except Exception:
         k = ""
 
     if k in ("positiva", "alerta", "neutra"):
         return k
 
-    # 2) tenta o helper local
-    k2 = _map_tipo_texto(tx)
+    # 2) helper local
+    k2 = (_map_tipo_texto(tx) or "").strip().lower()
     if k2 in ("positiva", "alerta", "neutra"):
         return k2
 
-    # 3) fallback hardcore
+    # 3) fallback
     return _fallback_classify(tx)
+
 
 
 # -----------------------------------------------------------------------------
@@ -379,93 +376,93 @@ def dashboard_financeiro(request):
 # -----------------------------------------------------------------------------
 # Mini-IA: Gerar dica dos últimos 30 dias (já salva em RecomendacaoIA)
 # -----------------------------------------------------------------------------
-from ia.services.analysis import analisar_30d_dict  # já existe e funciona
 
 
-@require_http_methods(["GET", "POST"])
+# -------------------------------------------------------------------------
+# Mini-IA: Gerar dica dos últimos 30 dias
+# GET  -> preview (não salva, não notifica)
+# POST -> salva em RecomendacaoIA + notifica (se configurado)
+# -------------------------------------------------------------------------
 @login_required
+@require_http_methods(["GET", "POST"])
+@bloquear_demo
 def gerar_dica_30d(request):
     try:
-        # 1) calcula métricas dos últimos 30 dias
         metrics = analisar_30d_dict(Transacao, request.user)
         dica = (metrics.get("plano_acao") or metrics.get("mensagem") or "").strip()
 
-        # classifica a dica em positiva/alerta/neutra
-        tipo_classificado = map_tipo_ia(dica)
+        tipo_classificado = (map_tipo_ia(dica) or "neutra").strip().lower()
+        if tipo_classificado not in ("positiva", "alerta", "neutra"):
+            tipo_classificado = map_tipo_textual(dica)
 
-        # 2) SALVA NO HISTÓRICO (RecomendacaoIA)
+        # ✅ GET = só preview, não grava nada
+        if request.method == "GET":
+            return JsonResponse(
+                {
+                    "ok": True,
+                    "preview": True,
+                    "dica": dica,
+                    "tipo": tipo_classificado,
+                    "metrics": metrics,
+                }
+            )
+
+        # ✅ POST = grava no histórico
         rec = RecomendacaoIA.objects.create(
             usuario=request.user,
             texto=dica,
-            # frontend trabalha com positiva/alerta/neutra
-            tipo=tipo_classificado or "economia",
+            tipo=tipo_classificado,
         )
         saved_id = rec.id
         criado_em = rec.criado_em
 
-        # 🔔 NOVO: dispara notificação (por enquanto FAKE) para WhatsApp
+        # 🔔 Notificação (não quebra se falhar)
         try:
-            notificar_dica_financeira_teste(
-                mensagem=dica,
-                canal="whatsapp",  # aqui escolhe o canal
-                usuario=request.user,  # pra pegar CanalNotificacaoUsuario se tiver
-            )
+            # extra segurança (mesmo com bloquear_demo)
+            if getattr(request.user, "username", "") != "demo":
+                notificar_dica_financeira_teste(
+                    mensagem=dica,
+                    canal="whatsapp",
+                    usuario=request.user,
+                )
         except Exception as notif_exc:
-            # não vamos quebrar a geração da dica se der erro de notificação
-            print("[DEBUG NOTIF WHATSAPP]", notif_exc)
+            logger.exception("Falha na notificação WhatsApp (teste): %s", notif_exc)
 
-        # 3) monta mensagem bonita pro Telegram
+        # período (mantém compatibilidade do front)
         periodo_dict = metrics.get("periodo") or {}
-    # mensagem_formatada = formatar_mensagem_telegram(
-    #     dica=dica,
-    #    tipo=tipo_classificado,
-    #     periodo=periodo_dict,
-    #  )
+        ps_str = periodo_dict.get("inicio") if isinstance(periodo_dict, dict) else None
+        pe_str = periodo_dict.get("fim") if isinstance(periodo_dict, dict) else None
 
-    # 4) dispara notificação (central de notificações)
-    #  notificar_dica_financeira_teste(
-    #     mensagem_formatada,
-    #     canal="telegram",
-    #    usuario=request.user,
-    # )
+        try:
+            ps = date.fromisoformat(ps_str) if ps_str else timezone.localdate()
+            pe = date.fromisoformat(pe_str) if pe_str else timezone.localdate()
+        except Exception:
+            ps = pe = timezone.localdate()
+
+        payload = {
+            "ok": True,
+            "salvo": {
+                "id": saved_id,
+                "tipo": tipo_classificado,
+                "texto": dica,
+                "text": dica,
+                "created_at": criado_em.strftime("%d/%m/%Y %H:%M"),
+                "criado_em": criado_em.strftime("%d/%m/%Y %H:%M"),
+                "criado_em_fmt": criado_em.strftime("%d/%m/%Y %H:%M"),
+                "metrics": metrics,
+                "periodo": {"inicio": str(ps), "fim": str(pe)},
+            },
+        }
+        return JsonResponse(payload)
 
     except Exception as e:
-        # se der qualquer erro aqui em cima, volta 500 com texto de erro
+        logger.exception("Erro em gerar_dica_30d")
         return JsonResponse({"ok": False, "error": str(e)}, status=500)
-
-    # 5) monta período em objetos date pra devolver no payload (como antes)
-    ps_str = (metrics.get("periodo") or {}).get("inicio") if isinstance(metrics, dict) else None
-    pe_str = (metrics.get("periodo") or {}).get("fim") if isinstance(metrics, dict) else None
-    try:
-        ps = date.fromisoformat(ps_str) if ps_str else timezone.localdate()
-        pe = date.fromisoformat(pe_str) if pe_str else timezone.localdate()
-    except Exception:
-        ps = pe = timezone.localdate()
-
-    # se por algum motivo der erro lá em cima, garante um datetime
-    if "criado_em" not in locals():
-        criado_em = timezone.localtime()
-
-    payload = {
-        "ok": True,
-        "salvo": {
-            "id": saved_id,
-            "tipo": tipo_classificado,
-            "texto": dica,
-            "text": dica,
-            # o historico_ia.js entende esse formato dd/mm/aaaa HH:MM
-            "created_at": criado_em.strftime("%d/%m/%Y %H:%M"),
-            "criado_em": criado_em.strftime("%d/%m/%Y %H:%M"),
-            "criado_em_fmt": criado_em.strftime("%d/%m/%Y %H:%M"),
-            "metrics": metrics,
-            "periodo": {"inicio": str(ps), "fim": str(pe)},
-        },
-    }
-    return JsonResponse(payload)
 
 
 @require_http_methods(["GET", "POST"])
 @login_required
+@bloquear_demo
 def enviar_dica_30d(request):
     """
     Envia a ÚLTIMA dica 30d do usuário logado para o Telegram.
@@ -753,7 +750,7 @@ def ia_resumo_mensal_series(request):
         forecast_total = totais[-1] if n == 1 else 0
 
     last = datetime.strptime(labels[-1], "%Y-%m-01")
-    next_label = (last.replace(day=28) + timedelta(days=4)).replace(day=1).strftime("%Y-%m-%01")
+    next_label = (last.replace(day=28) + timedelta(days=4)).replace(day=1).strftime("%Y-%m-01")
 
     return JsonResponse(
         {
@@ -1154,7 +1151,6 @@ def dados_grafico_filtrados(request):
     return JsonResponse(resp)
 
 
-
 # -----------------------------------------------------------------------------
 # Geração sob demanda (opção simples)
 # -----------------------------------------------------------------------------
@@ -1303,8 +1299,7 @@ def categorias_transacao(request):
 
         # Agrupamento por categoria
         qs = (
-            Transacao.objects
-            .exclude(categoria__isnull=True)
+            Transacao.objects.exclude(categoria__isnull=True)
             .exclude(categoria__exact="")
             .values("categoria")
             .annotate(total=Sum("valor"))
@@ -1314,27 +1309,22 @@ def categorias_transacao(request):
         categorias = [x["categoria"] for x in qs]
         valores = [float(x["total"] or 0) for x in qs]
 
-        return JsonResponse({
-            "ok": True,
-            "categorias": categorias,
-            "valores": valores
-        })
+        return JsonResponse({"ok": True, "categorias": categorias, "valores": valores})
 
     except Exception as e:
         logging.getLogger(__name__).exception("Erro em categorias_transacao")
-        return JsonResponse({"ok": False, "categorias": [], "valores": [], "error": str(e)}, status=500)
-
+        return JsonResponse(
+            {"ok": False, "categorias": [], "valores": [], "error": str(e)}, status=500
+        )
 
 
 @login_required
 def ia_historico_feed_v2(request):
     user = request.user
 
-    # 1) Compatibilidade: aceitar ?filtro= ou ?tipo=
     filtro_raw = (request.GET.get("filtro") or request.GET.get("tipo") or "").strip().lower()
     tipo_param = filtro_raw if filtro_raw in ("positiva", "alerta", "neutra") else ""
 
-    # 2) Sanitiza paginação
     try:
         limit = int(request.GET.get("limit", 20))
     except ValueError:
@@ -1346,36 +1336,18 @@ def ia_historico_feed_v2(request):
     except ValueError:
         offset = 0
 
-        # 3) Base do usuário (duas fontes)
-    base_rec = list(
-        RecomendacaoIA.objects.filter(usuario=user).order_by("-criado_em")
-    )
-    base_hist = list(
-        HistoricoIA.objects.filter(usuario=user).order_by("-criado_em")
-    )
-     # Junta tudo em uma lista só
-    base_all = base_rec + base_hist
+    base_rec = list(RecomendacaoIA.objects.filter(usuario=user).order_by("-criado_em"))
+    base_hist = list(HistoricoIA.objects.filter(usuario=user).order_by("-criado_em"))
 
-    # Junta tudo e ordena por data (mais recente primeiro)
     base_all = base_rec + base_hist
-    base_all.sort(
-        key=lambda x: x.criado_em or timezone.now(),
-        reverse=True
-    )
+    base_all.sort(key=lambda x: x.criado_em or timezone.now(), reverse=True)
 
-    # 4) Normaliza tipo e conta
     tz = timezone.get_current_timezone()
     normalizados = []
     counts = {"positiva": 0, "alerta": 0, "neutra": 0}
     total = 0
-    base_all.sort(
-    key=lambda r: r.criado_em or timezone.now(),
-    reverse=True
-    )
-
 
     for rec in base_all:
-        # 🔴 prioridade máxima: alertas de LOTE
         if getattr(rec, "origem", "") == "lote":
             tnorm = "alerta"
         else:
@@ -1384,7 +1356,7 @@ def ia_historico_feed_v2(request):
         texto = getattr(rec, "texto", "") or ""
 
         if tnorm not in ("positiva", "alerta", "neutra"):
-            tnorm = map_tipo_textual(texto) or "neutra"  # type: ignore
+            tnorm = map_tipo_textual(texto) or "neutra"
 
         if tnorm not in ("positiva", "alerta", "neutra"):
             tnorm = "neutra"
@@ -1394,16 +1366,17 @@ def ia_historico_feed_v2(request):
 
         dt_local = timezone.localtime(rec.criado_em, tz) if rec.criado_em else None
 
-        normalizados.append({
-            "id": rec.id,
-            "tipo": tnorm,
-            "texto": texto,
-            "criado_em": rec.criado_em.isoformat() if rec.criado_em else "",
-            "criado_em_fmt": dt_local.strftime("%d/%m/%Y %H:%M") if dt_local else "",
-            "_stamp": rec.criado_em.timestamp() if rec.criado_em else 0,
-        })
+        normalizados.append(
+            {
+                "id": rec.id,
+                "tipo": tnorm,
+                "texto": texto,
+                "criado_em": rec.criado_em.isoformat() if rec.criado_em else "",
+                "criado_em_fmt": dt_local.strftime("%d/%m/%Y %H:%M") if dt_local else "",
+                "_stamp": rec.criado_em.timestamp() if rec.criado_em else 0,
+            }
+        )
 
-    # 5) Aplica filtro de tipo em cima do tipo NORMALIZADO
     if tipo_param in ("positiva", "alerta", "neutra"):
         filtrados = [it for it in normalizados if it["tipo"] == tipo_param]
         filtro_label = tipo_param
@@ -1412,12 +1385,9 @@ def ia_historico_feed_v2(request):
         filtro_label = "todas"
 
     total_filtrado = len(filtrados)
-
-    # 6) Paginação simples via slice
     page_items = filtrados[offset : offset + limit]
     has_more = total_filtrado > (offset + len(page_items))
 
-    # 7) Monta resposta
     resp = {
         "ok": True,
         "filtro": filtro_label,
@@ -1437,7 +1407,7 @@ def ia_historico_feed_v2(request):
         "returned": len(page_items),
         "total_filtered": total_filtrado,
         "has_more": has_more,
-        "hasMore": has_more,  # compat com front antigo
+        "hasMore": has_more,
     }
 
     if request.GET.get("debug") == "1":
@@ -1456,6 +1426,7 @@ def ia_historico_feed_v2(request):
         }
 
     return JsonResponse(resp)
+
 
 
 # -----------------------------------------------------------------------------
@@ -1671,6 +1642,7 @@ def ia_analise_mensal_preview(request):
 
     return JsonResponse(resultado)
 
+
 # ============================================================
 # MÉTRICAS — Ranking mensal de categorias
 # ============================================================
@@ -1698,6 +1670,7 @@ def ranking_categorias_mensal(request):
         categorias.append({"categoria": nome, "total": float(row["total"] or 0)})
 
     return JsonResponse({"ok": True, "mes_label": f"{mes:02d}/{ano}", "categorias": categorias})
+
 
 # ============================================================
 # MÉTRICAS — Ranking mensal de serviços/produtos (por ItemVenda)
@@ -1747,6 +1720,7 @@ def ranking_servicos_mensal(request):
             "servicos": itens,
         }
     )
+
 
 # ============================================================
 # MÉTRICAS — Categoria que mais cresceu (variação mensal)
@@ -1816,8 +1790,9 @@ def categoria_que_mais_cresceu(request):
         }
     )
 
-from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
+
+
+
 
 
 @login_required
@@ -1827,7 +1802,8 @@ def ia_alertas_estoque_baixo(request):
     """
     return JsonResponse({"ok": True, "source": "ia_alertas_estoque_baixo"})
 
-from estoque.views_api import lotes_criticos
+
+
 
 
 def ia_alertas_lotes(request):
@@ -1841,7 +1817,9 @@ def ia_alertas_lotes(request):
         # não quebra o dashboard se o registro falhar
         pass
 
-    return lotes_criticos(request)
+        return api_lotes_criticos(request)
+
+
 @login_required
 def ia_alertas_financeiros(request):
     """

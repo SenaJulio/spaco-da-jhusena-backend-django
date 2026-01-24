@@ -49,6 +49,20 @@ def gerar_dica_30d_auto_e_notificar(origem="auto_cron", chat_id=None):
     """
     payload = gerar_dica_30d_auto(origem=origem)
 
+    # ✅ Se você quiser DESATIVAR notificação no ambiente DEMO, use uma flag.
+    # Ex.: settings.DEMO_MODE = True (ou variável de ambiente)
+    # Se não tiver isso ainda, deixa como False.
+    try:
+        from django.conf import settings
+        demo_mode = bool(getattr(settings, "DEMO_MODE", False))
+    except Exception:
+        demo_mode = False
+
+    if demo_mode:
+        payload["ok"] = False
+        payload["error"] = "🧪 Notificação desabilitada no MODO DEMO."
+        return payload
+
     texto = payload.get("texto") or "Sem conteúdo gerado."
     analise = payload.get("analise") or {}
 
@@ -69,7 +83,6 @@ def gerar_dica_30d_auto_e_notificar(origem="auto_cron", chat_id=None):
     now = timezone.localtime()
     stamp = now.strftime("%d/%m/%Y %H:%M")
 
-    # monta mensagem enxuta e profissional
     msg = (
         (
             f"📊 <b>IA 30 dias — nova dica automática</b>\n"
@@ -82,8 +95,7 @@ def gerar_dica_30d_auto_e_notificar(origem="auto_cron", chat_id=None):
         )
         .replace(",", "X")
         .replace("X", ",")
-    )  # gambizinha pra não quebrar formatação BR
+    )
 
     enviar_telegram(msg, chat_id=chat_id)
-
     return payload
