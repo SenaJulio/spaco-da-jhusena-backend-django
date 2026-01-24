@@ -25,3 +25,14 @@ Exibir lotes críticos de forma clara, acionável e sem alarmismo excessivo.
 ## 📌 Próximo passo
 - Badge “NOVO” quando surgir lote crítico
 - Persistir estado “novo” (ex: localStorage ou backend)
+## 🧠 UX — Lotes Críticos (Finalizado)
+
+- Renderização estável no dashboard
+- CTA direto para estoque
+- Badges inteligentes (Monitorar / Vencido / Ação Imediata)
+- Tooltip explicativo
+- Badge NOVO com rearme automático por hash
+- Estado persistido em localStorage
+- Fluxo claro: detectar → agir → resolver
+
+Status: ✅ FECHADO

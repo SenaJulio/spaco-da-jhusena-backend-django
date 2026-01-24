@@ -3171,16 +3171,36 @@ document.addEventListener("DOMContentLoaded", function () {
     const itens = json?.items || json?.itens || json?.results || [];
     const total = json?.total ?? json?.count ?? itens.length;
 
-    const temCritico = itens.some((it) => {
-      const dias = Number(it.dias_para_vencer ?? it.dias_restantes ?? it.dias ?? 0);
-      const saldo = Number(it.saldo ?? it.saldo_lote ?? 0);
-      return dias < 0 && saldo > 0; // AÇÃO IMEDIATA
-    });
+    // ===== Rearme inteligente do NOVO =====
+    const KEY_VISTO = "lotesCriticosVisto";
+    const KEY_HASH = "lotesCriticosHash";
 
-    const visto = localStorage.getItem("lotesCriticosVisto") === "1";
-    if (badgeNovo) {
-      badgeNovo.style.display = temCritico && !visto ? "inline-block" : "none";
+    const assinatura = itens
+      .filter(it => {
+        const dias = Number(it.dias_para_vencer ?? it.dias_restantes ?? it.dias ?? 0);
+        const saldo = Number(it.saldo ?? it.saldo_lote ?? 0);
+        return dias < 0 && saldo > 0; // só AÇÃO IMEDIATA
+      })
+      .map(it => [
+        it.id ?? it.lote_id ?? it.codigo ?? it.lote ?? "x",
+        Number(it.dias_para_vencer ?? it.dias_restantes ?? it.dias ?? 0),
+        Number(it.saldo ?? it.saldo_lote ?? 0),
+      ].join("|"))
+      .sort()
+      .join("||");
+
+    const hashAnterior = localStorage.getItem(KEY_HASH);
+    const visto = localStorage.getItem(KEY_VISTO) === "1";
+
+    if (assinatura && assinatura !== hashAnterior) {
+      localStorage.setItem(KEY_HASH, assinatura);
+      localStorage.removeItem(KEY_VISTO); // rearma NOVO
     }
+
+    if (badgeNovo) {
+      badgeNovo.style.display = (assinatura && !visto) ? "inline-block" : "none";
+    }
+    // ===== Fim do NOVO =====
 
     if (!itens.length) {
       box.innerHTML = "✅ Estoque em dia! Nenhum lote crítico.";
@@ -3190,43 +3210,41 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const top = itens.slice(0, 3);
 
-    // ...continua seu render aqui...
-
-
     box.innerHTML = top.map((it) => {
       const nome = it.produto_nome || it.produto || "Produto";
-      const saldo = it.saldo ?? "-";
-      const dias = it.dias_para_vencer ?? it.dias ?? 0;
+      const saldo = Number(it.saldo ?? 0);
+      const dias = Number(it.dias_para_vencer ?? it.dias ?? 0);
 
       const vencido = dias < 0;
-      const critico = vencido && Number(saldo) > 0;
+      const critico = vencido && saldo > 0;
 
       const badge = critico
         ? `<span class="badge bg-danger"
-            data-bs-toggle="tooltip"
-            data-bs-placement="top"
-            title="Lote vencido com saldo em estoque. Ação necessária para evitar prejuízo.">
-       AÇÃO IMEDIATA
-     </span>`
+                data-bs-toggle="tooltip"
+                data-bs-placement="top"
+                title="Lote vencido com saldo em estoque. Ação necessária para evitar prejuízo.">
+           AÇÃO IMEDIATA
+         </span>`
         : vencido
           ? "<span class='badge bg-danger'>VENCIDO</span>"
           : "<span class='badge bg-warning text-dark'>MONITORAR</span>";
-      return `
-  <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
-    <div>
-      <div class="fw-semibold">${nome}</div>
-      <div class="small text-muted">Saldo: ${saldo} • ${dias} dia(s)</div>
-    </div>
-    ${badge}
-  </div>
-`;
 
+      return `
+      <div class="d-flex justify-content-between align-items-center py-2 border-bottom">
+        <div>
+          <div class="fw-semibold">${nome}</div>
+          <div class="small text-muted">Saldo: ${saldo} • ${dias} dia(s)</div>
+        </div>
+        ${badge}
+      </div>
+    `;
     }).join("");
 
     if (footer) {
       footer.innerHTML = `Total críticos: <strong>${total}</strong>`;
     }
   }
+
 
   async function atualizarLotesCriticos() {
     try {
@@ -3254,11 +3272,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
   // botão atualizar
   document
-  .getElementById("btnAtualizarLotesCriticos")
-  ?.addEventListener("click", () => {
-    localStorage.setItem("lotesCriticosVisto", "1");
-    atualizarLotesCriticos();
-  });
+    .getElementById("btnAtualizarLotesCriticos")
+    ?.addEventListener("click", () => {
+      localStorage.setItem("lotesCriticosVisto", "1");
+      atualizarLotesCriticos();
+    });
 })();
 
 
