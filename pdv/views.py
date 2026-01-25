@@ -19,6 +19,9 @@ from core.models import Perfil
 from .models import Venda, VendaItem
 import traceback
 
+from django.views.decorators.http import require_GET
+from pdv.models import OverrideLoteVencido 
+
 
 def json_guard(view_func):
     """
@@ -683,3 +686,60 @@ def vendas_com_lote_vencido(request):
 
 
 
+@require_GET
+@login_required
+def overrides_resumo_api(request):
+    perfil = Perfil.objects.select_related("empresa").filter(user=request.user).first()
+    if not perfil or not perfil.empresa_id:
+        return JsonResponse({"ok": False, "erro": "Usuário sem empresa."}, status=400)
+
+    empresa = perfil.empresa
+    hoje = timezone.localdate()
+    inicio = hoje - timezone.timedelta(days=30)
+
+    # Base (30 dias) + multiempresa
+    qs = OverrideLoteVencido.objects.filter(empresa=empresa, criado_em__date__gte=inicio)
+
+    total_30d = qs.count()
+    liberados_30d = qs.filter(tipo="ACAO_IMEDIATA").count()
+
+    top_motivos = list(
+        qs.exclude(motivo="")
+          .values("motivo")
+          .annotate(qtd=Count("id"))
+          .order_by("-qtd")[:3]
+    )
+
+    recentes_qs = qs.select_related("usuario", "produto", "lote", "venda").order_by("-criado_em")[:10]
+    recentes = []
+    for o in recentes_qs:
+        recentes.append({
+            "id": o.id,
+            "criado_em": o.criado_em.isoformat(),
+            "usuario": getattr(o.usuario, "username", None) or getattr(o.usuario, "email", None),
+            "tipo": o.tipo,
+            "motivo": o.motivo,
+            "produto": getattr(o.produto, "nome", None) if o.produto else None,
+            "lote": str(o.lote) if o.lote else None,
+            "venda_id": o.venda_id,
+        })
+
+    # ✅ Debug (pra descobrir por que fica 0)
+    total_overrides_db = OverrideLoteVencido.objects.count()
+    total_overrides_db_da_empresa_api = OverrideLoteVencido.objects.filter(empresa=empresa).count()
+
+    return JsonResponse({
+        "ok": True,
+        "debug": {
+            "user": str(request.user),
+            "empresa_id_api": empresa.id,
+            "empresa_nome_api": getattr(empresa, "nome", ""),
+            "total_overrides_db": total_overrides_db,
+            "total_overrides_db_da_empresa_api": total_overrides_db_da_empresa_api,
+        },
+        "janela_dias": 30,
+        "total_overrides_30d": total_30d,
+        "acao_imediata_liberados_30d": liberados_30d,
+        "top_motivos_30d": top_motivos,
+        "recentes": recentes,
+    }, json_dumps_params={"ensure_ascii": False})

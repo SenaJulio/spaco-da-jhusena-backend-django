@@ -45,7 +45,7 @@
         <div
           style="background:rgba(10,16,28,.85); border:1px solid rgba(255,99,99,.25); border-radius:16px; padding:12px;">
           <div style="opacity:.8; font-size:.85rem;">Overrides</div>
-          <div style="font-size:1.35rem; font-weight:900;">{{ override_qtd|default:0 }}</div>
+          <div id="cardOverrides" style="font-size:1.35rem; font-weight:900;">0</div>
           <div style="opacity:.75; font-size:.85rem;">vendas com justificativa</div>
         </div>
 
@@ -53,27 +53,25 @@
           style="background:rgba(10,16,28,.85); border:1px solid rgba(47,191,113,.25); border-radius:16px; padding:12px;">
           <div style="opacity:.8; font-size:.85rem;">Valor envolvido</div>
           <div style="font-size:1.35rem; font-weight:900;">
-            R$ {{ override_valor|default:0|floatformat:2 }}
+            <span id="cardValor">R$ 0,00</span>
           </div>
+
           <div style="opacity:.75; font-size:.85rem;">total em overrides</div>
         </div>
 
         <div
           style="background:rgba(10,16,28,.85); border:1px solid rgba(255,193,7,.25); border-radius:16px; padding:12px;">
           <div style="opacity:.8; font-size:.85rem;">Produto mais afetado</div>
-          <div style="font-size:1.05rem; font-weight:900; line-height:1.2;">
-            {{ top_produto_nome|default:"-" }}
-          </div>
-          <div style="opacity:.75; font-size:.85rem;">{{ top_produto_qtd|default:0 }} item(ns)</div>
+          <div id="cardProduto" style="font-size:1.05rem; font-weight:900; line-height:1.2;">-</div>
+          <div id="cardProdutoQtd" style="opacity:.75; font-size:.85rem;">0 item(ns)</div>
         </div>
 
         <div
           style="background:rgba(10,16,28,.85); border:1px solid rgba(110,168,254,.25); border-radius:16px; padding:12px;">
           <div style="opacity:.8; font-size:.85rem;">Operador</div>
-          <div style="font-size:1.05rem; font-weight:900; line-height:1.2;">
-            {{ top_operador_nome|default:"-" }}
-          </div>
-          <div style="opacity:.75; font-size:.85rem;">{{ top_operador_qtd|default:0 }} venda(s)</div>
+          <div id="cardOperador" style="font-size:1.05rem; font-weight:900; line-height:1.2;">-</div>
+          <div id="cardOperadorQtd" style="opacity:.75; font-size:.85rem;">0 venda(s)</div>
+
         </div>
 
       </div>
@@ -151,7 +149,7 @@
         Mostrando as últimas <strong>{{ vendas|length }}</strong> vendas com justificativa.
       </div>
       {% else %}
-      <div style="
+      <div id="bannerSemVendas"style="
             padding:14px 12px;
             border-radius:14px;
             border:1px solid rgba(255,255,255,.10);
@@ -165,4 +163,50 @@
   </div>
 
 </div>
+<script>
+(function () {
+  "use strict";
+
+  const fmtBRL = (n) =>
+  (Number(n) || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+async function carregarResumoOverrides() {
+  const elOverrides = document.getElementById("cardOverrides");
+  const elValor = document.getElementById("cardValor");
+  const elProduto = document.getElementById("cardProduto");
+  const elProdutoQtd = document.getElementById("cardProdutoQtd");
+  const elOperador = document.getElementById("cardOperador");
+  const elOperadorQtd = document.getElementById("cardOperadorQtd");
+  const banner = document.getElementById("bannerSemVendas");
+
+  try {
+    const res = await fetch("/pdv/api/overrides/resumo/");
+    const json = await res.json();
+    if (!json.ok) return;
+
+    // ✅ agora json existe, então podemos usar
+    if (banner && (json.total_overrides_30d ?? 0) > 0) {
+      banner.style.display = "none";
+    }
+
+    if (elOverrides) elOverrides.textContent = json.total_overrides_30d ?? 0;
+    if (elValor) elValor.textContent = fmtBRL(0);
+
+    const r0 = (json.recentes && json.recentes.length) ? json.recentes[0] : null;
+
+    if (elProduto) elProduto.textContent = (r0 && r0.produto) ? r0.produto : "-";
+    if (elOperador) elOperador.textContent = (r0 && r0.usuario) ? r0.usuario : "-";
+
+    if (elOperadorQtd) elOperadorQtd.textContent = `${json.total_overrides_30d ?? 0} venda(s)`;
+    if (elProdutoQtd) elProdutoQtd.textContent = "—";
+
+  } catch (e) {
+    console.error("[Overrides] erro ao carregar resumo", e);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", carregarResumoOverrides);
+})();
+</script>
+
 {% endblock %}

@@ -88,3 +88,61 @@ class VendaItem(models.Model):
     def save(self, *args, **kwargs):
         self.full_clean()
         return super().save(*args, **kwargs)
+class OverrideLoteVencido(models.Model):
+    """
+    Auditoria de overrides no PDV (ex: liberar lote vencido com saldo, com justificativa).
+    Serve para tela de auditoria + resumo do topo.
+    """
+
+    TIPO_CHOICES = [
+        ("ACAO_IMEDIATA", "Ação imediata"),
+        ("ALERTA_7_DIAS", "Alerta 7 dias"),
+        ("ALERTA_15_DIAS", "Alerta 15 dias"),
+        ("ATENCAO", "Atenção"),
+    ]
+
+    empresa = models.ForeignKey(
+        Empresa,
+        on_delete=models.PROTECT,
+        related_name="pdv_overrides",
+    )
+
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="pdv_overrides",
+    )
+
+    # opcional: se o override aconteceu durante uma venda
+    venda = models.ForeignKey(
+        "pdv.Venda",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="overrides",
+    )
+
+    # produto/lote que foi “liberado”
+    produto = models.ForeignKey(
+        "estoque.Produto",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="pdv_overrides",
+    )
+
+    lote = models.ForeignKey(
+        "estoque.LoteProduto",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="pdv_overrides",
+    )
+
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, default="ACAO_IMEDIATA")
+    motivo = models.CharField(max_length=255, default="")
+
+    def __str__(self):
+        return f"Override #{self.id} ({self.tipo}) - {self.criado_em:%d/%m %H:%M}"

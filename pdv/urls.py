@@ -12,5 +12,5 @@ urlpatterns = [
     views.vendas_com_lote_vencido,
     name="vendas_lote_vencido",
     ),
-    
+    path("api/overrides/resumo/", views.overrides_resumo_api, name="overrides_resumo_api"),
 ]

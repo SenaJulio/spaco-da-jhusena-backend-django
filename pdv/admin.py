@@ -1,5 +1,6 @@
 from django.contrib import admin
 from .models import Venda, VendaItem
+from .models import OverrideLoteVencido
 
 
 class VendaItemInline(admin.TabularInline):
@@ -67,3 +68,10 @@ class VendaItemAdmin(admin.ModelAdmin):
     def has_module_permission(self, request):
         # remove o app "VendaItem" do menu lateral
         return False
+
+@admin.register(OverrideLoteVencido)
+class OverrideLoteVencidoAdmin(admin.ModelAdmin):
+    list_display = ("id", "empresa", "tipo", "usuario", "motivo", "criado_em")
+    list_filter = ("empresa", "tipo", "criado_em")
+    search_fields = ("motivo", "usuario__username", "usuario__email", "produto__nome", "lote__codigo")
+    ordering = ("-criado_em",)
