@@ -59,7 +59,7 @@
         msg.textContent = "Nenhum lote crítico com saldo ✅";
 
         // limpa estado visual
-        lista.innerHTML = "";
+        body.innerHTML = "";
 
         // limpa estado persistido (badge NOVO)
         localStorage.removeItem("hash_lotes_criticos");
@@ -86,7 +86,7 @@
               dias !== null && dias < 0
                 ? "AÇÃO IMEDIATA — VENCIDO"
                 : "AÇÃO IMEDIATA";
-          } else if (status === "ATENCAO") {
+          } else if (status === "ALERTA_7_DIAS" || status === "ALERTA_15_DIAS" || status === "ATENCAO") {
             badgeClass = "bg-warning text-dark";
             badge = "ATENÇÃO";
           }

@@ -20,7 +20,6 @@ class Venda(models.Model):
     justificativa_lote = models.TextField("Justificativa do lote", blank=True, default="")
     motivo_lote = models.CharField("Motivo (lote)", max_length=30, blank=True, default="")
 
-
     class Meta:
         verbose_name = "Venda"
         verbose_name_plural = "Vendas"
@@ -146,9 +145,7 @@ class ItemVenda(models.Model):
             self._registrar_movimento_estoque(qtd_nova)
         else:
             qtd_antiga = (
-                ItemVenda.objects.filter(pk=self.pk)
-                .values_list("quantidade", flat=True)
-                .first()
+                ItemVenda.objects.filter(pk=self.pk).values_list("quantidade", flat=True).first()
             )
             qtd_antiga = Decimal(qtd_antiga or 0)
 

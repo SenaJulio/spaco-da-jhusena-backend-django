@@ -155,10 +155,43 @@ class Command(BaseCommand):
             return LoteProduto.objects.create(**data)
 
         # 2 lotes ok + 1 lote vencido (pra mostrar ranking/alertas)
-        get_or_create_lote(p1, "L-DEM-001", 12, venc_dias=120)
-        get_or_create_lote(p2, "L-DEM-002", 25, venc_dias=60)
-        get_or_create_lote(p3, "L-DEM-003", 7, venc_dias=-10)  # vencido
+        l1 = get_or_create_lote(p1, "L-DEM-001", 12, venc_dias=5)     # alerta 7 dias
+        l2 = get_or_create_lote(p2, "L-DEM-002", 25, venc_dias=12)    # alerta 15 dias
+        l3 = get_or_create_lote(p3, "L-DEM-003", 7, venc_dias=-10)    # vencido
+  # ---- movimentos de entrada (isso gera saldo REAL)
+        MovimentoEstoque = (
+            self._get_model("estoque", "MovimentoEstoque")
+            or self._get_model("estoque", "Movimento")
+        )
+
+        def entrada(produto, lote, qtd):
+            filtros = {
+                "tipo": "E",
+                "produto": produto,
+                "lote": lote,
+            }
+            if hasattr(MovimentoEstoque, "empresa"):
+                filtros["empresa"] = empresa
+
+            # evita duplicar seed
+            if MovimentoEstoque.objects.filter(**filtros).exists():
+                return
+
+            data = dict(filtros)
+            if hasattr(MovimentoEstoque, "quantidade"):
+                data["quantidade"] = Decimal(str(qtd))
+            if hasattr(MovimentoEstoque, "data"):
+                data["data"] = timezone.now()
+
+            MovimentoEstoque.objects.create(**data)
+
+        entrada(p1, l1, 12)
+        entrada(p2, l2, 25)
+        entrada(p3, l3, 7)
+
 
         self.stdout.write(self.style.SUCCESS("✅ Dados DEMO semeados com sucesso!"))
         self.stdout.write(f"Empresa DEMO: {empresa.nome} (id={empresa.id})")
         self.stdout.write("👉 Recarregue PDV e Estoque; agora devem aparecer produtos/lotes.")
+ 
+ 

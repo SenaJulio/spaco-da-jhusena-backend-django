@@ -1,38 +1,20 @@
-﻿# 🧭 CHECKPOINT — UX Lotes Críticos
+﻿# CHECKPOINT - Spaco da Jhusena
 
-Data: 2026-01-24
-Módulo: Dashboard Financeiro / Estoque
-Status: ✅ Concluído
+Data: 2026-01-24 19:55:00
+Branch: main
+Ultimo commit:
+f667d17
 
-## 🎯 Objetivo
-Exibir lotes críticos de forma clara, acionável e sem alarmismo excessivo.
 
-## ✅ Entregas
-- Card “Lotes críticos” renderizando corretamente
-- Estrutura Bootstrap corrigida (`card-header` + `card-body`)
-- CTA direto “Ir para estoque” funcional
-- Badges inteligentes:
-  - MONITORAR (a vencer)
-  - VENCIDO (sem saldo)
-  - AÇÃO IMEDIATA (vencido com saldo)
-- Tooltip explicativo em “AÇÃO IMEDIATA”
 
-## 🧠 Decisões Técnicas
-- Fonte única de dados: `/estoque/api/ranking-critico/`
-- Renderização centralizada no JS do dashboard
-- UX prioriza clareza e redução de erro humano
+Status do Git:
+M  CHECKPOINT.md
 
-## 📌 Próximo passo
-- Badge “NOVO” quando surgir lote crítico
-- Persistir estado “novo” (ex: localStorage ou backend)
-## 🧠 UX — Lotes Críticos (Finalizado)
+Problema atual:
+PDV/Overrides: consolidar tela de auditoria + resumo do topo
 
-- Renderização estável no dashboard
-- CTA direto para estoque
-- Badges inteligentes (Monitorar / Vencido / Ação Imediata)
-- Tooltip explicativo
-- Badge NOVO com rearme automático por hash
-- Estado persistido em localStorage
-- Fluxo claro: detectar → agir → resolver
+Proximo micro-passo:
+Criar/ajustar view e rota da tela de overrides para alimentar os cards do resumo
 
-Status: ✅ FECHADO
+Arquivos que vamos mexer:
+-

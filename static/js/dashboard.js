@@ -3289,19 +3289,38 @@ document.addEventListener("DOMContentLoaded", function () {
       const saldo = Number(it.saldo ?? 0);
       const dias = Number(it.dias_para_vencer ?? it.dias ?? 0);
 
+      const status = String(it.status || "").toUpperCase();
       const vencido = dias < 0;
       const critico = vencido && saldo > 0;
 
-      const badge = critico
-        ? `<span class="badge bg-danger"
+      let badge = "<span class='badge bg-success'>OK</span>";
+
+      if (status === "ACAO_IMEDIATA" || critico) {
+        badge = `<span class="badge bg-danger"
                 data-bs-toggle="tooltip"
                 data-bs-placement="top"
                 title="Lote vencido com saldo em estoque. Ação necessária para evitar prejuízo.">
-           AÇÃO IMEDIATA
-         </span>`
-        : vencido
-          ? "<span class='badge bg-danger'>VENCIDO</span>"
-          : "<span class='badge bg-warning text-dark'>MONITORAR</span>";
+                AÇÃO IMEDIATA
+              </span>`;
+      } else if (status === "ALERTA_7_DIAS") {
+        badge = `<span class="badge bg-warning text-dark"
+                data-bs-toggle="tooltip"
+                data-bs-placement="top"
+                title="Lote com validade próxima. Planeje uso/consumo primeiro.">
+                VENCE EM ATÉ 7 DIAS
+              </span>`;
+      } else if (status === "ALERTA_15_DIAS") {
+        badge = `<span class="badge bg-info text-dark"
+                data-bs-toggle="tooltip"
+                data-bs-placement="top"
+                title="Lote se aproximando do vencimento. Monitorar e priorizar se possível.">
+                VENCE EM ATÉ 15 DIAS
+              </span>`;
+      } else if (vencido) {
+        badge = "<span class='badge bg-danger'>VENCIDO</span>";
+      } else {
+        badge = "<span class='badge bg-warning text-dark'>MONITORAR</span>";
+      }
 
       return `
       <div class="d-flex justify-content-between align-items-center py-2 border-bottom">

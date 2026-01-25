@@ -23,6 +23,30 @@ from django.views.decorators.http import require_GET
 from .services_lotes import gerar_textos_alerta_lotes
 
 
+
+
+def _status_critico(dias_para_vencer: int, saldo: float) -> str | None:
+    """
+    Retorna o status do lote para o ranking crítico.
+    - <= 0: ACAO_IMEDIATA (vencido)
+    - 1..7: ALERTA_7_DIAS
+    - 8..15: ALERTA_15_DIAS
+    - >15: None (não entra no ranking)
+    """
+    if saldo is None or float(saldo) <= 0:
+        return None  # sem saldo não é "crítico acionável" no ranking
+
+    d = int(dias_para_vencer or 0)
+
+    if d <= 0:
+        return "ACAO_IMEDIATA"
+    if d <= 7:
+        return "ALERTA_7_DIAS"
+    if d <= 15:
+        return "ALERTA_15_DIAS"
+    return None
+
+
 # ==============================
 # 1) DASHBOARD DE ESTOQUE (HTML)
 # ==============================
@@ -431,36 +455,35 @@ def api_lotes_criticos(request):
     for lote in qs:
         saldo_dec = _saldo_lote_atual(lote, empresa=empresa)
 
-        # só entra no ranking se tiver saldo > 0
+        # só entra se tiver saldo > 0
         if saldo_dec <= 0:
             continue
 
         validade = lote.validade
+        if validade is None:
+            continue  # sem validade não entra no ranking crítico
+
+        dias = (validade - hoje).days
         saldo = float(saldo_dec)
 
-        if validade is None:
-            dias = None
-            prioridade = 2
-            status = "OK"
-        else:
-            dias = (validade - hoje).days
+        status = _status_critico(dias, saldo)
+        if not status:
+            continue  # >15 dias fica fora
 
-            if dias < 0 or dias <= 7:
-                prioridade = 0
-                status = "ACAO_IMEDIATA"
-            elif dias <= 30:
-                prioridade = 1
-                status = "ATENCAO"
-            else:
-                prioridade = 2
-                status = "OK"
+        # prioridade: mais urgente primeiro
+        if status == "ACAO_IMEDIATA":
+            prioridade = 0
+        elif status == "ALERTA_7_DIAS":
+            prioridade = 1
+        else:  # ALERTA_15_DIAS
+            prioridade = 2
 
         items.append({
             "produto_id": lote.produto_id,
             "produto": getattr(lote.produto, "nome", str(lote.produto_id)),
             "lote_id": lote.id,
             "lote": getattr(lote, "codigo", None) or str(lote),
-            "validade": validade.isoformat() if validade else None,
+            "validade": validade.isoformat(),
             "dias_para_vencer": dias,
             "saldo": saldo,
             "prioridade": prioridade,
@@ -477,9 +500,11 @@ def api_lotes_criticos(request):
 
     # limita top 50 já ordenado
     items = items[:50]
-
     return JsonResponse({"ok": True, "items": items})
+
 
 @login_required
 def lotes_criticos_page(request):
     return render(request, "estoque/lotes_criticos.html")
+
+
