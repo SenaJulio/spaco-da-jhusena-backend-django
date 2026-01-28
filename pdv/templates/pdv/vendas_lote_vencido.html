@@ -190,7 +190,10 @@ async function carregarResumoOverrides() {
     }
 
     if (elOverrides) elOverrides.textContent = json.total_overrides_30d ?? 0;
-    if (elValor) elValor.textContent = fmtBRL(0);
+
+    const valor = json.valor_envolvido_30d ?? 0;
+    if (elValor) elValor.textContent = fmtBRL(json.valor_envolvido_30d ?? 0);
+
 
     const r0 = (json.recentes && json.recentes.length) ? json.recentes[0] : null;
 

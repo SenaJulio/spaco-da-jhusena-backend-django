@@ -1,27 +1,31 @@
 ﻿# CHECKPOINT - Spaco da Jhusena
 
-Data: 2026-01-24 21:56:41
+Data: 2026-01-24 23:42:12
 Branch: main
 Ultimo commit:
-70c2b45
+88a55a5
 
 
 
 Status do Git:
-Working tree limpo ✅
+Working tree limpo OK
 
-Marco fechado:
-2026-01-24 — DEMO padronizado com seed real (empresa, produtos, lotes e movimentos).
-Alertas de lote funcionando: vencido / 7 dias / 15 dias. Status: FECHADO. ✅
+Resumo:
+Overrides de lote (PDV) fechados:
+- Auditoria funcional (model + admin + API)
+- Tela “Vendas com Override de Lote” estável
+- Cards de resumo integrados
+- Banner condicional funcionando
+- UX dark consistente
 
 Problema atual:
-PDV/Overrides — consolidar tela de auditoria e alimentar resumo do topo (contagens + últimos overrides).
+Nenhum crítico.
 
 Próximo micro-passo:
-Criar/ajustar view + rota da tela de overrides para retornar os dados do resumo do topo.
+Calcular “Valor envolvido” real nos overrides (soma dos itens vendidos).
 
-Arquivos que vamos mexer:
+Arquivos-chave:
+- pdv/models.py
 - pdv/views.py
-- pdv/urls.py
-- pdv/templates/pdv/overrides.html (ou equivalente)
-- pdv/static/pdv/pdv.js (se necessário)
+- pdv/templates/pdv/overrides.html
+- core/management/commands/seed_demo.

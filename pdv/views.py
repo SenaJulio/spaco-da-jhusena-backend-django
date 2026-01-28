@@ -4,7 +4,7 @@ from decimal import Decimal
 from django.apps import apps
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
-from django.db.models import Sum, Case, When, F, DecimalField, Count
+from django.db.models import Sum, Case, When, F, DecimalField, Count,ExpressionWrapper
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.utils import timezone
@@ -314,7 +314,7 @@ def api_finalizar_venda(request):
                 )
             # politica == "livre" -> segue
 
-        # cria venda (status aberta e depois conclui)
+      # cria venda (status aberta e depois conclui)
         venda = Venda.objects.create(
             empresa=empresa,
             operador=request.user,
@@ -325,7 +325,21 @@ def api_finalizar_venda(request):
             justificativa_lote=justificativa_lote or "",
         )
 
+        # ✅ AUDITORIA: cria override amarrado à venda
+        just = (justificativa_lote or "").strip()
+        if just:
+            OverrideLoteVencido.objects.create(
+                empresa=empresa,
+                usuario=request.user,
+                venda=venda,                # ✅ agora o painel vai pegar
+                tipo="ACAO_IMEDIATA",
+                motivo=just,
+                # produto/lote ficam null por enquanto (refinamos depois)
+            )
+
         total = Decimal("0.00")
+
+       
 
         # cria itens + baixa FIFO
         item_fields = {f.name for f in VendaItem._meta.fields}
@@ -395,6 +409,21 @@ def api_finalizar_venda(request):
         venda.total = total
         venda.status = "concluida"
         venda.save(update_fields=["total", "status"])
+
+        # ===============================
+        # 🧾 Auditoria de override (se houver justificativa)
+        # ===============================
+        just = (getattr(venda, "justificativa_lote", "") or "").strip()
+        if just:
+            OverrideLoteVencido.objects.create(
+                empresa=empresa,
+                usuario=request.user,
+                venda=venda,
+                tipo="ACAO_IMEDIATA",
+                motivo=just,
+                # produto/lote ficam null por enquanto
+            )
+
 
         # cria transação
         trans_kwargs = {
@@ -717,14 +746,31 @@ def overrides_resumo_api(request):
             "id": o.id,
             "criado_em": o.criado_em.isoformat(),
             "usuario": getattr(o.usuario, "username", None) or getattr(o.usuario, "email", None),
+            "venda_id": o.venda_id,
             "tipo": o.tipo,
             "motivo": o.motivo,
             "produto": getattr(o.produto, "nome", None) if o.produto else None,
             "lote": str(o.lote) if o.lote else None,
-            "venda_id": o.venda_id,
+            
         })
 
-    # ✅ Debug (pra descobrir por que fica 0)
+    overrides_com_venda_30d = qs.filter(venda__isnull=False).count()
+    overrides_sem_venda_30d = qs.filter(venda__isnull=True).count()
+
+    override_com_venda_qs = qs.filter(venda__isnull=False)
+    venda_ids = list(override_com_venda_qs.values_list("venda_id", flat=True).distinct())
+
+    valor_envolvido = 0
+    if venda_ids:
+        valor_expr = ExpressionWrapper(
+            F("qtd") * F("preco_unit"),
+            output_field=DecimalField(max_digits=12, decimal_places=2),
+        )
+        valor_envolvido = (
+            VendaItem.objects
+            .filter(vendas_id__in=venda_ids)
+            .aggregate(total=Sum(valor_expr))["total"] or 0
+        )
     total_overrides_db = OverrideLoteVencido.objects.count()
     total_overrides_db_da_empresa_api = OverrideLoteVencido.objects.filter(empresa=empresa).count()
 
@@ -736,10 +782,19 @@ def overrides_resumo_api(request):
             "empresa_nome_api": getattr(empresa, "nome", ""),
             "total_overrides_db": total_overrides_db,
             "total_overrides_db_da_empresa_api": total_overrides_db_da_empresa_api,
+            "overrides_com_venda_30d": overrides_com_venda_30d,
+            "overrides_sem_venda_30d": overrides_sem_venda_30d,
+            "venda_ids_qtd": len(venda_ids),
+
+            
         },
         "janela_dias": 30,
         "total_overrides_30d": total_30d,
         "acao_imediata_liberados_30d": liberados_30d,
+        "valor_envolvido_30d": float(valor_envolvido),
         "top_motivos_30d": top_motivos,
         "recentes": recentes,
     }, json_dumps_params={"ensure_ascii": False})
+
+
+
