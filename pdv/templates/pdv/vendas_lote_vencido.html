@@ -194,14 +194,82 @@ async function carregarResumoOverrides() {
     const valor = json.valor_envolvido_30d ?? 0;
     if (elValor) elValor.textContent = fmtBRL(json.valor_envolvido_30d ?? 0);
 
+    // ===============================
+    // 🚦 Badge de risco (Valor envolvido)
+    // ===============================
+    const cardValorBox = elValor ? elValor.closest("div[style*='border:1px']") : null;
 
-    const r0 = (json.recentes && json.recentes.length) ? json.recentes[0] : null;
+    // thresholds (ajuste se quiser)
+    const T_AMARELO = 50;
+    const T_VERMELHO = 200;
 
-    if (elProduto) elProduto.textContent = (r0 && r0.produto) ? r0.produto : "-";
-    if (elOperador) elOperador.textContent = (r0 && r0.usuario) ? r0.usuario : "-";
+    let corBorda = "rgba(47,191,113,.35)";
+    let corFundo = "rgba(47,191,113,.08)";
+    let label = "OK";
 
-    if (elOperadorQtd) elOperadorQtd.textContent = `${json.total_overrides_30d ?? 0} venda(s)`;
-    if (elProdutoQtd) elProdutoQtd.textContent = "—";
+    if (valor >= T_VERMELHO) {
+      corBorda = "rgba(255,80,80,.65)";
+      corFundo = "rgba(255,80,80,.10)";
+      label = "AÇÃO IMEDIATA";
+    } else if (valor >= T_AMARELO) {
+      corBorda = "rgba(255,193,7,.55)";
+      corFundo = "rgba(255,193,7,.10)";
+      label = "ATENÇÃO";
+    }
+
+    if (cardValorBox) {
+      cardValorBox.style.borderColor = corBorda;
+      cardValorBox.style.background = `linear-gradient(180deg, ${corFundo}, rgba(10,16,28,.85))`;
+    }
+
+    // cria/atualiza badge pequeno no card
+    let badge = document.getElementById("badgeValorRisco");
+    if (elValor) {
+      if (!badge) {
+        badge = document.createElement("span");
+        badge.id = "badgeValorRisco";
+        badge.style.display = "inline-block";
+        badge.style.marginLeft = "10px";
+        badge.style.padding = "4px 8px";
+        badge.style.borderRadius = "999px";
+        badge.style.fontSize = ".75rem";
+        badge.style.fontWeight = "800";
+        badge.style.verticalAlign = "middle";
+        badge.style.border = "1px solid rgba(255,255,255,.14)";
+        badge.style.background = "rgba(255,255,255,.06)";
+        elValor.parentElement.appendChild(badge);
+      }
+
+      badge.textContent = label;
+      badge.style.borderColor = corBorda;
+      badge.style.color = label === "OK" ? "rgba(47,191,113,1)" : (label === "ATENÇÃO" ? "rgba(255,193,7,1)" : "rgba(255,80,80,1)");
+    }
+
+
+
+    if (elProduto) elProduto.textContent = json.top_produto_nome_30d ?? "-";
+
+    const qtdProd = json.top_produto_qtd_30d ?? 0;
+    if (elProdutoQtd) elProdutoQtd.textContent = `${qtdProd} un.`;
+
+
+        // Operador campeão (30 dias)
+    if (elOperador) {
+      elOperador.textContent = json.top_operador_nome_30d ?? "-";
+    }
+
+    if (elOperadorQtd) {
+      elOperadorQtd.textContent = `${json.top_operador_qtd_30d ?? 0} venda(s)`;
+    }
+
+    // Produto mais afetado (30 dias)
+    if (elProduto) {
+      elProduto.textContent = json.top_produto_nome_30d ?? "-";
+    }
+
+    if (elProdutoQtd) {
+      elProdutoQtd.textContent = `${json.top_produto_qtd_30d ?? 0} un.`;
+    }
 
   } catch (e) {
     console.error("[Overrides] erro ao carregar resumo", e);

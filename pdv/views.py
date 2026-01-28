@@ -727,7 +727,11 @@ def overrides_resumo_api(request):
     inicio = hoje - timezone.timedelta(days=30)
 
     # Base (30 dias) + multiempresa
-    qs = OverrideLoteVencido.objects.filter(empresa=empresa, criado_em__date__gte=inicio)
+    qs = OverrideLoteVencido.objects.filter(
+    empresa=empresa,
+    criado_em__date__gte=inicio,
+    venda__isnull=False,   # 👈 LIMPEZA DEMO
+)
 
     total_30d = qs.count()
     liberados_30d = qs.filter(tipo="ACAO_IMEDIATA").count()
@@ -773,6 +777,34 @@ def overrides_resumo_api(request):
         )
     total_overrides_db = OverrideLoteVencido.objects.count()
     total_overrides_db_da_empresa_api = OverrideLoteVencido.objects.filter(empresa=empresa).count()
+    # ===============================
+    # 🧴 Produto mais afetado (REAL)
+    # ===============================
+    top_produto_nome = "-"
+    top_produto_qtd = 0
+
+    if venda_ids:
+        top_prod = (
+            VendaItem.objects
+            .filter(vendas_id__in=venda_ids)
+            .values("produto__nome")
+            .annotate(qtd=Sum("qtd"))  # soma quantidades vendidas
+            .order_by("-qtd")
+            .first()
+        )
+        top_produto_nome = (top_prod or {}).get("produto__nome") or "-"
+        top_produto_qtd = float((top_prod or {}).get("qtd") or 0)
+
+        top_op = (
+            qs.values("usuario__username")
+            .annotate(qtd=Count("id"))
+            .order_by("-qtd")
+            .first()
+        )
+
+        top_operador_nome = (top_op or {}).get("usuario__username") or "-"
+        top_operador_qtd = (top_op or {}).get("qtd") or 0
+
 
     return JsonResponse({
         "ok": True,
@@ -785,13 +817,17 @@ def overrides_resumo_api(request):
             "overrides_com_venda_30d": overrides_com_venda_30d,
             "overrides_sem_venda_30d": overrides_sem_venda_30d,
             "venda_ids_qtd": len(venda_ids),
-
+            
             
         },
         "janela_dias": 30,
         "total_overrides_30d": total_30d,
         "acao_imediata_liberados_30d": liberados_30d,
         "valor_envolvido_30d": float(valor_envolvido),
+        "top_produto_nome_30d": top_produto_nome,
+        "top_produto_qtd_30d": top_produto_qtd,
+        "top_operador_nome_30d": top_operador_nome,
+        "top_operador_qtd_30d": top_operador_qtd,
         "top_motivos_30d": top_motivos,
         "recentes": recentes,
     }, json_dumps_params={"ensure_ascii": False})
