@@ -141,11 +141,7 @@ async function carregarRankingEstoqueCritico() {
     const text = await res.text();
 
     let data = null;
-    if (contentType.includes("application/json")) {
-      data = JSON.parse(text);
-    } else {
-      console.warn("[rankingEstoque] resposta não-JSON:", text.slice(0, 120));
-    }
+    if (contentType.includes("application/json")) data = JSON.parse(text);
 
     if (!res.ok || !data?.ok) {
       box.innerHTML = "<div class='sj-muted'>Não foi possível carregar o ranking.</div>";
@@ -184,7 +180,6 @@ async function carregarRankingEstoqueCritico() {
               Saldo: ${saldo} ${Number.isFinite(minimo) && minimo > 0 ? `| Mínimo: ${minimo}` : ""}
             </span>
           </div>
-
           <span style="
             font-weight:700;
             padding:6px 10px;
@@ -206,6 +201,7 @@ async function carregarRankingEstoqueCritico() {
   }
 }
 
+
 /**
  * Ranking de LOTES CRÍTICOS (validade + saldo)
  * - Espera data.items vindo do endpoint que você montou
@@ -226,7 +222,7 @@ async function carregarRankingLotesCriticos() {
     badge.textContent = "0";
     badge.className = "badge bg-danger";
 
-    const resp = await fetch("/estoque/api/ranking-critico/", {
+   const resp = await fetch("/estoque/api/lotes-prestes-vencer/?dias=30&limit=10", {
       headers: { "X-Requested-With": "XMLHttpRequest" },
       credentials: "same-origin",
     });
@@ -248,8 +244,9 @@ async function carregarRankingLotesCriticos() {
       return;
     }
 
-    const criticos = items.filter((x) => x.prioridade === 0).length;
-    const vencidos = items.filter((x) => (x.dias_para_vencer ?? 9999) < 0).length;
+   const vencidos = items.filter((x) => x.tipo === "vencido").length;
+   const criticos = vencidos;
+
 
     badge.textContent = String(criticos);
     badge.className = "badge bg-danger";
@@ -271,51 +268,113 @@ async function carregarRankingLotesCriticos() {
     lista.style.display = "block";
 
     items.slice(0, 5).forEach((it) => {
-      const dias = it.dias_para_vencer;
+  const dias = Number(it.dias_restantes);
 
-      let pillClass = "bg-success";
-      let pillText = "OK";
+  const isVencido = it.tipo === "vencido";
+  const isPrestes = it.tipo === "prestes_vencer";
 
-      if (it.status === "ACAO_IMEDIATA") {
-        pillClass = "bg-danger";
-        pillText =
-          dias !== null && dias < 0
-            ? "AÇÃO IMEDIATA — VENCIDO"
-            : "AÇÃO IMEDIATA";
-      } else if (it.status === "ATENCAO") {
-        pillClass = "bg-warning text-dark";
-        pillText = "ATENÇÃO";
-      }
+  let pillClass = "bg-success";
+  let pillText = "OK";
 
-      let subt = "";
-      if (dias === null || dias === undefined) subt = "Sem validade";
-      else if (dias < 0) subt = `VENCIDO há ${Math.abs(dias)} dia(s)`;
-      else subt = `Vence em ${dias} dia(s)`;
+  if (isVencido) {
+    pillClass = "bg-danger";
+    pillText = "AÇÃO IMEDIATA — VENCIDO";
+  } else if (isPrestes) {
+    pillClass = "bg-warning text-dark";
+    pillText = "ATENÇÃO";
+  }
 
-      const el = document.createElement("div");
-      el.className = "list-group-item d-flex justify-content-between align-items-start";
+  let subt = "";
+  if (dias < 0) subt = `VENCIDO há ${Math.abs(dias)} dia(s)`;
+  else subt = `Vence em ${dias} dia(s)`;
 
-      el.innerHTML = `
-        <div class="me-3">
-          <div class="fw-semibold">${it.produto}</div>
-          <div class="text-muted small">${subt} • saldo: ${Number(it.saldo || 0)}</div>
-        </div>
-        <span class="badge ${pillClass} align-self-center">${pillText}</span>
-      `;
+  const el = document.createElement("div");
+  el.className = "list-group-item d-flex justify-content-between align-items-start";
 
-      lista.appendChild(el);
-    });
+  el.innerHTML = `
+    <div class="me-3">
+      <div class="fw-semibold">${it.produto_nome}</div>
+      <div class="text-muted small">
+        Lote ${it.lote_codigo} • ${subt} • saldo: ${Number(it.saldo_atual || 0)}
+      </div>
+    </div>
+    <span class="badge ${pillClass} align-self-center">${pillText}</span>
+  `;
+
+  lista.appendChild(el);
+});
+
   } catch (e) {
     console.error("[RankingLotes] erro", e);
     msg.textContent = "Erro ao carregar ranking (veja o console).";
   }
 }
+ 
+// ===============================
+// 📊 Top produtos (por vendas)
+// ===============================
+async function carregarTopProdutosVendidos() {
+  try {
+    const res = await fetch("/estoque/api/top-produtos-vendidos/?dias=30&top=10", {
+      headers: { "X-Requested-With": "XMLHttpRequest" },
+      credentials: "same-origin",
+    });
+
+    const json = await res.json();
+    if (!res.ok || !json?.ok) return;
+
+    // 1) Atualiza o gráfico
+    if (window.chartTopProdutos) {
+      window.chartTopProdutos.data.labels = json.labels || [];
+
+      const vendidos = (json.data || []).map(n => Number(n) || 0);
+
+      if (window.chartTopProdutos.data.datasets[1]) {
+        window.chartTopProdutos.data.datasets[1].data = vendidos;
+      } else {
+        window.chartTopProdutos.data.datasets[0].data = vendidos;
+      }
+
+      window.chartTopProdutos.update();
+    }
+
+    // 2) Gera insight (DEPOIS do json estar disponível)
+    const elInsight = document.getElementById("insightTopProdutos");
+    if (!elInsight) return;
+
+    const labels = json.labels || [];
+    const vals = (json.data || []).map(n => Number(n) || 0);
+    const total = vals.reduce((a, b) => a + b, 0);
+
+    if (!labels.length || total <= 0) {
+      elInsight.textContent = "Sem vendas no período selecionado.";
+      return;
+    }
+
+    let idxMax = 0;
+    for (let i = 1; i < vals.length; i++) {
+      if (vals[i] > vals[idxMax]) idxMax = i;
+    }
+
+    const nome = labels[idxMax] || "Produto";
+    const qtd = vals[idxMax];
+    const pct = Math.round((qtd / total) * 100);
+
+    elInsight.textContent =
+      `🧠 O produto mais vendido nos últimos 30 dias foi ${nome}, com ${qtd} venda(s), representando ${pct}% do total.`;
+
+  } catch (e) {
+    console.error("[topProdutos] erro", e);
+  }
+}
+
+
 
 /* === ÚNICO DOMContentLoaded (sem duplicação) === */
-document.addEventListener("DOMContentLoaded", function () {
+document.addEventListener("DOMContentLoaded", async function () {
   console.log("📦 DOM pronto");
 
-  // Rankings (1 vez só)
+  // Rankings
   carregarRankingEstoqueCritico();
   carregarRankingLotesCriticos();
 
@@ -338,11 +397,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
   const agg = aggregateByLabel(labelsProdutos, [dadosSaldo, dadosVendidos]);
 
-  // limpa charts antigos
   Chart.getChart(c1)?.destroy();
   Chart.getChart(c2)?.destroy();
 
-  new Chart(c1, {
+  window.chartTopProdutos = new Chart(c1, {
     type: "bar",
     data: {
       labels: agg.labels,
@@ -353,6 +411,46 @@ document.addEventListener("DOMContentLoaded", function () {
     },
     options: { responsive: true, maintainAspectRatio: false },
   });
+
+
+    // UX: saldo discreto, vendas em destaque
+  const dsSaldo = window.chartTopProdutos.data.datasets[0];   // Saldo atual
+  const dsVend = window.chartTopProdutos.data.datasets[1];    // Quantidade vendida
+
+  if (dsSaldo) {
+    dsSaldo.borderWidth = 0;
+    dsSaldo.borderSkipped = false;
+    dsSaldo.barPercentage = 0.9;
+    dsSaldo.categoryPercentage = 0.8;
+
+    // deixa “apagado” sem escolher cor manual
+    dsSaldo.backgroundColor = "rgba(255,255,255,.18)";
+  }
+
+  if (dsVend) {
+    dsVend.borderWidth = 0;
+    dsVend.borderSkipped = false;
+    dsVend.barPercentage = 0.9;
+    dsVend.categoryPercentage = 0.8;
+
+    // destaque sem brigar com o tema (puxa um verdinho do seu branding)
+    dsVend.backgroundColor = "rgba(47,191,113,.55)";
+  }
+
+  window.chartTopProdutos.update();
+
+  const tg = document.getElementById("toggleSaldo");
+  if (tg) {
+    tg.addEventListener("change", () => {
+      const dsSaldo = window.chartTopProdutos.data.datasets[0];
+      if (dsSaldo) dsSaldo.hidden = !tg.checked;
+      window.chartTopProdutos.update();
+    });
+  }
+  
+
+  // ✅ AQUI (depois que o chart existe)
+  await carregarTopProdutosVendidos();
 
   new Chart(c2, {
     type: "line",
@@ -366,7 +464,8 @@ document.addEventListener("DOMContentLoaded", function () {
     options: { responsive: true, maintainAspectRatio: false },
   });
 
-  // Insights
   const insights = buildInsights(agg.labels, agg.series[0], agg.series[1]);
   renderInsights(insights);
 });
+
+

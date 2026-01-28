@@ -180,6 +180,10 @@
     <div class="col-lg-6">
       <div class="sj-card">
         <div class="sj-card-header">Top produtos (por vendas)</div>
+          <label style="display:flex;gap:8px;align-items:center;font-size:.85rem;opacity:.85;">
+            <input id="toggleSaldo" type="checkbox" checked />
+            Mostrar saldo
+          </label>
         <div class="sj-card-body">
           <div class="sj-chartBox">
             <canvas id="chartTopProdutos"></canvas>
@@ -188,7 +192,7 @@
         </div>
       </div>
     </div>
-
+    
     <!-- Card 2 -->
     <div class="col-lg-6">
       <div class="sj-card">
@@ -199,10 +203,10 @@
           </div>
           <div class="sj-muted small mt-2">Visão por mês (movimentos de estoque)</div>
         </div>
-      </div>
+      </div>    
     </div>
-
-
+    <div id="insightTopProdutos" class="sj-muted small mt-2"></div>
+ 
     <!-- === Ranking de Lotes Críticos === -->
     <div class="card sj-card" id="cardRankingLotes">
       <div class="card-header d-flex align-items-center justify-content-between">

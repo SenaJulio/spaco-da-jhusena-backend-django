@@ -33,5 +33,6 @@ urlpatterns = [
 
      path("api/ranking-critico/", views.api_lotes_criticos, name="api_ranking_critico"),
 
+     path("api/top-produtos-vendidos/", views.top_produtos_vendidos_api, name="top_produtos_vendidos_api"),
 
 ]

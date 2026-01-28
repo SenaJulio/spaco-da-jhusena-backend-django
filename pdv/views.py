@@ -1,7 +1,9 @@
 import json
 from decimal import Decimal
 
+
 from django.apps import apps
+from core.models import Perfil
 from django.contrib.auth.decorators import login_required
 from django.db import transaction
 from django.db.models import Sum, Case, When, F, DecimalField, Count,ExpressionWrapper
@@ -834,3 +836,44 @@ def overrides_resumo_api(request):
 
 
 
+@require_GET
+@login_required
+def top_produtos_vendidos_api(request):
+    perfil = Perfil.objects.select_related("empresa").filter(user=request.user).first()
+    if not perfil or not perfil.empresa_id:
+        return JsonResponse({"ok": False, "erro": "Usuário sem empresa."}, status=400)
+
+    empresa = perfil.empresa
+
+    # janela padrão: 30 dias (pode ajustar via querystring ?dias=30&top=10)
+    try:
+        dias = int(request.GET.get("dias", "30"))
+    except Exception:
+        dias = 30
+    try:
+        top = int(request.GET.get("top", "10"))
+    except Exception:
+        top = 10
+
+    hoje = timezone.localdate()
+    inicio = hoje - timezone.timedelta(days=dias)
+
+    VendaItem = apps.get_model("pdv", "VendaItem")
+    # Seu FK é "vendas" (vendas_id), então filtramos por vendas__...
+    qs = (
+        VendaItem.objects
+        .filter(vendas__empresa=empresa, vendas__criado_em__date__gte=inicio)
+        .values("produto__nome")
+        .annotate(qtd=Sum("qtd"))
+        .order_by("-qtd")[:top]
+    )
+
+    labels = [r["produto__nome"] or "-" for r in qs]
+    data = [float(r["qtd"] or 0) for r in qs]
+
+    return JsonResponse({
+        "ok": True,
+        "dias": dias,
+        "labels": labels,
+        "data": data,
+    }, json_dumps_params={"ensure_ascii": False})

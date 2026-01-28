@@ -508,3 +508,43 @@ def lotes_criticos_page(request):
     return render(request, "estoque/lotes_criticos.html")
 
 
+@require_GET
+@login_required
+def top_produtos_vendidos_api(request):
+    perfil = Perfil.objects.select_related("empresa").filter(user=request.user).first()
+    if not perfil or not perfil.empresa_id:
+        return JsonResponse({"ok": False, "erro": "Usuário sem empresa."}, status=400)
+
+    empresa = perfil.empresa
+
+    try:
+        dias = int(request.GET.get("dias", "30"))
+    except Exception:
+        dias = 30
+
+    try:
+        top = int(request.GET.get("top", "10"))
+    except Exception:
+        top = 10
+
+    hoje = timezone.localdate()
+    inicio = hoje - timezone.timedelta(days=dias)
+
+    VendaItem = apps.get_model("pdv", "VendaItem")
+
+    # ⚠️ Seu FK é "vendas" (vendas_id), então a venda é acessada como vendas__
+    qs = (
+        VendaItem.objects
+        .filter(vendas__empresa=empresa, vendas__criado_em__date__gte=inicio)
+        .values("produto__nome")
+        .annotate(qtd=Sum("qtd"))
+        .order_by("-qtd")[:top]
+    )
+
+    labels = [r["produto__nome"] or "-" for r in qs]
+    data = [float(r["qtd"] or 0) for r in qs]
+
+    return JsonResponse(
+        {"ok": True, "dias": dias, "labels": labels, "data": data},
+        json_dumps_params={"ensure_ascii": False},
+    )

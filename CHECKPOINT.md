@@ -1,31 +1,38 @@
 ﻿# CHECKPOINT - Spaco da Jhusena
 
-Data: 2026-01-24 23:42:12
+Data: 2026-01-28 10:17:30
 Branch: main
 Ultimo commit:
-88a55a5
+35363ef
 
 
 
 Status do Git:
 Working tree limpo OK
 
-Resumo:
-Overrides de lote (PDV) fechados:
-- Auditoria funcional (model + admin + API)
-- Tela “Vendas com Override de Lote” estável
-- Cards de resumo integrados
-- Banner condicional funcionando
-- UX dark consistente
+🧭 Fechamento oficial do checkpoint
 
-Problema atual:
-Nenhum crítico.
+Pode cravar no CHECKPOINT.md:
 
-Próximo micro-passo:
-Calcular “Valor envolvido” real nos overrides (soma dos itens vendidos).
+Marco: Auditoria de Overrides (PDV)
+Status: ✅ Estável, coerente e vendável
+Entregas:
 
-Arquivos-chave:
-- pdv/models.py
-- pdv/views.py
-- pdv/templates/pdv/overrides.html
-- core/management/commands/seed_demo.
+KPIs calculados apenas com overrides vinculados a vendas
+
+Valor envolvido real (somatório de itens)
+
+Produto mais afetado e operador campeão (30 dias)
+
+Badge de risco (semáforo) no valor envolvido
+
+UX limpa no modo demo (sem poluir métricas)
+-
+
+Próximo passo:
+
+Exportar relatório (CSV/PDF) dos overrides do período
+
+Alertas automáticos quando passar do amarelo/vermelho
+
+Permissões: quem pode liberar override e quem só visualiza

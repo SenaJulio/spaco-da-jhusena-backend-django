@@ -13,4 +13,5 @@ urlpatterns = [
     name="vendas_lote_vencido",
     ),
     path("api/overrides/resumo/", views.overrides_resumo_api, name="overrides_resumo_api"),
+    path("api/top-produtos-vendidos/", views.top_produtos_vendidos_api, name="top_produtos_vendidos_api"),
 ]
