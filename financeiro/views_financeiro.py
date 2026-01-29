@@ -2048,3 +2048,130 @@ def api_categoria_lider_receitas(request):
         "total": float(total),
         "segundo": segundo,
     })
+
+def _has_field(model, name: str) -> bool:
+    try:
+        model._meta.get_field(name)
+        return True
+    except Exception:
+        return False
+
+
+@require_GET
+def api_produto_lider_pdv(request):
+    """
+    Retorna o produto mais vendido (e o segundo) no PDV nos últimos N dias.
+    Métrica padrão: soma de quantidade (qtd). Se não achar qtd, cai pra Count de itens.
+    """
+    try:
+        dias = int(request.GET.get("dias", "30"))
+    except ValueError:
+        dias = 30
+    dias = max(1, min(dias, 365))
+
+    dt_ini = timezone.now() - timedelta(days=dias)
+
+    # ========= Descobrir caminhos prováveis =========
+    # ItemVenda -> venda (FK) pode ser 'venda' ou 'vendas'
+    venda_fk = "venda" if _has_field(ItemVenda, "venda") else ("vendas" if _has_field(ItemVenda, "vendas") else None)
+
+    # Campos comuns em Venda: data/data_venda/criado_em/created_at e empresa
+    # Vamos construir filtros dinamicamente
+    filtros = {}
+    if venda_fk:
+        # data
+        # tenta: venda__data, venda__created_at, venda__criado_em, venda__data_venda
+        for campo_data in ["data", "data_venda", "criado_em", "created_at"]:
+            filtros_teste = {f"{venda_fk}__{campo_data}__gte": dt_ini}
+            try:
+                ItemVenda.objects.filter(**filtros_teste).exists()
+                filtros.update(filtros_teste)
+                break
+            except Exception:
+                pass
+
+        # empresa (multiempresa)
+        empresa = getattr(getattr(request.user, "perfil", None), "empresa", None)
+        if empresa is not None:
+            for campo_emp in ["empresa", "empresa_id"]:
+                filtros_teste = {f"{venda_fk}__{campo_emp}": empresa}
+                try:
+                    ItemVenda.objects.filter(**filtros_teste).exists()
+                    filtros.update(filtros_teste)
+                    break
+                except Exception:
+                    pass
+
+    else:
+        # Se não houver FK pra Venda, ao menos filtra por data do item se existir
+        for campo_data_item in ["data", "criado_em", "created_at"]:
+            if _has_field(ItemVenda, campo_data_item):
+                filtros[f"{campo_data_item}__gte"] = dt_ini
+                break
+
+    qs = ItemVenda.objects.all()
+
+
+    # ========= Agrupamento por produto =========
+    # Produto pode ser FK 'produto' (com nome) ou texto 'produto_nome'
+    produto_fk = "produto" if _has_field(ItemVenda, "produto") else None
+    produto_txt = "produto_nome" if _has_field(ItemVenda, "produto_nome") else None
+
+    # Quantidade pode ser 'qtd', 'quantidade'
+    qtd_field = "qtd" if _has_field(ItemVenda, "qtd") else ("quantidade" if _has_field(ItemVenda, "quantidade") else None)
+
+    if produto_fk:
+        group_key = f"{produto_fk}__nome"
+    elif produto_txt:
+        group_key = produto_txt
+    else:
+        return JsonResponse({"ok": False, "erro": "ItemVenda sem campo de produto reconhecido."}, status=500)
+
+    if qtd_field:
+        agg_expr = Sum(qtd_field)
+        metric_name = "qtd"
+    else:
+        agg_expr = Count("id")
+        metric_name = "itens"
+
+    ranking = (
+        qs.values(group_key)
+        .annotate(total=agg_expr)
+        .order_by("-total")
+    )
+
+    total_geral = ranking.aggregate(s=Sum("total"))["s"] or 0
+
+    top1 = ranking.first()
+    top2 = ranking[1:2].first() if ranking.count() >= 2 else None
+
+    if not top1 or (top1.get("total") or 0) <= 0:
+        return JsonResponse({
+            "ok": True,
+            "dias": dias,
+            "tem_dados": False,
+            "metrica": metric_name,
+            "lider": None,
+            "segundo": None,
+            "total": 0,
+        })
+
+    def pack(row):
+        nome = row.get(group_key)
+        v = row.get("total") or 0
+        pct = (v / total_geral) * 100 if total_geral else 0
+        return {
+            "nome": nome,
+            "valor": float(v),
+            "percentual": int(round(float(pct), 0)),
+        }
+
+    return JsonResponse({
+        "ok": True,
+        "dias": dias,
+        "tem_dados": True,
+        "metrica": metric_name,
+        "total": float(total_geral) if total_geral else 0,
+        "lider": pack(top1),
+        "segundo": pack(top2) if top2 else None,
+    })

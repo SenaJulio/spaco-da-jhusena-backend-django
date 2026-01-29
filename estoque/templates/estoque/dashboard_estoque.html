@@ -165,6 +165,20 @@
   #cardRankingLotes .badge.bg-success {
     background-color: #2fbf71 !important;
   }
+
+  #insightProdutoLiderPDV .insight-box{
+    display:block;
+    padding:12px 14px;
+    border-radius:12px;
+    border:1px solid rgba(255,255,255,.12);
+    background:rgba(255,255,255,.06);
+  }
+
+  #insightProdutoLiderPDV .sj-insight-destaque{
+    border:1px solid rgba(47,191,113,.85) !important;
+    background:rgba(47,191,113,.18) !important;
+    box-shadow:0 0 0 1px rgba(47,191,113,.15) inset;
+  }
 </style>
 <!-- ✅ Topo vendável (título + botão) -->
 
@@ -206,7 +220,8 @@
       </div>    
     </div>
     <div id="insightTopProdutos" class="sj-muted small mt-2"></div>
- 
+     <div id="insightProdutoLiderPDV" class="sj-insight"></div>
+
     <!-- === Ranking de Lotes Críticos === -->
     <div class="card sj-card" id="cardRankingLotes">
       <div class="card-header d-flex align-items-center justify-content-between">

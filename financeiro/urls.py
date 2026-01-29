@@ -81,7 +81,8 @@ urlpatterns = [
     path("ia/resumo_mensal/", v.ia_resumo_mensal, name="ia_resumo_mensal"),
     path("ia/resumo-mensal/", v.ia_resumo_mensal, name="ia_resumo_mensal_dash"),
     path("api/insights/servico-lider/", views.api_servico_lider, name="api_servico_lider"),
-     path("api/insights/categoria-lider/", views.api_categoria_lider_receitas, name="api_categoria_lider_receitas"),
+    path("api/insights/categoria-lider/", views.api_categoria_lider_receitas, name="api_categoria_lider_receitas"),
+    path("api/insights/produto-lider-pdv/", views.api_produto_lider_pdv, name="api_produto_lider_pdv"),
     path(
         "ia/gerar_dica_sob_demanda/",
         v.gerar_dica_sob_demanda,

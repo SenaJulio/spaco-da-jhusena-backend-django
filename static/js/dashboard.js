@@ -3535,61 +3535,51 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
   // =====================================================
-// INSIGHT FINANCEIRO — CATEGORIA DOMINANTE
-// Mostra de onde vem a receita nos últimos 30 dias
-// Inclui:
-// - título dinâmico
-// - texto principal
-// - alerta de dependência
-// - link de ação (PDV)
-// =====================================================
- // ========= helpers =========
-function badgeCategoria(pct) {
-  if (pct >= 60) return { emoji: "🔥", titulo: "Categoria dominante no período" };
-  if (pct >= 40) return { emoji: "📈", titulo: "Categoria líder no período" };
-  return { emoji: "📊", titulo: "Receita distribuída no período" };
-}
+  // INSIGHT FINANCEIRO — CATEGORIA DOMINANTE
+  // Mostra de onde vem a receita nos últimos 30 dias
+  // Inclui:
+  // - título dinâmico
+  // - texto principal
+  // - alerta de dependência
+  // - link de ação (PDV)
+  // =====================================================
+  // ========= helpers =========
+  // =====================================================
+  // INSIGHT FINANCEIRO — CATEGORIA DOMINANTE
+  // Mostra de onde vem a receita nos últimos N dias
+  // =====================================================
 
-async function carregarInsightCategoriaLider(dias = 30) {
-  const el = document.getElementById("insightCategoriaLider");
   function badgeCategoria(pct) {
-  if (pct >= 60) return { emoji: "🔥", titulo: "Categoria dominante no período" };
-  if (pct >= 40) return { emoji: "📈", titulo: "Categoria líder no período" };
-  return { emoji: "📊", titulo: "Receita distribuída no período" };
-}
+    if (pct >= 60) return { emoji: "🔥", titulo: "Categoria dominante no período" };
+    if (pct >= 40) return { emoji: "📈", titulo: "Categoria líder no período" };
+    return { emoji: "📊", titulo: "Receita distribuída no período" };
+  }
 
-async function carregarInsightCategoriaLider(dias = 30) {
-  const el = document.getElementById("insightCategoriaLider");
-  function badgeCategoria(pct) {
-  if (pct >= 60) return { emoji: "🔥", titulo: "Categoria dominante no período" };
-  if (pct >= 40) return { emoji: "📈", titulo: "Categoria líder no período" };
-  return { emoji: "📊", titulo: "Receita distribuída no período" };
-}
+  async function carregarInsightCategoriaLider(dias = 30) {
+    const el = document.getElementById("insightCategoriaLider");
+    if (!el) return;
 
-async function carregarInsightCategoriaLider(dias = 30) {
-  const el = document.getElementById("insightCategoriaLider");
-  if (!el) return;
+    // evita refetch se já carregou para o mesmo período
+    if (el.dataset.loaded === "1" && el.dataset.dias === String(dias)) return;
+    el.dataset.dias = String(dias);
 
-  if (el.dataset.loaded === "1" && el.dataset.dias === String(dias)) return;
-  el.dataset.dias = String(dias);
+    el.textContent = "Carregando insight…";
 
-  el.textContent = "Carregando insight…";
+    try {
+      const url = `/financeiro/api/insights/categoria-lider/?dias=${dias}`;
+      const resp = await fetch(url, {
+        headers: { Accept: "application/json" },
+        credentials: "same-origin",
+      });
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
 
-  try {
-    const url = `/financeiro/api/insights/categoria-lider/?dias=${dias}`;
-    const resp = await fetch(url, {
-      headers: { Accept: "application/json" },
-      credentials: "same-origin",
-    });
-    if (!resp.ok) throw new Error("HTTP " + resp.status);
+      const payload = await resp.json();
+      if (!payload || payload.ok !== true) {
+        throw new Error(payload?.erro || "Resposta inválida");
+      }
 
-    const payload = await resp.json();
-    if (!payload || payload.ok !== true) {
-      throw new Error(payload?.erro || "Resposta inválida");
-    }
-
-    if (!payload.tem_dados) {
-      el.innerHTML = `
+      if (!payload.tem_dados) {
+        el.innerHTML = `
         <div class="insight-box">
           <strong>📊 Sem dados</strong>
           <div style="opacity:.85; margin-top:4px;">
@@ -3597,56 +3587,54 @@ async function carregarInsightCategoriaLider(dias = 30) {
           </div>
         </div>
       `;
-      return;
-    }
+        // se não tem dados, não marca como loaded (pra tentar de novo futuramente)
+        delete el.dataset.loaded;
+        return;
+      }
 
-    const pct = Number(payload.percentual || 0);
-    const badge = badgeCategoria(pct);
+      const pct = Number(payload.percentual || 0);
+      const badge = badgeCategoria(pct);
 
-    const titulo = (pct === 100)
-      ? "Fonte única de receita no período"
-      : badge.titulo;
-    
-    
-    const emoji = badge.emoji;
+      const titulo = (pct === 100)
+        ? "Fonte única de receita no período"
+        : badge.titulo;
 
-    const labels = { PDV: "Vendas no PDV" };
-    const cat = labels[payload.categoria] || payload.categoria;
+      const emoji = badge.emoji;
 
-    const catHtml = (payload.categoria === "PDV")
-    ? `<a href="/pdv/" style="color:inherit; text-decoration:underline;">→ ${cat}</a>`
-    : `<strong>→ ${cat}</strong>`;
+      const labels = { PDV: "Vendas no PDV" };
+      const cat = labels[payload.categoria] || payload.categoria;
 
+      const catHtml = (payload.categoria === "PDV")
+        ? `<a href="/pdv/" style="color:inherit; text-decoration:underline;">→ ${cat}</a>`
+        : `<strong>→ ${cat}</strong>`;
 
-    const alertaDependencia = (pct === 100)
-    ? `<div style="margin-top:6px; opacity:.85;">
-        ⚠️ Dependência: toda a receita veio de uma única fonte no período.
-      </div>`
-    : "";
+      const alertaDependencia = (pct === 100)
+        ? `<div style="margin-top:6px; opacity:.85;">
+           ⚠️ Dependência: toda a receita veio de uma única fonte no período.
+         </div>`
+        : "";
 
-    const valorFmt = Number(payload.valor || 0).toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    });
+      const valorFmt = Number(payload.valor || 0).toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+      });
 
-    const totalFmt = Number(payload.total || 0).toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    });
+      const totalFmt = Number(payload.total || 0).toLocaleString("pt-BR", {
+        style: "currency",
+        currency: "BRL",
+      });
 
-    let secondLine = "";
-    if (payload.segundo && payload.segundo.categoria) {
-      const segCat =
-        labels[payload.segundo.categoria] || payload.segundo.categoria;
-
-      secondLine = `
+      let secondLine = "";
+      if (payload.segundo && payload.segundo.categoria) {
+        const segCat = labels[payload.segundo.categoria] || payload.segundo.categoria;
+        secondLine = `
         <div style="margin-top:6px; opacity:.85;">
           ⚠️ Segunda categoria: <strong>${segCat}</strong> (${payload.segundo.percentual}%)
         </div>
       `;
-    }
+      }
 
-    el.innerHTML = `
+      el.innerHTML = `
       <div class="insight-box">
         <div style="display:flex; gap:10px; align-items:flex-start;">
           <div style="font-size:1.4rem; line-height:1;">${emoji}</div>
@@ -3654,256 +3642,172 @@ async function carregarInsightCategoriaLider(dias = 30) {
             <div style="font-weight:800;">${titulo}</div>
             <div style="margin-top:4px; opacity:.9;">
               ${emoji} Nos últimos <strong>${dias} dias</strong>, a receita veio principalmente de
-              ${catHtml}: <strong>${valorFmt}</strong>(<strong>${pct}%</strong> do total ${totalFmt}).
-             </div>
+              ${catHtml}: <strong>${valorFmt}</strong> (<strong>${pct}%</strong> do total ${totalFmt}).
+            </div>
             ${secondLine}
             ${alertaDependencia}
           </div>
         </div>
       </div>
     `;
-    el.dataset.loaded = "1";
-  } catch (err) {
-    el.innerHTML = `
+
+      // marca sucesso
+      el.dataset.loaded = "1";
+    } catch (err) {
+      // permite tentar de novo se falhar
+      delete el.dataset.loaded;
+      delete el.dataset.dias;
+
+      el.innerHTML = `
       <div class="insight-box">
         <strong>⚠️ Falha ao carregar insight</strong>
         <div style="opacity:.85; margin-top:4px;">${String(err?.message || err)}</div>
       </div>
     `;
-  }
-}
-
-  if (el.dataset.loaded === "1" && el.dataset.dias === String(dias)) return;
-  el.dataset.dias = String(dias);
-
-  el.textContent = "Carregando insight…";
-
-  try {
-    const url = `/financeiro/api/insights/categoria-lider/?dias=${dias}`;
-    const resp = await fetch(url, {
-      headers: { Accept: "application/json" },
-      credentials: "same-origin",
-    });
-    if (!resp.ok) throw new Error("HTTP " + resp.status);
-
-    const payload = await resp.json();
-    if (!payload || payload.ok !== true) {
-      throw new Error(payload?.erro || "Resposta inválida");
     }
+  }
 
-    if (!payload.tem_dados) {
-      el.innerHTML = `
+  // expor pro console
+  window.carregarInsightCategoriaLider = carregarInsightCategoriaLider;
+  window.badgeCategoria = badgeCategoria;
+
+  // ===== FIM DO INSIGHT FINANCEIRO — CATEGORIA DOMINANTE =====
+
+
+  // =====================================================
+  // INSIGHT PDV — PRODUTO LÍDER + 2º LUGAR
+  // =====================================================
+
+  function badgeProduto(pct) {
+    if (pct >= 60) return { emoji: "🔥", titulo: "Produto líder absoluto no período" };
+    if (pct >= 40) return { emoji: "📈", titulo: "Produto líder no período" };
+    return { emoji: "📊", titulo: "Vendas bem distribuídas" };
+  }
+
+  async function carregarInsightProdutoLiderPDV(dias = 30) {
+    const el = document.getElementById("insightProdutoLiderPDV");
+    if (!el) return;
+
+    el.textContent = "Carregando insight…";
+
+    try {
+
+      const resp = await fetch(`/financeiro/api/insights/produto-lider-pdv/?dias=${dias}`, {
+        headers: { Accept: "application/json" },
+        credentials: "same-origin",
+      });
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+
+      const data = await resp.json();
+      if (!data.ok) throw new Error(data.erro || "Resposta inválida");
+
+      if (!data.tem_dados || !data.lider) {
+        el.innerHTML = `
         <div class="insight-box">
           <strong>📊 Sem dados</strong>
           <div style="opacity:.85; margin-top:4px;">
-            Não há receitas categorizadas nos últimos ${dias} dias.
+            Não há itens vendidos nos últimos ${dias} dias.
           </div>
         </div>
       `;
-      return;
-    }
+        return;
+      }
 
-    const pct = Number(payload.percentual || 0);
-    const badge = badgeCategoria(pct);
+      const pct = Number(data.lider.percentual || 0);
+      const destaqueStyle = pct >= 70
+        ? "border:1px solid rgba(47,191,113,.85); background: rgba(47,191,113,.18); box-shadow: 0 0 0 1px rgba(47,191,113,.15) inset;"
+        : "";
+        el.setAttribute("style", destaqueStyle);
+      const { emoji, titulo } = badgeProduto(pct);
 
-    const titulo = (pct === 100)
-      ? "Fonte única de receita no período"
-      : badge.titulo;
-    
-    
-    const emoji = badge.emoji;
+      const liderNome = data.lider.nome;
+      const liderValor = Number(data.lider.valor || 0).toLocaleString("pt-BR");
 
-    const labels = { PDV: "Vendas no PDV" };
-    const cat = labels[payload.categoria] || payload.categoria;
+      let secondLine = "";
+      if (data.segundo && data.segundo.nome) {
+        const segPct = Number(data.segundo.percentual || 0);
+        const segNome = data.segundo.nome;
+        const segValor = Number(data.segundo.valor || 0).toLocaleString("pt-BR");
 
-    const catHtml = (payload.categoria === "PDV")
-    ? `<a href="/pdv/" style="color:inherit; text-decoration:underline;">→ ${cat}</a>`
-    : `<strong>→ ${cat}</strong>`;
-
-    const alertaDependencia = (pct === 100)
-    ? `<div style="margin-top:6px; opacity:.85;">
-        ⚠️ Dependência: toda a receita veio de uma única fonte no período.
-      </div>`
-    : "";
-
-    const valorFmt = Number(payload.valor || 0).toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    });
-
-    const totalFmt = Number(payload.total || 0).toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    });
-
-    let secondLine = "";
-    if (payload.segundo && payload.segundo.categoria) {
-      const segCat =
-        labels[payload.segundo.categoria] || payload.segundo.categoria;
-
-      secondLine = `
+        secondLine = `
         <div style="margin-top:6px; opacity:.85;">
-          ⚠️ Segunda categoria: <strong>${segCat}</strong> (${payload.segundo.percentual}%)
+          ⚠️ 2º lugar: <strong>${segNome}</strong> — ${segValor} (${segPct}%)
         </div>
       `;
-    }
+      }
 
-    el.innerHTML = `
-      <div class="insight-box">
-        <div style="display:flex; gap:10px; align-items:flex-start;">
-          <div style="font-size:1.4rem; line-height:1;">${emoji}</div>
-          <div style="flex:1;">
-            <div style="font-weight:800;">${titulo}</div>
-            <div style="margin-top:4px; opacity:.9;">
-              ${emoji} Nos últimos <strong>${dias} dias</strong>, a receita veio principalmente de
-              ${catHtml}: <strong>${valorFmt}</strong>(<strong>${pct}%</strong> do total ${totalFmt}).
-             </div>
-            ${secondLine}
-            ${alertaDependencia}
-          </div>
-        </div>
-      </div>
-    `;
-    el.dataset.loaded = "1";
-  } catch (err) {
-    delete el.dataset.loaded;
-    delete el.dataset.dias;
+      el.style.display = "block";
+      el.style.padding = "12px 14px";
+      el.style.borderRadius = "12px";
+      el.style.border = (pct >= 70)
+        ? "1px solid rgba(47,191,113,.85)"
+        : "1px solid rgba(255,255,255,.10)";
+      el.style.background = (pct >= 70)
+        ? "rgba(47,191,113,.18)"
+        : "rgba(255,255,255,.06)";
 
-    el.innerHTML = `
-      <div class="insight-box">
-        <strong>⚠️ Falha ao carregar insight</strong>
-        <div style="opacity:.85; margin-top:4px;">${String(err?.message || err)}</div>
-      </div>
-    `;
-  }
-}
 
-  if (el.dataset.loaded === "1" && el.dataset.dias === String(dias)) return;
-  el.dataset.dias = String(dias);
-
-  el.textContent = "Carregando insight…";
-
-  try {
-    const url = `/financeiro/api/insights/categoria-lider/?dias=${dias}`;
-    const resp = await fetch(url, {
-      headers: { Accept: "application/json" },
-      credentials: "same-origin",
-    });
-    if (!resp.ok) throw new Error("HTTP " + resp.status);
-
-    const payload = await resp.json();
-    if (!payload || payload.ok !== true) {
-      throw new Error(payload?.erro || "Resposta inválida");
-    }
-
-    if (!payload.tem_dados) {
       el.innerHTML = `
-        <div class="insight-box">
-          <strong>📊 Sem dados</strong>
-          <div style="opacity:.85; margin-top:4px;">
-            Não há receitas categorizadas nos últimos ${dias} dias.
-          </div>
-        </div>
-      `;
-      return;
-    }
-
-    const pct = Number(payload.percentual || 0);
-    const badge = badgeCategoria(pct);
-
-    const titulo = (pct === 100)
-      ? "Fonte única de receita no período"
-      : badge.titulo;
-    
-    
-    const emoji = badge.emoji;
-
-    const labels = { PDV: "Vendas no PDV" };
-    const cat = labels[payload.categoria] || payload.categoria;
-
-    const catHtml = (payload.categoria === "PDV")
-    ? `<a href="/pdv/" style="color:inherit; text-decoration:underline;">→ ${cat}</a>`
-    : `<strong>→ ${cat}</strong>`;
-
-
-    const alertaDependencia = (pct === 100)
-    ? `<div style="margin-top:6px; opacity:.85;">
-        ⚠️ Dependência: toda a receita veio de uma única fonte no período.
-      </div>`
-    : "";
-
-    const valorFmt = Number(payload.valor || 0).toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    });
-
-    const totalFmt = Number(payload.total || 0).toLocaleString("pt-BR", {
-      style: "currency",
-      currency: "BRL",
-    });
-
-    let secondLine = "";
-    if (payload.segundo && payload.segundo.categoria) {
-      const segCat =
-        labels[payload.segundo.categoria] || payload.segundo.categoria;
-
-      secondLine = `
-        <div style="margin-top:6px; opacity:.85;">
-          ⚠️ Segunda categoria: <strong>${segCat}</strong> (${payload.segundo.percentual}%)
-        </div>
-      `;
-    }
-
-    el.innerHTML = `
-      <div class="insight-box">
+      <div class="insight-box" style="${destaqueStyle}">
         <div style="display:flex; gap:10px; align-items:flex-start;">
           <div style="font-size:1.4rem; line-height:1;">${emoji}</div>
           <div style="flex:1;">
             <div style="font-weight:800;">${titulo}</div>
             <div style="margin-top:4px; opacity:.9;">
-              ${emoji} Nos últimos <strong>${dias} dias</strong>, a receita veio principalmente de
-              ${catHtml}: <strong>${valorFmt}</strong>(<strong>${pct}%</strong> do total ${totalFmt}).
-             </div>
+              ${emoji} Produto mais vendido nos últimos <strong>${dias} dias</strong>:
+              <strong>${liderNome}</strong> — ${liderValor} (${pct}%).
+            </div>
             ${secondLine}
-            ${alertaDependencia}
           </div>
         </div>
       </div>
     `;
-    el.dataset.loaded = "1";
-  } catch (err) {
-    el.innerHTML = `
+    } catch (err) {
+      el.style.display = "block";
+      el.style.padding = "12px 14px";
+      el.style.borderRadius = "12px";
+      el.style.border = "1px solid rgba(255,80,80,.35)";
+      el.style.background = "rgba(255,80,80,.08)";
+
+      el.innerHTML = `
       <div class="insight-box">
         <strong>⚠️ Falha ao carregar insight</strong>
         <div style="opacity:.85; margin-top:4px;">${String(err?.message || err)}</div>
       </div>
     `;
-  }
-}
-
-// (opcional) expor pro console
-window.carregarInsightCategoriaLider = carregarInsightCategoriaLider;
-window.badgeCategoria = badgeCategoria;
-// ===== FIM DO INSIGHT FINANCEIRO — CATEGORIA DOMINANTE =====
-
-// ========= auto-load (ÚNICO) =========
-const SJ_DIAS_PADRAO = 30;
-document.addEventListener("DOMContentLoaded", function () {
-  // ✅ NÃO QUEBRA SEUS GRÁFICOS
-  if (typeof sjCarregarResumoMensalIA === "function") {
-    sjCarregarResumoMensalIA();
+    }
   }
 
-  // ✅ tooltips
-  const tooltipTriggerList = [].slice.call(
-    document.querySelectorAll('[data-bs-toggle="tooltip"]')
-  );
-  tooltipTriggerList.forEach((el) => new bootstrap.Tooltip(el));
+  window.carregarInsightProdutoLiderPDV = carregarInsightProdutoLiderPDV;
+  window.badgeProduto = badgeProduto;
 
-  // ✅ insight
-  console.log("[SJ] DOMContentLoaded: chamando insight categoria líder");
-  carregarInsightCategoriaLider(SJ_DIAS_PADRAO);
+  // =====================================================
+  // AUTO-LOAD (ÚNICO)
+  // =====================================================
 
-  setTimeout(() => { carregarInsightCategoriaLider(SJ_DIAS_PADRAO); }, 300);
-});
+  const SJ_DIAS_PADRAO = 30;
+
+  document.addEventListener("DOMContentLoaded", function () {
+    // gráficos
+    if (typeof sjCarregarResumoMensalIA === "function") {
+      sjCarregarResumoMensalIA();
+    }
+
+    // tooltips
+    const tooltipTriggerList = [].slice.call(
+      document.querySelectorAll('[data-bs-toggle="tooltip"]')
+    );
+    tooltipTriggerList.forEach((el) => new bootstrap.Tooltip(el));
+
+    // insights
+    carregarInsightCategoriaLider(SJ_DIAS_PADRAO);
+    carregarInsightProdutoLiderPDV(SJ_DIAS_PADRAO);
+
+    // retry leve do insight financeiro (se o template renderizar atrasado)
+    setTimeout(() => {
+      carregarInsightCategoriaLider(SJ_DIAS_PADRAO);
+    }, 300);
+
+  });
+
 })();

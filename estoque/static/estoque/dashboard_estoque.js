@@ -1,5 +1,11 @@
 /* global Chart */
 
+function getPeriodoDias() {
+  const elDias = document.getElementById("sj_periodo_dias");
+  return Number(elDias ? JSON.parse(elDias.textContent) : 30) || 30;
+}
+
+
 function readJsonScript(id, fallback = []) {
   const el = document.getElementById(id);
   if (!el) return fallback;
@@ -222,7 +228,7 @@ async function carregarRankingLotesCriticos() {
     badge.textContent = "0";
     badge.className = "badge bg-danger";
 
-   const resp = await fetch("/estoque/api/lotes-prestes-vencer/?dias=30&limit=10", {
+    const resp = await fetch("/estoque/api/lotes-prestes-vencer/?dias=30&limit=10", {
       headers: { "X-Requested-With": "XMLHttpRequest" },
       credentials: "same-origin",
     });
@@ -244,8 +250,8 @@ async function carregarRankingLotesCriticos() {
       return;
     }
 
-   const vencidos = items.filter((x) => x.tipo === "vencido").length;
-   const criticos = vencidos;
+    const vencidos = items.filter((x) => x.tipo === "vencido").length;
+    const criticos = vencidos;
 
 
     badge.textContent = String(criticos);
@@ -268,30 +274,30 @@ async function carregarRankingLotesCriticos() {
     lista.style.display = "block";
 
     items.slice(0, 5).forEach((it) => {
-  const dias = Number(it.dias_restantes);
+      const dias = Number(it.dias_restantes);
 
-  const isVencido = it.tipo === "vencido";
-  const isPrestes = it.tipo === "prestes_vencer";
+      const isVencido = it.tipo === "vencido";
+      const isPrestes = it.tipo === "prestes_vencer";
 
-  let pillClass = "bg-success";
-  let pillText = "OK";
+      let pillClass = "bg-success";
+      let pillText = "OK";
 
-  if (isVencido) {
-    pillClass = "bg-danger";
-    pillText = "AÇÃO IMEDIATA — VENCIDO";
-  } else if (isPrestes) {
-    pillClass = "bg-warning text-dark";
-    pillText = "ATENÇÃO";
-  }
+      if (isVencido) {
+        pillClass = "bg-danger";
+        pillText = "AÇÃO IMEDIATA — VENCIDO";
+      } else if (isPrestes) {
+        pillClass = "bg-warning text-dark";
+        pillText = "ATENÇÃO";
+      }
 
-  let subt = "";
-  if (dias < 0) subt = `VENCIDO há ${Math.abs(dias)} dia(s)`;
-  else subt = `Vence em ${dias} dia(s)`;
+      let subt = "";
+      if (dias < 0) subt = `VENCIDO há ${Math.abs(dias)} dia(s)`;
+      else subt = `Vence em ${dias} dia(s)`;
 
-  const el = document.createElement("div");
-  el.className = "list-group-item d-flex justify-content-between align-items-start";
+      const el = document.createElement("div");
+      el.className = "list-group-item d-flex justify-content-between align-items-start";
 
-  el.innerHTML = `
+      el.innerHTML = `
     <div class="me-3">
       <div class="fw-semibold">${it.produto_nome}</div>
       <div class="text-muted small">
@@ -301,21 +307,22 @@ async function carregarRankingLotesCriticos() {
     <span class="badge ${pillClass} align-self-center">${pillText}</span>
   `;
 
-  lista.appendChild(el);
-});
+      lista.appendChild(el);
+    });
 
   } catch (e) {
     console.error("[RankingLotes] erro", e);
     msg.textContent = "Erro ao carregar ranking (veja o console).";
   }
 }
- 
+
 // ===============================
 // 📊 Top produtos (por vendas)
 // ===============================
 async function carregarTopProdutosVendidos() {
+  const dias = getPeriodoDias();
   try {
-    const res = await fetch("/estoque/api/top-produtos-vendidos/?dias=30&top=10", {
+    const res = await fetch(`/estoque/api/top-produtos-vendidos/?dias=${dias}&top=10`, {
       headers: { "X-Requested-With": "XMLHttpRequest" },
       credentials: "same-origin",
     });
@@ -361,18 +368,104 @@ async function carregarTopProdutosVendidos() {
     const pct = Math.round((qtd / total) * 100);
 
     elInsight.textContent =
-      `🧠 O produto mais vendido nos últimos 30 dias foi ${nome}, com ${qtd} venda(s), representando ${pct}% do total.`;
+    `🧠 O produto mais vendido nos últimos ${dias} dias foi ${nome}, com ${qtd} venda(s), representando ${pct}% do total.`;
 
   } catch (e) {
     console.error("[topProdutos] erro", e);
   }
 }
 
+function badgeProduto(pct) {
+  if (pct >= 60) return { emoji: "🔥", titulo: "Produto líder absoluto no período" };
+  if (pct >= 40) return { emoji: "📈", titulo: "Produto líder no período" };
+  return { emoji: "📊", titulo: "Vendas bem distribuídas" };
+}
+
+async function carregarInsightProdutoLiderPDV() {
+  const el = document.getElementById("insightProdutoLiderPDV");
+  if (!el) return;
+
+  el.textContent = "Carregando insight…";
+ 
+   try {
+    const dias = getPeriodoDias();
+        
+    const resp = await fetch(`/financeiro/api/insights/produto-lider-pdv/?dias=${dias}`, {
+      headers: { Accept: "application/json" },
+      credentials: "same-origin",
+    });
+   
+
+    if (!resp.ok) throw new Error("HTTP " + resp.status);
+
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.erro || "Resposta inválida");
+
+    if (!data.tem_dados || !data.lider) {
+      el.innerHTML = `
+        <div class="insight-box">
+          <strong>📊 Sem dados</strong>
+          <div style="opacity:.85; margin-top:4px;">
+            Não há itens vendidos nos últimos ${dias} dias.
+          </div>
+        </div>
+      `;
+      return;
+    }
+
+    const pct = Number(data.lider.percentual || 0);
+    const destaque = pct >= 70 ? "sj-insight-destaque" : "";
+    const { emoji, titulo } = badgeProduto(pct);
+
+    const liderNome = data.lider.nome;
+    const liderValor = Number(data.lider.valor || 0).toLocaleString("pt-BR");
+
+    let secondLine = "";
+    if (data.segundo && data.segundo.nome) {
+      const segPct = Number(data.segundo.percentual || 0);
+      const segNome = data.segundo.nome;
+      const segValor = Number(data.segundo.valor || 0).toLocaleString("pt-BR");
+
+      secondLine = `
+        <div style="margin-top:6px; opacity:.85;">
+          ⚠️ 2º lugar: <strong>${segNome}</strong> — ${segValor} (${segPct}%)
+        </div>
+      `;
+    }
+
+    el.innerHTML = `
+      <div class="insight-box ${destaque}">
+        <div style="display:flex; gap:10px; align-items:flex-start;">
+          <div style="font-size:1.4rem; line-height:1;">${emoji}</div>
+          <div style="flex:1;">
+            <div style="font-weight:800;">${titulo}</div>
+            <div style="margin-top:4px; opacity:.9;">
+              ${emoji} Produto mais vendido nos últimos <strong>${dias} dias</strong>:
+              <strong>${liderNome}</strong> — ${liderValor} (${pct}%).
+            </div>
+            ${secondLine}
+          </div>
+        </div>
+      </div>
+    `;
+  } catch (err) {
+    console.error("❌ ERRO NO INSIGHT:", err);
+    el.innerHTML = `
+      <div class="insight-box">
+        <strong>⚠️ Falha ao carregar insight</strong>
+        <div style="opacity:.85; margin-top:4px;">${String(err?.message || err)}</div>
+      </div>
+    `;
+  }
+}
+
+// (opcional) console
+window.carregarInsightProdutoLiderPDV = carregarInsightProdutoLiderPDV;
 
 
 /* === ÚNICO DOMContentLoaded (sem duplicação) === */
 document.addEventListener("DOMContentLoaded", async function () {
-  console.log("📦 DOM pronto");
+  
 
   // Rankings
   carregarRankingEstoqueCritico();
@@ -413,7 +506,7 @@ document.addEventListener("DOMContentLoaded", async function () {
   });
 
 
-    // UX: saldo discreto, vendas em destaque
+  // UX: saldo discreto, vendas em destaque
   const dsSaldo = window.chartTopProdutos.data.datasets[0];   // Saldo atual
   const dsVend = window.chartTopProdutos.data.datasets[1];    // Quantidade vendida
 
@@ -447,7 +540,7 @@ document.addEventListener("DOMContentLoaded", async function () {
       window.chartTopProdutos.update();
     });
   }
-  
+
 
   // ✅ AQUI (depois que o chart existe)
   await carregarTopProdutosVendidos();
@@ -466,6 +559,16 @@ document.addEventListener("DOMContentLoaded", async function () {
 
   const insights = buildInsights(agg.labels, agg.series[0], agg.series[1]);
   renderInsights(insights);
+  
+
+  if (typeof window.carregarInsightCategoriaLider === "function") {
+    window.carregarInsightCategoriaLider(30);
+  }
+
+  if (typeof window.carregarInsightProdutoLiderPDV === "function") {
+    window.carregarInsightProdutoLiderPDV();
+  }
+
 });
 
 

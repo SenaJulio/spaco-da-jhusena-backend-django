@@ -4,7 +4,7 @@ Data: 2026-01-28 17:48:09
 Branch: main
 Ultimo commit:
 891bf34
-
+891bf34..0693d8f
 
 
 Status do Git:
@@ -83,3 +83,91 @@ Resposta do sistema (modelo):
 📌 Isso evita o erro clássico: gráfico bonito sem mensagem clara.
 
 ✅ Quando esse texto estiver claro pra você, o resto flui.
+
+
+# 🧭 CHECKPOINT — Insight Financeiro (Categoria Dominante)
+
+**Projeto:** Spaço da Jhuséna  
+**Módulo:** Financeiro  
+**Data:** {{data de hoje}}  
+
+---
+
+## 🎯 Objetivo do bloco
+Exibir, de forma clara e executiva, **de onde vem a receita** nos últimos 30 dias,
+respondendo rapidamente à pergunta do dono do negócio.
+
+---
+
+## ✅ O que foi concluído
+
+- Insight financeiro de **Categoria Dominante**
+- Consumo de endpoint real (`/financeiro/api/insights/categoria-lider/`)
+- Título dinâmico:
+  - “Fonte única de receita no período” (100%)
+  - “Categoria dominante / líder” (demais casos)
+- Texto principal claro e direto (leitura em 3 segundos)
+- Alerta automático de dependência quando 100%
+- Link de ação para o PDV quando aplicável
+- Proteção contra múltiplos fetchs (`dataset.loaded`)
+- Recarregamento seguro quando período muda
+- Recuperação automática em caso de erro de API
+- Código isolado, comentado e organizado
+
+---
+
+## 🧠 Valor do recurso
+Transforma dados financeiros em **decisão imediata** para o gestor,
+elevando o painel de “dashboard técnico” para **produto vendável**.
+
+---
+
+## 🔒 Status
+✅ Bloco finalizado  
+🚫 Não mexer sem necessidade  
+📌 Padrão base para próximos insights financeiros
+
+## ✅ CHECKPOINT — Insight Produto Líder (PDV) no Dashboard
+
+- Endpoint: /financeiro/api/insights/produto-lider-pdv/?dias=N
+  - Retorna: lider + segundo + percentuais
+- Front: insight renderiza automaticamente no dashboard (sem console)
+  - Card: "Produto líder absoluto no período"
+  - Linha 2: "2º lugar"
+
+Arquivos mexidos:
+- financeiro/views.py (endpoint produto líder PDV)
+- financeiro/urls.py (rota do endpoint)
+- estoque/templates/estoque/dashboard.html (div #insightProdutoLiderPDV)
+- estoque/static/estoque/dashboard_estoque.js (render + auto-load)
+
+Status: OK ✅
+Próximo micro-passo: deixar o período dinâmico (usar sj_periodo_dias) e padronizar os dois insights com o mesmo “badge system”.
+
+🎯 Próximo (um passo só, sem te confundir)
+
+Agora a melhoria mais “profissa”:
+
+👉 Trocar esse “30 dias fixo” no insight do produto pra usar o valor real do template sj_periodo_dias.
+
+Se você mandar um “próximo”, eu já te passo o snippet exato (2 linhas) pra ficar automático.
+
+👉 Próximo passo (opcional, você decide)
+
+Posso seguir em apenas um desses caminhos (micro-passo de cada vez):
+
+1️⃣ Refinar UX do insight
+– cor por percentual
+– emoji dinâmico
+– destaque visual quando ≥ 70%
+
+2️⃣ Padronizar insights como “componente”
+– mesma função base
+– muda só endpoint e texto
+– reduz código repetido
+
+3️⃣ Usar sj_periodo_dias real
+– tirar “30 fixo”
+– insight acompanha filtro do dashboard
+
+É só dizer 1, 2 ou 3.
