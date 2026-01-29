@@ -80,6 +80,8 @@ urlpatterns = [
     path("ia/dica30d/", ia_gerar_dica_30d, name="ia_dica30d"),
     path("ia/resumo_mensal/", v.ia_resumo_mensal, name="ia_resumo_mensal"),
     path("ia/resumo-mensal/", v.ia_resumo_mensal, name="ia_resumo_mensal_dash"),
+    path("api/insights/servico-lider/", views.api_servico_lider, name="api_servico_lider"),
+     path("api/insights/categoria-lider/", views.api_categoria_lider_receitas, name="api_categoria_lider_receitas"),
     path(
         "ia/gerar_dica_sob_demanda/",
         v.gerar_dica_sob_demanda,

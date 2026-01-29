@@ -1832,3 +1832,219 @@ def ia_alertas_financeiros(request):
     hoje = now().date()
     inicio = hoje.replace(month=1, day=1)
     fim = hoje
+
+
+
+
+def _pick_field(model, candidates):
+    """Retorna o primeiro campo existente no model."""
+    names = {f.name for f in model._meta.get_fields() if hasattr(f, "name")}
+    for c in candidates:
+        if c in names:
+            return c
+    return None
+
+
+@require_GET
+def api_servico_lider(request):
+    """
+    Insight: serviço que mais gerou receita nos últimos N dias (default 30).
+    Retorna: servico, valor, percentual, total.
+    """
+    # --- dias ---
+    try:
+        dias = int(request.GET.get("dias", "30"))
+    except ValueError:
+        dias = 30
+    dias = max(1, min(dias, 365))
+
+    dt_ini = timezone.now() - timedelta(days=dias)
+
+    model = Transacao
+
+    # --- descobrir campos principais ---
+    campo_data = _pick_field(model, ["data", "data_transacao", "criado_em", "created_at", "created"])
+    campo_valor = _pick_field(model, ["valor", "valor_total", "total", "valor_bruto", "amount"])
+    campo_tipo = _pick_field(model, ["tipo", "natureza", "kind"])
+    campo_empresa = _pick_field(model, ["empresa"])  # se existir
+
+    # serviço: pode ser FK (servico) ou texto (servico_nome / descricao)
+    campo_servico_fk = _pick_field(model, ["servico"])  # FK provável
+    campo_servico_txt = _pick_field(model, ["servico_nome", "servico", "descricao", "referencia", "categoria_nome"])
+
+    # DEBUG TEMP (remover depois)
+    debug = {
+        "campo_servico_fk": campo_servico_fk,
+        "campo_servico_txt": campo_servico_txt,
+        "campo_tipo": campo_tipo,
+        "campo_valor": campo_valor,
+        "campo_data": campo_data,
+    }
+
+
+    if not campo_data or not campo_valor:
+        return JsonResponse({
+            "ok": False,
+            "erro": "Transacao sem campo de data/valor reconhecido",
+            "debug": {"campo_data": campo_data, "campo_valor": campo_valor},
+        }, status=500)
+
+    qs = model.objects.all()
+
+    # --- filtrar por data ---
+    qs = qs.filter(**{f"{campo_data}__gte": dt_ini})
+
+    # --- filtrar por empresa (se existir) ---
+    if campo_empresa:
+        empresa = getattr(getattr(request.user, "perfil", None), "empresa", None)
+        if empresa is not None:
+            qs = qs.filter(**{campo_empresa: empresa})
+
+    # --- filtrar receitas ---
+    if campo_tipo:
+        # tenta “receita”/“entrada” de forma tolerante
+        qs_receita = qs.filter(**{f"{campo_tipo}__in": ["receita", "entrada", "R", "E"]})
+        # se nada bater (db antiga), cai pro valor positivo
+        if not qs_receita.exists():
+            qs_receita = qs.filter(**{f"{campo_valor}__gt": 0})
+    else:
+        qs_receita = qs.filter(**{f"{campo_valor}__gt": 0})
+
+    total = qs_receita.aggregate(total=Sum(campo_valor))["total"] or 0
+
+    # --- agrupar por serviço ---
+    # 1) se tiver FK "servico", tentamos servico__nome
+    if campo_servico_fk:
+        group_key = f"{campo_servico_fk}__nome"
+        top = (
+            qs_receita.values(group_key)
+            .annotate(valor=Sum(campo_valor))
+            .order_by("-valor")
+            .first()
+        )
+        servico_nome = (top or {}).get(group_key)
+    else:
+        # 2) texto
+        if not campo_servico_txt:
+            return JsonResponse({
+                "ok": True,
+                "dias": dias,
+                "tem_dados": False,
+                "servico": None,
+                "valor": 0,
+                "percentual": 0,
+                "total": float(total) if total else 0,
+            })
+
+        # remover nulos/vazios
+        qs2 = qs_receita.exclude(**{f"{campo_servico_txt}__isnull": True}).exclude(**{f"{campo_servico_txt}__exact": ""})
+        top = (
+            qs2.values(campo_servico_txt)
+            .annotate(valor=Sum(campo_valor))
+            .order_by("-valor")
+            .first()
+        )
+        servico_nome = (top or {}).get(campo_servico_txt)
+
+    if not top or not total or total <= 0 or not servico_nome:
+        return JsonResponse({
+            "ok": True,
+            "dias": dias,
+            "tem_dados": False,
+            "servico": None,
+            "valor": 0,
+            "percentual": 0,
+            "total": float(total) if total else 0,
+        })
+
+    valor_top = top["valor"] or 0
+    pct = (valor_top / total) * 100 if total else 0
+
+    return JsonResponse({
+        "ok": True,
+        "dias": dias,
+        "tem_dados": True,
+        "servico": servico_nome,
+        "valor": float(valor_top),
+        "percentual": int(round(float(pct), 0)),
+        "total": float(total),
+    })
+
+
+@require_GET
+def api_categoria_lider_receitas(request):
+    """
+    Retorna a categoria que mais gerou receita nos últimos N dias (default 30).
+    Ideal para painel: 'De onde tá vindo a grana?'
+    """
+    try:
+        dias = int(request.GET.get("dias", "30"))
+    except ValueError:
+        dias = 30
+    dias = max(1, min(dias, 365))
+
+    dt_ini = timezone.now().date() - timedelta(days=dias)
+
+    qs = (
+        Transacao.objects
+        .filter(data__gte=dt_ini, tipo="receita")
+        .exclude(categoria__isnull=True)
+        .exclude(categoria__exact="")
+    )
+
+    # multiempresa ✅
+    empresa = getattr(getattr(request.user, "perfil", None), "empresa", None)
+    if empresa is not None:
+        qs = qs.filter(empresa=empresa)
+
+    total = qs.aggregate(total=Sum("valor"))["total"] or 0
+
+    top = (
+        qs.values("categoria")
+        .annotate(valor=Sum("valor"))
+        .order_by("-valor")
+        .first()
+    )
+
+    if not top or total <= 0:
+        return JsonResponse({
+            "ok": True,
+            "dias": dias,
+            "tem_dados": False,
+            "categoria": None,
+            "valor": 0,
+            "percentual": 0,
+            "total": float(total) if total else 0,
+            "segundo": None,
+        })
+
+    # 2º lugar (comparação mental SaaS vibes)
+    second = (
+        qs.values("categoria")
+        .annotate(valor=Sum("valor"))
+        .order_by("-valor")[1:2]
+    )
+    second = list(second)
+    segundo = None
+    if second:
+        segundo_val = second[0]["valor"] or 0
+        segundo_pct = (segundo_val / total) * 100 if total else 0
+        segundo = {
+            "categoria": second[0]["categoria"],
+            "valor": float(segundo_val),
+            "percentual": int(round(float(segundo_pct), 0)),
+        }
+
+    valor_top = top["valor"] or 0
+    pct = (valor_top / total) * 100 if total else 0
+
+    return JsonResponse({
+        "ok": True,
+        "dias": dias,
+        "tem_dados": True,
+        "categoria": top["categoria"],
+        "valor": float(valor_top),
+        "percentual": int(round(float(pct), 0)),
+        "total": float(total),
+        "segundo": segundo,
+    })

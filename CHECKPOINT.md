@@ -1,38 +1,85 @@
 ﻿# CHECKPOINT - Spaco da Jhusena
 
-Data: 2026-01-28 10:17:30
+Data: 2026-01-28 17:48:09
 Branch: main
 Ultimo commit:
-35363ef
+891bf34
 
 
 
 Status do Git:
 Working tree limpo OK
 
-🧭 Fechamento oficial do checkpoint
+# 🧭 CHECKPOINT — Dashboard de Estoque com Insights de Vendas
 
-Pode cravar no CHECKPOINT.md:
+**Projeto:** Spaço da Jhuséna  
+**Módulo:** Estoque / Analytics  
+**Data:** 28/01/2026  
+**Branch:** main  
 
-Marco: Auditoria de Overrides (PDV)
-Status: ✅ Estável, coerente e vendável
-Entregas:
+---
 
-KPIs calculados apenas com overrides vinculados a vendas
+## 🎯 OBJETIVO DESTE MARCO
 
-Valor envolvido real (somatório de itens)
+Consolidar o **Dashboard de Estoque** com:
+- Gráfico funcional de **Top produtos por vendas**
+- Integração real com API de vendas
+- Insight automático em linguagem natural para o gestor
 
-Produto mais afetado e operador campeão (30 dias)
+Este checkpoint representa a transição de **dashboard técnico** para **painel gerencial vendável**.
 
-Badge de risco (semáforo) no valor envolvido
+---
 
-UX limpa no modo demo (sem poluir métricas)
--
+## ✅ O QUE ESTÁ FUNCIONANDO (CONCLUÍDO)
 
-Próximo passo:
+### 📊 Gráfico — Top produtos (por vendas)
+- Dados vindos do endpoint real de vendas
+- Comparação visual entre produtos mais vendidos
+- Quantidade vendida destacada (dataset principal)
+- Saldo exibido como dataset opcional (toggle)
 
-Exportar relatório (CSV/PDF) dos overrides do período
+### 🧠 Insight automático
+- Texto gerado automaticamente abaixo do gráfico:
+  - Produto mais vendido
+  - Quantidade de vendas
+  - Percentual sobre o total
+- Insight coerente com os dados reais do período (últimos 30 dias)
 
-Alertas automáticos quando passar do amarelo/vermelho
+### 🔌 Backend / API
+- Endpoint de ranking de produtos por vendas funcional
+- Resposta JSON consistente (`labels`, `data`)
+- Compatível com modo DEMO
 
-Permissões: quem pode liberar override e quem só visualiza
+### 🎨 UX / Produto
+- Leitura rápida (3 segundos para entender o giro)
+- Linguagem orientada ao dono do negócio
+- Visual profissional e reutilizável para SaaS
+
+---
+
+## 📌 ESTADO ATUAL
+- Dashboard de Estoque **estável**
+- Gráfico de vendas **100% funcional**
+- Insight textual **ativo e correto**
+
+---
+
+## 🚀 PRÓXIMOS MICRO-PASSOS
+1. Refinar UX do insight (cores / emojis / destaque condicional)
+2. Criar insight secundário (2º produto mais vendido)
+3. Replicar padrão de insight em:
+   - Financeiro
+   - PDV
+
+
+Pergunta do dono:
+
+“Qual serviço mais gera dinheiro?”
+
+Resposta do sistema (modelo):
+
+🔥 O serviço que mais gerou receita nos últimos 30 dias foi {{nome}}, representando {{%}} do faturamento.
+
+📌 Isso evita o erro clássico: gráfico bonito sem mensagem clara.
+
+✅ Quando esse texto estiver claro pra você, o resto flui.
