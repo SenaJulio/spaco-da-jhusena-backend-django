@@ -366,9 +366,16 @@ async function carregarTopProdutosVendidos() {
     const nome = labels[idxMax] || "Produto";
     const qtd = vals[idxMax];
     const pct = Math.round((qtd / total) * 100);
+    const emoji = pct >= 70 ? "🔥" : pct >= 40 ? "📈" : "📊";
+    const faixa =
+    pct >= 70 ? "sj-faixa-forte" :
+    pct >= 40 ? "sj-faixa-media" :
+    "sj-faixa-neutra";
 
-    elInsight.textContent =
-    `🧠 O produto mais vendido nos últimos ${dias} dias foi ${nome}, com ${qtd} venda(s), representando ${pct}% do total.`;
+    elInsight.innerHTML =
+      `<span class="${faixa}">
+        ${emoji} Top do período (${dias} dias): ${nome} — ${qtd} venda(s) (${pct}%)
+      </span>`;
 
   } catch (e) {
     console.error("[topProdutos] erro", e);
@@ -386,15 +393,15 @@ async function carregarInsightProdutoLiderPDV() {
   if (!el) return;
 
   el.textContent = "Carregando insight…";
- 
-   try {
+
+  try {
     const dias = getPeriodoDias();
-        
+
     const resp = await fetch(`/financeiro/api/insights/produto-lider-pdv/?dias=${dias}`, {
       headers: { Accept: "application/json" },
       credentials: "same-origin",
     });
-   
+
 
     if (!resp.ok) throw new Error("HTTP " + resp.status);
 
@@ -415,6 +422,10 @@ async function carregarInsightProdutoLiderPDV() {
 
     const pct = Number(data.lider.percentual || 0);
     const destaque = pct >= 70 ? "sj-insight-destaque" : "";
+    const faixa =
+    pct >= 70 ? "sj-faixa-forte" :
+    pct >= 40 ? "sj-faixa-media" :
+    "sj-faixa-neutra";
     const { emoji, titulo } = badgeProduto(pct);
 
     const liderNome = data.lider.nome;
@@ -440,8 +451,10 @@ async function carregarInsightProdutoLiderPDV() {
           <div style="flex:1;">
             <div style="font-weight:800;">${titulo}</div>
             <div style="margin-top:4px; opacity:.9;">
+            <span class="${faixa}">
               ${emoji} Produto mais vendido nos últimos <strong>${dias} dias</strong>:
               <strong>${liderNome}</strong> — ${liderValor} (${pct}%).
+              </span>
             </div>
             ${secondLine}
           </div>
@@ -465,7 +478,7 @@ window.carregarInsightProdutoLiderPDV = carregarInsightProdutoLiderPDV;
 
 /* === ÚNICO DOMContentLoaded (sem duplicação) === */
 document.addEventListener("DOMContentLoaded", async function () {
-  
+
 
   // Rankings
   carregarRankingEstoqueCritico();
@@ -559,7 +572,7 @@ document.addEventListener("DOMContentLoaded", async function () {
 
   const insights = buildInsights(agg.labels, agg.series[0], agg.series[1]);
   renderInsights(insights);
-  
+
 
   if (typeof window.carregarInsightCategoriaLider === "function") {
     window.carregarInsightCategoriaLider(30);
