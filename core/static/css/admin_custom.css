@@ -1,139 +1,275 @@
-/* admin_custom.css - Tema Spaço da Jhuséna 💚 */
+/* =========================================================
+   Admin Theme v1 — Spaço da Jhuséna
+   Arquivo: core/static/css/admin_custom.css
+   Regra: fundo SEMPRE em html+body; wrappers transparentes
+   Alterações: só via PR/commit dedicado (ver seção 3)
+   ========================================================= */
 
-/* Fundo geral e cor de texto */
-body {
-  background-color: #27e272; /* verde claro equilibrado */
-  color: #222;
-  font-family: 'Segoe UI', sans-serif;
-}
 
-/* Links e títulos */
-a, h1, h2, h3, label {
-  color: #186a3b;
-}
 
-/* Módulos */
-.module {
-  background-color: #d4efe1;
-  color: #222;
-  border: 1px solid #4caf50;
-  border-radius: 8px;
-  padding: 10px;
-}
 
-.module h2,
-.module caption {
-  color: #111;
-  padding: 6px;
-  font-weight: bold;
-  border-radius: 6px 6px 0 0;
-}
+/* =========================================================
+   admin_custom.css — Spaço da Jhuséna (Django Admin)
+   Metas:
+   - Fundo 100% uniforme (sem “faixa / duas metades”)
+   - Respeitar data-theme: light | dark | auto
+   - CSS carregado apenas no /admin/
+   ========================================================= */
 
-/* Botões principais */
-.button,
-input[type="submit"],
-.addlink,
-.changelink,
-.object-tools a {
-  background-color: #2e7d32;
-  color: #111;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-weight: bold;
-  text-transform: uppercase;
-  transition: background-color 0.3s ease;
-}
-
-.button:hover,
-input[type="submit"]:hover,
-.object-tools a:hover {
-  background-color: #1b5e20;
-}
-
-/* Tabelas */
-table {
-  border-collapse: collapse;
-  width: 100%;
-}
-
-.model-agendamento td,
-.model-receita td,
-.model-despesa td,
-.model-produto td,
-.model-servico td,
-.model-user td {
-  background-color: #f3fff8;
-  color: #111;
-}
-
-/* Ações recentes */
-#recent-actions-module {
-  background-color: #d9f7e5;
-  color: #222;
-  border-radius: 6px;
-  padding: 10px;
-}
-
-#recent-actions-module .action-time {
-  color: #444;
-}
-
-#recent-actions-module .action-list li {
-  background-color: #c5e9d4;
-  border: 1px solid #69b87f;
-  margin-bottom: 6px;
-  border-radius: 6px;
-  padding: 4px;
-}
-
-/* Remover fundo preto das listas */
-#content-main .module table {
-  background-color: transparent;
-}
-
-/* Inputs e selects */
-input, select, textarea {
-  border: 1px solid #aaa;
-  border-radius: 4px;
-  padding: 6px;
-}
-
-/* Cabeçalho do admin */
-#header {
-  background-color: #2e7d32;
-  color: #fff;
-}
-
-#header a {
-  color: #fff;
-  font-weight: bold;
-}
-
-/* Footer */
+/* ---------- 0) Reset dos “wrappers” que pintam fundo e criam faixa ---------- */
+#container,
+#main, .main,
+#content-start,
+#content, .content,
+#content-main,
+#content-related,
+.colMS, .colSM,
+#nav-sidebar,
 #footer {
-  background-color: #d0e8d9;
-  color: #444;
-  padding: 10px;
-  text-align: center;
-  font-size: 13px;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  filter: none !important;
 }
 
-.button, .addlink, .changelink {
-  box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
-  border: 1px solid #1a1a1a;
+/* garante que o “miolo” nunca corte o fundo */
+html, body { height: 100% !important; }
+body { margin: 0 !important; min-height: 100vh !important; }
+#container, #main, #content-start { min-height: 100vh !important; }
+
+/* ---------- 1) FUNDO OFICIAL (sempre no HTML + BODY juntos) ---------- */
+/* DARK */
+html[data-theme="dark"],
+html[data-theme="dark"] body {
+  background:
+    radial-gradient(1100px 620px at 18% 0%, rgba(34,197,94,.14), transparent 55%),
+    radial-gradient(900px 520px at 92% 18%, rgba(59,130,246,.10), transparent 55%),
+    linear-gradient(180deg, #0b1220 0%, #0f172a 100%) !important;
+  background-repeat: no-repeat !important;
+  background-attachment: fixed !important;
+  color: #e8f0ff !important;
+  font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
 }
 
-.dashboard #content-main th {
-  background-color: #22c55e;
-  color: #111 !important;
+/* LIGHT */
+html[data-theme="light"],
+html[data-theme="light"] body {
+  background: linear-gradient(180deg, #f4fdf5 0%, #eef7f0 100%) !important;
+  background-repeat: no-repeat !important;
+  background-attachment: fixed !important;
+  color: #0f172a !important;
+  font-family: "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
 }
 
-.dashboard #content-main td a {
-  color: #22c55e; /* Links podem manter verde */
+/* AUTO (segue o sistema) */
+@media (prefers-color-scheme: dark){
+  html[data-theme="auto"],
+  html[data-theme="auto"] body {
+    background:
+      radial-gradient(1100px 620px at 18% 0%, rgba(34,197,94,.14), transparent 55%),
+      radial-gradient(900px 520px at 92% 18%, rgba(59,130,246,.10), transparent 55%),
+      linear-gradient(180deg, #0b1220 0%, #0f172a 100%) !important;
+    background-repeat: no-repeat !important;
+    background-attachment: fixed !important;
+    color: #e8f0ff !important;
+  }
+}
+@media (prefers-color-scheme: light){
+  html[data-theme="auto"],
+  html[data-theme="auto"] body {
+    background: linear-gradient(180deg, #f4fdf5 0%, #eef7f0 100%) !important;
+    background-repeat: no-repeat !important;
+    background-attachment: fixed !important;
+    color: #0f172a !important;
+  }
 }
 
-.dashboard #content-main td {
-  color: #eee; /* Texto nas células normais */
+/* ---------- 2) Header ---------- */
+#header { border-bottom: 1px solid rgba(34,197,94,.35) !important; }
+
+html[data-theme="dark"] #header{
+  background: rgba(15,23,42,.92) !important;
+}
+html[data-theme="dark"] #header a{
+  color: #a7f3d0 !important;
+  font-weight: 800;
+  text-decoration: none;
 }
 
+html[data-theme="light"] #header{
+  background: #2e7d32 !important;
+  border-bottom: 1px solid rgba(0,0,0,.08) !important;
+}
+html[data-theme="light"] #header a{
+  color: #eafff1 !important;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+/* ---------- 3) Breadcrumbs ---------- */
+div.breadcrumbs{ border-bottom: 1px solid rgba(255,255,255,.08); }
+
+html[data-theme="dark"] div.breadcrumbs{
+  background: rgba(2,6,23,.55) !important;
+  color: rgba(232,240,255,.75) !important;
+}
+html[data-theme="light"] div.breadcrumbs{
+  background: rgba(46,125,50,.08) !important;
+  color: rgba(15,23,42,.75) !important;
+}
+
+/* ---------- 4) Cards/Módulos ---------- */
+html[data-theme="dark"] .module,
+html[data-theme="dark"] #recent-actions-module{
+  background: rgba(15,23,42,.86) !important;
+  border: 1px solid rgba(255,255,255,.10) !important;
+  border-radius: 14px;
+  box-shadow: 0 12px 36px rgba(0,0,0,.35);
+  color: #e8f0ff !important;
+}
+
+html[data-theme="light"] .module,
+html[data-theme="light"] #recent-actions-module{
+  background: rgba(255,255,255,.94) !important;
+  border: 1px solid rgba(15,23,42,.12) !important;
+  border-radius: 14px;
+  box-shadow: 0 12px 28px rgba(0,0,0,.10);
+  color: #0f172a !important;
+}
+
+/* títulos */
+html[data-theme="dark"] .module h2,
+html[data-theme="dark"] .module caption,
+html[data-theme="dark"] #recent-actions-module h2{
+  background: rgba(2,6,23,.35) !important;
+  color: #e8f0ff !important;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  border-radius: 14px 14px 0 0;
+  padding: 10px 12px;
+  font-weight: 800;
+}
+html[data-theme="light"] .module h2,
+html[data-theme="light"] .module caption,
+html[data-theme="light"] #recent-actions-module h2{
+  background: rgba(46,125,50,.10) !important;
+  color: #1b5e20 !important;
+  border-bottom: 1px solid rgba(46,125,50,.18);
+  border-radius: 14px 14px 0 0;
+  padding: 10px 12px;
+  font-weight: 800;
+}
+
+/* ---------- 5) Tabelas (evitar “cinza chapado”) ---------- */
+#container table{ width: 100%; border-collapse: collapse; }
+
+html[data-theme="dark"] #container th{
+  background: rgba(2,6,23,.55) !important;
+  color: #a7f3d0 !important;
+  border-bottom: 1px solid rgba(255,255,255,.10);
+}
+html[data-theme="dark"] #container td{
+  background: transparent !important;
+  color: #e8f0ff !important;
+  border-bottom: 1px solid rgba(255,255,255,.08);
+}
+
+html[data-theme="light"] #container th{
+  background: rgba(15,23,42,.04) !important;
+  color: #0f172a !important;
+  border-bottom: 1px solid rgba(0,0,0,.08);
+}
+html[data-theme="light"] #container td{
+  background: transparent !important;
+  color: #0f172a !important;
+  border-bottom: 1px solid rgba(0,0,0,.08);
+}
+
+/* ---------- 6) Links ---------- */
+html[data-theme="dark"] #container a{ color:#7cff9e; }
+html[data-theme="dark"] #container a:hover{ color:#a7f3d0; }
+
+html[data-theme="light"] #container a{ color:#1b5e20; }
+html[data-theme="light"] #container a:hover{ color:#2e7d32; }
+
+/* ---------- 7) Inputs ---------- */
+#container input,
+#container select,
+#container textarea{
+  border-radius: 10px;
+  padding: 8px 10px;
+}
+
+html[data-theme="dark"] #container input,
+html[data-theme="dark"] #container select,
+html[data-theme="dark"] #container textarea{
+  background: rgba(2,6,23,.55) !important;
+  border: 1px solid rgba(255,255,255,.14) !important;
+  color: #e8f0ff !important;
+}
+
+html[data-theme="light"] #container input,
+html[data-theme="light"] #container select,
+html[data-theme="light"] #container textarea{
+  background: #ffffff !important;
+  border: 1px solid rgba(15,23,42,.16) !important;
+  color: #0f172a !important;
+}
+
+/* ---------- 8) Botões ---------- */
+#container .button,
+#container input[type="submit"],
+#container .object-tools a,
+#container .addlink,
+#container .changelink{
+  border-radius: 12px;
+  font-weight: 800;
+  text-transform: none;
+  padding: 8px 12px;
+}
+
+html[data-theme="dark"] #container .button,
+html[data-theme="dark"] #container input[type="submit"],
+html[data-theme="dark"] #container .object-tools a,
+html[data-theme="dark"] #container .addlink,
+html[data-theme="dark"] #container .changelink{
+  background: rgba(34,197,94,.16) !important;
+  border: 1px solid rgba(34,197,94,.45) !important;
+  color: #d6ffe5 !important;
+}
+
+html[data-theme="light"] #container .button,
+html[data-theme="light"] #container input[type="submit"],
+html[data-theme="light"] #container .object-tools a,
+html[data-theme="light"] #container .addlink,
+html[data-theme="light"] #container .changelink{
+  background: rgba(46,125,50,.12) !important;
+  border: 1px solid rgba(46,125,50,.28) !important;
+  color: #1b5e20 !important;
+}
+/* =========================================================
+   Admin Theme v1 — Micro animações (cards)
+   ========================================================= */
+
+.module,
+#recent-actions-module{
+  transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease;
+  will-change: transform;
+}
+
+.module:hover,
+#recent-actions-module:hover{
+  transform: translateY(-2px);
+}
+
+/* no dark: dá um brilho discreto no hover */
+html[data-theme="dark"] .module:hover,
+html[data-theme="dark"] #recent-actions-module:hover{
+  box-shadow: 0 16px 44px rgba(0,0,0,.45);
+  border-color: rgba(34,197,94,.22) !important;
+}
+
+/* no light: sombra suave */
+html[data-theme="light"] .module:hover,
+html[data-theme="light"] #recent-actions-module:hover{
+  box-shadow: 0 16px 34px rgba(0,0,0,.14);
+}

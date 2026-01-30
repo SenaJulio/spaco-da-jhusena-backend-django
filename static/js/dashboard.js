@@ -3593,6 +3593,15 @@ document.addEventListener("DOMContentLoaded", function () {
       }
 
       const pct = Number(payload.percentual || 0);
+      // reset de estados visuais
+      el.classList.remove("sj-alerta-dependencia", "sj-insight-destaque");
+
+      // dependência alta (uma fonte domina)
+      if (pct >= 80) el.classList.add("sj-alerta-dependencia");
+
+// caso você queira manter o verde só para "liderança saudável", use outra regra
+// (ex.: quando NÃO é dependência)
+
       const badge = badgeCategoria(pct);
 
       const titulo = (pct === 100)

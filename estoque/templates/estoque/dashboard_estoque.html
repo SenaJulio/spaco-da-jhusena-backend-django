@@ -1,11 +1,16 @@
 {% extends "base.html" %}
+{% block body_class %}sj-page-estoque{% endblock %}
+
 {% load static %}
 
 {% block title %}Dashboard de Estoque{% endblock %}
 
 {% block content %}
+
+
+
 <style>
-  body {
+/*  body {
     min-height: 100vh;
     background:
       radial-gradient(1100px 600px at 18% 0%, rgba(47, 191, 113, .14), transparent 55%),
@@ -101,7 +106,7 @@
     font-weight: 500;
   }
 
-  /* === Ranking de Lotes Críticos: alerta máximo quando há vencidos === */
+  /* === Ranking de Lotes Críticos: alerta máximo quando há vencidos === 
   #cardRankingLotes.sj-critico-vencido {
     border: 1px solid rgba(255, 59, 48, 0.55);
     box-shadow: 0 0 0 2px rgba(255, 59, 48, 0.12), 0 16px 40px rgba(0, 0, 0, 0.35);
@@ -135,10 +140,10 @@
     }
   }
 
-  /* === Ranking de Lotes Críticos — Dark friendly === */
+  /* === Ranking de Lotes Críticos — Dark friendly === 
   #cardRankingLotes .list-group-item {
     background: rgba(12, 18, 32, 0.85);
-    /* dark azul */
+    /* dark azul 
     backdrop-filter: blur(6px);
     border: 1px solid rgba(255, 255, 255, 0.08);
     color: #e8f0ff;
@@ -152,7 +157,7 @@
     color: rgba(232, 240, 255, 0.65) !important;
   }
 
-  /* badges continuam chamativos */
+  /* badges continuam chamativos 
   #cardRankingLotes .badge.bg-danger {
     background-color: #ff4d4f !important;
   }
@@ -183,7 +188,7 @@
   .sj-faixa-forte { color:#2fbf71; font-weight:700; }
   .sj-faixa-media { color:#ffd166; font-weight:700; }
   .sj-faixa-neutra { color:#9aa4b2; font-weight:700; }
-
+*/
 </style>
 <!-- ✅ Topo vendável (título + botão) -->
 
