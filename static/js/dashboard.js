@@ -2342,7 +2342,7 @@ const gradientFillPlugin = {
       if (typeof window.carregarHistorico !== "function") return;
       const filtroAtual =
         (window.__HistoricoIA && window.__HistoricoIA.filtro) || "todas";
-      await window.carregarHistorico(20, filtroAtual, false);
+      await window.carregarHistorico(20, filtroAtual, { append: false, offset: 0 });
     }
     window.recarregarHistoricoComFiltroAtual =
       recarregarHistoricoComFiltroAtual;
@@ -2443,7 +2443,6 @@ function sjMostrarMsgGraficoMensal(msg, isErro) {
 }
 
 function carregarGraficoMensalIA() {
-  var labels = [];
   var cv = document.getElementById("graficoSerieMensalIa");
   if (!cv) {
     console.warn("📈 graficoSerieMensalIa não encontrado no DOM.");
@@ -2458,10 +2457,7 @@ function carregarGraficoMensalIA() {
     })
     .then(function (data) {
       if (!data || !data.ok) {
-        sjMostrarMsgGraficoMensal(
-          "Não foi possível carregar o resumo mensal.",
-          true
-        );
+        sjMostrarMsgGraficoMensal("Não foi possível carregar o resumo mensal.", true);
         return;
       }
 
@@ -2471,7 +2467,7 @@ function carregarGraficoMensalIA() {
           "Sem dados mensais suficientes para montar o gráfico.",
           false
         );
-        if (sjChartMensalIA) {
+        if (typeof sjChartMensalIA !== "undefined" && sjChartMensalIA) {
           sjChartMensalIA.destroy();
           sjChartMensalIA = null;
         }
@@ -2499,8 +2495,8 @@ function carregarGraficoMensalIA() {
       var saldoProj = [];
       if (series.length > 0) {
         var ultimo = series[series.length - 1];
-        var proxMes = ultimo.mes + 1;
-        var proxAno = ultimo.ano;
+        var proxMes = (ultimo.mes || 0) + 1;
+        var proxAno = ultimo.ano || new Date().getFullYear();
         if (proxMes > 12) {
           proxMes = 1;
           proxAno += 1;
@@ -2522,17 +2518,37 @@ function carregarGraficoMensalIA() {
         despesas.push(null);
         saldos.push(null);
 
-        for (var j = 0; j < labels.length - 1; j++) {
-          saldoProj.push(null);
-        }
+        for (var j = 0; j < labels.length - 1; j++) saldoProj.push(null);
         saldoProj.push(projValor);
       }
 
-      try {
-        const prev = Chart.getChart(cv);
-        if (prev) prev.destroy();
+      // ==========================================
+      // ✨ Lapidação híbrida do estilo
+      // ==========================================
+      var n = Array.isArray(labels) ? labels.length : 0;
+      // Considera quantos meses reais existem (sem o ponto extra da projeção)
+      var nReais = Array.isArray(series) ? series.length : 0;
 
-        if (sjChartMensalIA) {
+      // Se só tem 1 mês real, fica melhor sem linha (só ponto).
+      var SHOW_LINE = nReais >= 2;
+      var TENSION = 0.35;
+      var BORDER_W = 2;
+
+      // Pontos: 1 mês -> maior, 2+ -> menor
+      var POINT_RADIUS = nReais <= 1 ? 4 : 2;
+      var HOVER_RADIUS = 5;
+      var HIT_RADIUS = 10;
+
+      // Projeção: ponto mais destacado sempre
+      var PROJ_POINT_RADIUS = nReais <= 1 ? 5 : 4;
+
+      try {
+        // Destroi gráfico anterior (dupla proteção)
+        if (typeof Chart !== "undefined" && Chart.getChart) {
+          var prev = Chart.getChart(cv);
+          if (prev) prev.destroy();
+        }
+        if (typeof sjChartMensalIA !== "undefined" && sjChartMensalIA) {
           sjChartMensalIA.destroy();
           sjChartMensalIA = null;
         }
@@ -2545,39 +2561,60 @@ function carregarGraficoMensalIA() {
               {
                 label: "Receitas",
                 data: receitas,
-                tension: 0.25,
+                type: "line",
+                showLine: SHOW_LINE,
+                tension: TENSION,
                 fill: false,
-                borderWidth: 2,
-                pointRadius: 3,
+                borderWidth: BORDER_W,
+                pointRadius: POINT_RADIUS,
+                pointHoverRadius: HOVER_RADIUS,
+                pointHitRadius: HIT_RADIUS,
                 borderColor: "#2e7d32",
+                spanGaps: true,
               },
               {
                 label: "Despesas",
                 data: despesas,
-                tension: 0.25,
+                type: "line",
+                showLine: SHOW_LINE,
+                tension: TENSION,
                 fill: false,
-                borderWidth: 2,
-                pointRadius: 3,
+                borderWidth: BORDER_W,
+                pointRadius: POINT_RADIUS,
+                pointHoverRadius: HOVER_RADIUS,
+                pointHitRadius: HIT_RADIUS,
                 borderColor: "#c62828",
+                spanGaps: true,
               },
               {
                 label: "Saldo",
                 data: saldos,
-                tension: 0.25,
+                type: "line",
+                showLine: SHOW_LINE,
+                tension: TENSION,
                 fill: false,
-                borderWidth: 2,
-                pointRadius: 3,
+                borderWidth: BORDER_W,
+                pointRadius: POINT_RADIUS,
+                pointHoverRadius: HOVER_RADIUS,
+                pointHitRadius: HIT_RADIUS,
                 borderColor: "#1565c0",
+                spanGaps: true,
               },
               {
                 label: "Saldo (proj.)",
                 data: saldoProj,
-                tension: 0.25,
+                type: "line",
+                // projeção costuma ficar legal com linha mesmo quando só há 1 mês
+                showLine: true,
+                tension: TENSION,
                 fill: false,
-                borderWidth: 2,
-                pointRadius: 3,
+                borderWidth: BORDER_W,
+                pointRadius: PROJ_POINT_RADIUS,
+                pointHoverRadius: 6,
+                pointHitRadius: HIT_RADIUS,
                 borderColor: "#90caf9",
                 borderDash: [6, 4],
+                spanGaps: true,
               },
             ],
           },
@@ -2588,10 +2625,27 @@ function carregarGraficoMensalIA() {
               legend: {
                 display: true,
                 position: "bottom",
+                labels: {
+                  usePointStyle: true, // deixa as "bolinhas" na legenda (bonito e consistente)
+                },
               },
               tooltip: {
                 mode: "index",
                 intersect: false,
+                callbacks: {
+                  label: function (ctx2) {
+                    var label = ctx2.dataset.label || "";
+                    var v = ctx2.parsed?.y;
+                    if (v == null) return null;
+
+                    var valor = Number(v || 0).toLocaleString("pt-BR", {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    });
+
+                    return label + ": R$ " + valor;
+                  },
+                },
               },
             },
             interaction: {
@@ -2623,6 +2677,7 @@ document.addEventListener("DOMContentLoaded", function () {
     console.error("Falha ao inicializar gráfico mensal IA:", e);
   }
 });
+
 
 // ==========================================================
 // 💡 Spaço da Jhuséna — Análise Mensal IA (texto)

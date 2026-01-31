@@ -1,40 +1,17 @@
+// historico_ia.js — Histórico IA v1 (com chips coloridas)
+// ======================================================
 let lastCount = { total: 0, positiva: 0, alerta: 0, neutra: 0 };
 
-function getCsrfToken() {
-  const cookies = document.cookie.split(";").map((c) => c.trim());
-  for (const c of cookies) {
-    if (c.startsWith("csrftoken=")) {
-      return c.split("=")[1];
-    }
-  }
-  return "";
-}
-
 function normalizeTipoIA(rawTipo) {
-  const t = String(rawTipo || "")
-    .toLowerCase()
-    .trim();
+  const t = String(rawTipo || "").toLowerCase().trim();
+  if (["positiva", "alerta", "neutra"].includes(t)) return t;
 
-  // se já vier no formato lógico, só devolve
-  if (["positiva", "alerta", "neutra"].includes(t)) {
-    return t;
-  }
+  if (["economia", "oportunidade", "meta"].includes(t)) return "positiva";
+  if (t === "alerta") return "alerta";
 
-  // mapeia tipos do admin para o lógico
-  if (["economia", "oportunidade", "meta"].includes(t)) {
-    return "positiva";
-  }
-  if (t === "alerta") {
-    return "alerta";
-  }
-
-  // fallback
   return "neutra";
 }
 
-
-// historico_ia.js — Histórico IA v1 (com chips coloridas)
-// ======================================================
 (() => {
   "use strict";
 
@@ -47,8 +24,8 @@ function normalizeTipoIA(rawTipo) {
 
   // ---------- Constantes ----------
   const DEBUG = false;
-  const log = DEBUG ? console.log.bind(console, "[Historico]") : () => { };
-  const warn = DEBUG ? console.warn.bind(console, "[Historico]") : () => { };
+  const log = DEBUG ? console.log.bind(console, "[Historico]") : () => {};
+  const warn = DEBUG ? console.warn.bind(console, "[Historico]") : () => {};
   const err = console.error.bind(console, "[Historico]");
 
   const AWAIT_RETRY_MS = 80;
@@ -64,7 +41,6 @@ function normalizeTipoIA(rawTipo) {
   let FEED_URL = "/financeiro/ia/historico/feed/v2/";
   let _allowFilteredUntil = 0;
   let lastHistUrl = "";
-  let _lastIntent = { limit: null, tipo: "" };
   let _abortCtrl = null;
   let _pendingTimer = null;
   let _pendingArgs = null;
@@ -84,9 +60,7 @@ function normalizeTipoIA(rawTipo) {
     if (!s) return null;
     if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return new Date(s);
 
-    const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})$/.exec(
-      String(s)
-    );
+    const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})$/.exec(String(s));
     if (!m) return new Date(s);
     const [, d, mo, y, h, i] = m.map(Number);
     return new Date(y, mo - 1, d, h, i);
@@ -106,12 +80,13 @@ function normalizeTipoIA(rawTipo) {
 
   function normalizeTipo(v) {
     if (!v) return null;
-    const s = String(v).toLowerCase();
-    if (["positivo", "positivos", "positiva", "positivas"].includes(s))
-      return "positiva";
+    const s = String(v).toLowerCase().trim();
+
+    if (["positivo", "positivos", "positiva", "positivas"].includes(s)) return "positiva";
     if (["alerta", "alertas"].includes(s)) return "alerta";
     if (["neutro", "neutros", "neutra", "neutras"].includes(s)) return "neutra";
     if (["all", "tudo", "todas", "todos"].includes(s)) return null;
+
     return s;
   }
 
@@ -132,11 +107,7 @@ function normalizeTipoIA(rawTipo) {
     span.className = "chip";
     span.title = "Categoria";
     span.classList.add(
-      tipo === "positiva"
-        ? "chip-success"
-        : tipo === "alerta"
-          ? "chip-warning"
-          : "chip-neutral"
+      tipo === "positiva" ? "chip-success" : tipo === "alerta" ? "chip-warning" : "chip-neutral"
     );
     span.appendChild(textNode(tipo.replace(/^./, (c) => c.toUpperCase())));
     return span;
@@ -147,16 +118,11 @@ function normalizeTipoIA(rawTipo) {
     const raw = it.criado_em || it.created_at || it.created_at_br || "";
     let quando = raw;
 
-    if (typeof formatarDataBR === "function") {
-      quando = formatarDataBR(raw);
-    } else if (typeof fmtDate === "function") {
-      quando = fmtDate(raw);
-    }
+    if (typeof formatarDataBR === "function") quando = formatarDataBR(raw);
+    else if (typeof fmtDate === "function") quando = fmtDate(raw);
 
     const titulo = String(it.title || "Dica da IA").trim();
-    const texto = String(
-      it.text || it.texto || it.dica || "Sem conteúdo disponível."
-    ).trim();
+    const texto = String(it.text || it.texto || it.dica || "Sem conteúdo disponível.").trim();
 
     const categoriaLabel = (it.categoria || "ECONOMIA").toString();
     const categoriaSlug = (it.categoria_slug || "economia").toString();
@@ -173,17 +139,14 @@ function normalizeTipoIA(rawTipo) {
     const header = document.createElement("div");
     header.className = "d-flex align-items-center justify-content-between";
 
-    // título à esquerda
     const titleEl = document.createElement("div");
     titleEl.className = "fw-semibold";
     titleEl.appendChild(textNode(titulo));
     header.appendChild(titleEl);
 
-    // meta (categoria + chips) à direita
     const metaBox = document.createElement("div");
     metaBox.className = "d-flex align-items-center gap-2";
 
-    // badge NOVA
     if (it.isNew) {
       const newSpan = document.createElement("span");
       newSpan.className = "badge-ia-new";
@@ -191,7 +154,6 @@ function normalizeTipoIA(rawTipo) {
       metaBox.appendChild(newSpan);
     }
 
-    // badge IA TURBO / PREVISÃO (origem)
     if (it.isTurbo) {
       const turboSpan = document.createElement("span");
       turboSpan.className = "badge-ia-turbo";
@@ -199,34 +161,24 @@ function normalizeTipoIA(rawTipo) {
       metaBox.appendChild(turboSpan);
     }
 
-    // badge de categoria (clicável para filtro)
     const catSpan = document.createElement("span");
     catSpan.className = "badge bg-secondary";
     catSpan.appendChild(textNode(categoriaLabel));
-
-    // 🔥 clique na categoria → filtra
     catSpan.style.cursor = "pointer";
     catSpan.title = "Clique para filtrar por esta categoria";
 
     catSpan.addEventListener("click", (ev) => {
       if (!ev.isTrusted) return;
 
-      // mapeia categoria_slug para filtro lógico
       let filtroTipo = "";
-      if (categoriaSlug === "alerta") {
-        filtroTipo = "alerta";
-      } else if (categoriaSlug === "meta") {
-        filtroTipo = "neutra"; // ou "positiva", se preferir
-      } else {
-        // economia / oportunidade / outros = positivas
-        filtroTipo = "positiva";
-      }
+      if (categoriaSlug === "alerta") filtroTipo = "alerta";
+      else if (categoriaSlug === "meta") filtroTipo = "neutra";
+      else filtroTipo = "positiva";
 
-      // ativa barra de filtros usando a API já existente
       _allowFilteredUntil = (performance?.now?.() ?? 0) + FILTER_GRACE_MS;
       globalThis.__HistoricoIA?.filtrar?.(filtroTipo);
 
-      // visual: marca o botão correspondente se existir
+      // marca o botão correspondente se existir
       const mapBtnId = {
         positiva: "btnPositivas",
         alerta: "btnAlertas",
@@ -234,34 +186,28 @@ function normalizeTipoIA(rawTipo) {
       };
       const btnId = mapBtnId[filtroTipo];
       if (btnId) {
-        for (const b of document.querySelectorAll(
-          "[data-ia-filtro],[data-filter]"
-        )) {
+        for (const b of document.querySelectorAll("[data-ia-filtro],[data-filter],[data-filtro]")) {
           b.classList.remove("active");
+          b.classList.remove("is-active");
         }
         const tgt = document.getElementById(btnId);
-        if (tgt) tgt.classList.add("active");
+        if (tgt) {
+          tgt.classList.add("active");
+          tgt.classList.add("is-active");
+        }
       }
     });
 
     metaBox.appendChild(catSpan);
-
-    // chip de humor (Positiva / Alerta / Neutra)
     metaBox.appendChild(createChip(tipo));
     header.appendChild(metaBox);
 
     const p = document.createElement("p");
     p.className = "mt-2 mb-2";
     p.style.whiteSpace = "pre-wrap";
-
-    if (tipo === "positiva") {
-      p.classList.add("ia-text-positiva");
-    } else if (tipo === "alerta") {
-      p.classList.add("ia-text-alerta");
-    } else {
-      p.classList.add("ia-text-neutra");
-    }
-
+    if (tipo === "positiva") p.classList.add("ia-text-positiva");
+    else if (tipo === "alerta") p.classList.add("ia-text-alerta");
+    else p.classList.add("ia-text-neutra");
     p.appendChild(textNode(texto));
 
     const foot = document.createElement("div");
@@ -272,9 +218,9 @@ function normalizeTipoIA(rawTipo) {
     body.appendChild(p);
     body.appendChild(foot);
     card.appendChild(body);
+
     return card;
   }
-
 
   function renderListaSafe(container, items) {
     const frag = document.createDocumentFragment();
@@ -285,11 +231,11 @@ function normalizeTipoIA(rawTipo) {
   // ---------- UI helpers ----------
   function atualizarBadgeTotal(badgeEl) {
     if (!badgeEl) return;
+
     const lastISO = lastSeenAt ? new Date(lastSeenAt).getTime() : 0;
     const base = Array.isArray(allItems) ? allItems : [];
     const cnt = lastISO
-      ? base.filter((i) => (parseStamp(i.criado_em)?.getTime() || 0) > lastISO)
-        .length
+      ? base.filter((i) => (parseStamp(i.criado_em)?.getTime() || 0) > lastISO).length
       : base.length || 0;
 
     if (cnt > 0) {
@@ -300,18 +246,13 @@ function normalizeTipoIA(rawTipo) {
     }
   }
 
-  function atualizarContadoresUI(
-    { elCountAll, elCountPos, elCountAlerta, elCountNeutra },
-    count
-  ) {
+  function atualizarContadoresUI({ elCountAll, elCountPos, elCountAlerta, elCountNeutra }, count) {
     if (!count) return;
-
     if (elCountAll) elCountAll.textContent = String(count.total ?? 0);
     if (elCountPos) elCountPos.textContent = String(count.positiva ?? 0);
     if (elCountAlerta) elCountAlerta.textContent = String(count.alerta ?? 0);
     if (elCountNeutra) elCountNeutra.textContent = String(count.neutra ?? 0);
   }
-
 
   function setContadoresBackend(count) {
     if (!count || typeof count !== "object") return;
@@ -334,16 +275,13 @@ function normalizeTipoIA(rawTipo) {
   }
 
   function renderLista(cont, countersEls, badgeEl, count) {
-    // ✅ usa o cont recebido, não variável global
     const container = cont || document.getElementById("listaHistorico");
     if (!container) return;
 
     count = count || lastCount;
     lastCount = count;
 
-    const filtered = filtroCategoria
-      ? allItems.filter((i) => i.tipo === filtroCategoria)
-      : allItems;
+    const filtered = filtroCategoria ? allItems.filter((i) => i.tipo === filtroCategoria) : allItems;
 
     if (!filtered.length) {
       container.replaceChildren();
@@ -356,6 +294,7 @@ function normalizeTipoIA(rawTipo) {
 
       alertDiv.appendChild(textNode(msg));
       container.appendChild(alertDiv);
+
       atualizarBadgeTotal(badgeEl);
       atualizarContadoresUI(countersEls, lastCount);
       return;
@@ -368,15 +307,12 @@ function normalizeTipoIA(rawTipo) {
     }
 
     requestAnimationFrame(() => {
-      for (const el of container.querySelectorAll(".ia-card")) {
-        el.classList.add("fade-in");
-      }
+      for (const el of container.querySelectorAll(".ia-card")) el.classList.add("fade-in");
     });
 
     atualizarContadoresUI(countersEls, lastCount);
     atualizarBadgeTotal(badgeEl);
   }
-
 
   // ---------- Auto refresh ----------
   function stopAutoRefresh() {
@@ -395,20 +331,18 @@ function normalizeTipoIA(rawTipo) {
   function shouldGateFilter(t) {
     if (typeof performance === "undefined") return false;
     const elapsed = performance.now() - LOAD_TS;
-
-    if (
-      elapsed < 1500 &&
-      (t === "neutra" || t === "alerta" || t === "positiva")
-    ) {
-      return true;
-    }
+    if (elapsed < 1500 && (t === "neutra" || t === "alerta" || t === "positiva")) return true;
     return false;
   }
 
   function buildQuery(limit, t, append, offset) {
     const qs = new URLSearchParams();
     qs.set("limit", String(limit));
-    if (t) qs.set("tipo", t);
+
+    // 🔥 importantíssimo: só manda tipo se for positiva/alerta/neutra
+    const tn = normalizeTipo(t);
+    if (tn) qs.set("tipo", tn);
+
     if (append) qs.set("offset", String(offset));
     return `${FEED_URL}?${qs.toString()}`;
   }
@@ -416,38 +350,28 @@ function normalizeTipoIA(rawTipo) {
   function normalizeItems(jsonArr) {
     const arr = Array.isArray(jsonArr) ? jsonArr : [];
     const out = arr.map((x) => {
-      const criadoRaw =
-        x.criado_em || x.created_at || x.created_at_br || x.data || "";
+      const criadoRaw = x.criado_em || x.created_at || x.created_at_br || x.data || "";
       const stamp = parseStamp(criadoRaw)?.getTime() || 0;
 
-      const k = (
-        x.tipo ||
-        x.categoria ||
-        x.categoria_dominante ||
-        x.kind ||
-        "geral"
-      )
+      const k = (x.tipo || x.categoria || x.categoria_dominante || x.kind || "geral")
         .toString()
         .toLowerCase()
         .trim();
 
-      const txt = (x.texto || x.text || x.dica || x.conteudo || "")
-        .toString()
-        .trim();
+      const txt = (x.texto || x.text || x.dica || x.conteudo || "").toString().trim();
 
       let title = x.title || x.titulo || "";
       if (!title) {
         if (txt) {
           const head = txt.split("\n")[0];
-          title =
-            head.slice(0, TITLE_MAX) + (head.length > TITLE_MAX ? "…" : "");
+          title = head.slice(0, TITLE_MAX) + (head.length > TITLE_MAX ? "…" : "");
         } else {
           title = "Dica da IA";
         }
       }
 
-      const tipo =
-        k === "alerta" || k === "positiva" || k === "neutra" ? k : "neutra";
+      // ✅ garante só 3 tipos
+      const tipo = k === "alerta" || k === "positiva" || k === "neutra" ? k : normalizeTipoIA(k);
 
       return {
         id: x.id,
@@ -457,6 +381,10 @@ function normalizeTipoIA(rawTipo) {
         title,
         text: txt || "Sem conteúdo disponível.",
         criado_em_fmt: x.criado_em_fmt || "",
+        categoria: x.categoria,
+        categoria_slug: x.categoria_slug,
+        isNew: x.isNew,
+        isTurbo: x.isTurbo,
       };
     });
 
@@ -469,33 +397,33 @@ function normalizeTipoIA(rawTipo) {
     let tipo = "";
 
     const append = !!opt.append;
-    const offset =
-      Number.isFinite(opt.offset) && opt.offset >= 0 ? opt.offset : 0;
+    const offset = Number.isFinite(opt.offset) && opt.offset >= 0 ? opt.offset : 0;
 
     if (typeof a === "number" && Number.isFinite(a)) limit = a;
-    else if (typeof a === "string" && Number.isNaN(Number(a))) tipo = a;
+    else if (typeof a === "string") tipo = a;
 
     if (typeof b === "number" && Number.isFinite(b)) limit = b;
-    else if (typeof b === "string" && Number.isNaN(Number(b))) tipo = b;
+    else if (typeof b === "string") tipo = b;
 
     if (!Number.isFinite(limit) || limit <= 0) limit = INITIAL_LIMIT;
-    const t = normalizeTipo(tipo) || "";
 
-    if (shouldGateFilter(t)) return { items: [], hasMore: false, offset };
-    if (_lastIntent && (_lastIntent.tipo !== t || _lastIntent.limit !== limit))
-      return { items: [], hasMore: false, offset };
+    const t = normalizeTipo(tipo);
+
+    window.__HistoricoIA = window.__HistoricoIA || {};
+    window.__HistoricoIA.filtro = t || "todas";
+
+    if (t && shouldGateFilter(t)) return { items: [], hasMore: false, offset, count: null };
 
     const finalUrl = buildQuery(limit, t, append, offset);
-    if (!append && lastHistUrl === finalUrl)
-      return { items: [], hasMore: false, offset };
+
+    // ✅ cache anti refetch só vale para chamadas "sem append"
+    if (!append && lastHistUrl === finalUrl) return { items: [], hasMore: _hasMoreAtual, offset, count: null };
     if (!append) lastHistUrl = finalUrl;
 
     if (_abortCtrl) {
       try {
         _abortCtrl.abort();
-      } catch {
-        /* ignore */
-      }
+      } catch {}
     }
     _abortCtrl = new AbortController();
 
@@ -505,7 +433,8 @@ function normalizeTipoIA(rawTipo) {
       credentials: "same-origin",
       signal: _abortCtrl.signal,
     });
-    if (!r.ok) throw new Error(`HTTP ${r.status} @ ${FEED_URL}`);
+    if (!r.ok) throw new Error(`HTTP ${r.status} @ ${finalUrl}`);
+
     const json = await r.json();
     log("payload", json);
 
@@ -516,12 +445,21 @@ function normalizeTipoIA(rawTipo) {
     if (json?.count && typeof setContadoresBackend === "function") {
       try {
         setContadoresBackend(json.count);
-      } catch {
-        /* ignore */
-      }
+      } catch {}
     }
-    const count = json?.count || null;
-    return { items, hasMore, offset, count };
+
+    return { items, hasMore, offset, count: json?.count || null };
+  }
+
+  // ===============================
+  // UI — Aba ativa do Histórico IA
+  // ===============================
+  function setAbaAtiva(tipo) {
+    const t = normalizeTipo(tipo) || "todas";
+    document.querySelectorAll("[data-ia-filtro],[data-filter],[data-filtro]").forEach((btn) => {
+      const b = normalizeTipo(btn.dataset.iaFiltro || btn.dataset.filter || btn.dataset.filtro) || "todas";
+      btn.classList.toggle("is-active", b === t);
+    });
   }
 
   function updateStateAfterFetch(result, args) {
@@ -530,7 +468,11 @@ function normalizeTipoIA(rawTipo) {
     const prevItems = allItems;
     const prevOffset = _offsetAtual;
 
-    filtroCategoria = args.tipo;
+    const tipoNorm = normalizeTipo(args.tipo) || "";
+    filtroCategoria = tipoNorm;
+
+    window.__HistoricoIA = window.__HistoricoIA || {};
+    window.__HistoricoIA.filtro = tipoNorm || "todas";
 
     if (items && items.length) {
       if (args.append) {
@@ -546,159 +488,129 @@ function normalizeTipoIA(rawTipo) {
     }
 
     _hasMoreAtual = !!hasMore;
+
+    setAbaAtiva(window.__HistoricoIA?.filtro || "todas");
   }
 
   function maybeScrollToNew() {
     if (!lastSeenAt) return;
-    const firstNew = document
-      .getElementById("listaHistorico")
-      ?.querySelector(".ia-card.is-new");
-    if (firstNew) {
-      firstNew.scrollIntoView({ behavior: "smooth", block: "center" });
-    }
+    const firstNew = document.getElementById("listaHistorico")?.querySelector(".ia-card.is-new");
+    if (firstNew) firstNew.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
   // ---------- API global ----------
-  globalThis.carregarHistorico = function carregarHistorico(
-    limit = INITIAL_LIMIT,
-    tipo = null,
-    append = false
-  ) {
-    let _tipoNorm = normalizeTipo(tipo) || "";
+  globalThis.carregarHistorico = function carregarHistorico(limit = INITIAL_LIMIT, tipo = null, append = false) {
+    const _tipoNorm = normalizeTipo(tipo) || "";
     const _limit = Number.isFinite(limit) && limit > 0 ? limit : INITIAL_LIMIT;
 
-    if (
-      (_tipoNorm === "positiva" ||
-        _tipoNorm === "alerta" ||
-        _tipoNorm === "neutra") &&
-      typeof performance !== "undefined" &&
-      performance.now() > _allowFilteredUntil
-    ) {
-      _tipoNorm = "";
-    }
-
     _pendingArgs = { limit: _limit, tipo: _tipoNorm, append };
-    _lastIntent = { limit: _limit, tipo: _tipoNorm };
 
     if (_pendingTimer) clearTimeout(_pendingTimer);
-    _pendingTimer = setTimeout(async () => {
-      if (_inFlight) {
-        _pendingTimer = setTimeout(
-          () =>
-            globalThis.carregarHistorico(
-              _pendingArgs.limit,
-              _pendingArgs.tipo,
-              _pendingArgs.append
-            ),
-          AWAIT_RETRY_MS
-        );
-        return;
-      }
 
-      const args = _pendingArgs;
-      _pendingArgs = null;
-      _pendingTimer = null;
-
-      if (_lastIntent.tipo !== args.tipo || _lastIntent.limit !== args.limit) return;
-      _inFlight = true;
-
-      let result; // ✅ declarado no escopo 
-
-      try {
-        const overlayEl = document.getElementById("ovlHistorico");
-        const btnReload =
-          document.getElementById("btnReloadDicas") ||
-          document.getElementById("btnReloadFeed");
-
-        toggleLoading(overlayEl, true);
-        if (btnReload) btnReload.disabled = true;
-
-        result = await fetchHistorico(args.limit, args.tipo, {
-          append: !!args.append,
-          offset: _offsetAtual,
-        });
-
-        // Atualiza estado/paginação (seu código já fazia isso)
-        updateStateAfterFetch(result, args);
-
-        // ✅ CORREÇÃO: manter contadores globais vindos do backend (não dos 5 itens da página)
-        lastCount = result?.count || lastCount;
-
-        // ⚠️ Opcional (só se seu renderLista usa allItems global)
-        // Se updateStateAfterFetch já monta allItems internamente, pode remover este bloco.
-        if (Array.isArray(result?.items)) {
-          if (args.append && Array.isArray(allItems)) {
-            // evita duplicar por id (seguro)
-            const seen = new Set(allItems.map((x) => x.id));
-            for (const it of result.items) {
-              if (!seen.has(it.id)) allItems.push(it);
-            }
-          } else {
-            allItems = result.items;
-          }
+    // ✅ IMPORTANT: retorna Promise (pra você conseguir await/logar)
+    return new Promise((resolve) => {
+      _pendingTimer = setTimeout(async () => {
+        if (_inFlight) {
+          _pendingTimer = setTimeout(() => {
+            globalThis
+              .carregarHistorico(_pendingArgs.limit, _pendingArgs.tipo, _pendingArgs.append)
+              .then(resolve);
+          }, AWAIT_RETRY_MS);
+          return;
         }
 
-        const cont = document.getElementById("listaHistorico");
-        const countersEls = {
-          elCountAll: document.getElementById("countAll"),
-          elCountPos: document.getElementById("countPos"),
-          elCountAlerta: document.getElementById("countAlerta"),
-          elCountNeutra: document.getElementById("countNeutra"),
-        };
-        const badgeEl = document.getElementById("badgeNovasDicas");
-
-        renderLista(cont, countersEls, badgeEl, result.count || lastCount);
-
-
-        if (!args?.append) maybeScrollToNew();
-
-      } catch (e) {
-        if (e?.name !== "AbortError") {
-          err("Falha ao carregar histórico:", e);
-          const cont = document.getElementById("listaHistorico");
-          if (cont) {
-            cont.replaceChildren();
-            const alertDiv = document.createElement("div");
-            alertDiv.className = "alert alert-danger";
-            alertDiv.appendChild(textNode("Falha ao carregar histórico."));
-            cont.appendChild(alertDiv);
-          }
-        }
-      } finally {
-        const overlayEl = document.getElementById("ovlHistorico");
-        const btnReload =
-          document.getElementById("btnReloadDicas") ||
-          document.getElementById("btnReloadFeed");
-
-        if (btnReload) btnReload.disabled = false;
-        toggleLoading(overlayEl, false);
-        _inFlight = false;
+        const args = _pendingArgs;
         _pendingArgs = null;
-      }
-    }, AWAIT_RETRY_MS);
+        _pendingTimer = null;
+
+        _inFlight = true;
+        let result;
+
+        try {
+          const overlayEl = document.getElementById("ovlHistorico");
+          const btnReload = document.getElementById("btnReloadDicas") || document.getElementById("btnReloadFeed");
+
+          toggleLoading(overlayEl, true);
+          if (btnReload) btnReload.disabled = true;
+
+          result = await fetchHistorico(args.limit, args.tipo || "", {
+            append: !!args.append,
+            offset: _offsetAtual,
+          });
+
+          updateStateAfterFetch(result, args);
+
+          // ✅ mantém contadores vindos do backend
+          if (result?.count) lastCount = result.count;
+
+          const cont = document.getElementById("listaHistorico");
+          const countersEls = {
+            elCountAll: document.getElementById("countAll"),
+            elCountPos: document.getElementById("countPos"),
+            elCountAlerta: document.getElementById("countAlerta"),
+            elCountNeutra: document.getElementById("countNeutra"),
+          };
+          const badgeEl = document.getElementById("badgeNovasDicas");
+
+          renderLista(cont, countersEls, badgeEl, result?.count || lastCount);
+
+          if (!args?.append) maybeScrollToNew();
+          resolve(result);
+        } catch (e) {
+          if (e?.name !== "AbortError") {
+            err("Falha ao carregar histórico:", e);
+            const cont = document.getElementById("listaHistorico");
+            if (cont) {
+              cont.replaceChildren();
+              const alertDiv = document.createElement("div");
+              alertDiv.className = "alert alert-danger";
+              alertDiv.appendChild(textNode("Falha ao carregar histórico."));
+              cont.appendChild(alertDiv);
+            }
+          }
+          resolve(null);
+        } finally {
+          const overlayEl = document.getElementById("ovlHistorico");
+          const btnReload = document.getElementById("btnReloadDicas") || document.getElementById("btnReloadFeed");
+          if (btnReload) btnReload.disabled = false;
+          toggleLoading(overlayEl, false);
+          _inFlight = false;
+        }
+      }, AWAIT_RETRY_MS);
+    });
   };
 
-  globalThis.__HistoricoIA = {
-    recarregar: () => globalThis.carregarHistorico(_limitAtual, filtroCategoria),
-    filtrar: (t) => {
-      filtroCategoria = normalizeTipo(t) || "";
-      _limitAtual = PREVIEW_LIMIT;
-      return globalThis.carregarHistorico(_limitAtual, filtroCategoria);
-    },
-    get filtro() {
-      return filtroCategoria;
-    },
-    set filtro(t) {
-      filtroCategoria = normalizeTipo(t) || "";
-    },
-  };
+  // ✅ NÃO SOBRESCREVE __HistoricoIA (pode ser usado pelo dashboard.js)
+// ✅ só injeta as funções do Histórico IA no objeto existente
+const __IA = globalThis.__HistoricoIA || {};
+
+__IA.recarregar = () => globalThis.carregarHistorico(_limitAtual, filtroCategoria);
+
+__IA.filtrar = (t) => {
+  filtroCategoria = normalizeTipo(t) || "";
+  _limitAtual = PREVIEW_LIMIT;
+  return globalThis.carregarHistorico(_limitAtual, filtroCategoria);
+};
+
+Object.defineProperty(__IA, "filtro", {
+  get() {
+    return filtroCategoria;
+  },
+  set(t) {
+    filtroCategoria = normalizeTipo(t) || "";
+  },
+  configurable: true,
+});
+
+globalThis.__HistoricoIA = __IA;
+
 
   // Alias global para o mini_ia.js usar
   globalThis.recarregarHistoricoComFiltroAtual = function () {
     return globalThis.__HistoricoIA?.recarregar?.();
   };
 
-  // ---------- Handlers isolados ----------
+  // ---------- Handlers ----------
   function onVerMaisClick(btn) {
     if (!btn) return;
     btn.addEventListener(
@@ -712,11 +624,7 @@ function normalizeTipoIA(rawTipo) {
           btn.textContent = "Sem mais registros";
           return;
         }
-        await globalThis.carregarHistorico(
-          PREVIEW_LIMIT,
-          filtroCategoria,
-          true
-        );
+        await globalThis.carregarHistorico(PREVIEW_LIMIT, filtroCategoria, true);
         if (_hasMoreAtual) {
           btn.disabled = false;
           btn.textContent = "Ver mais";
@@ -737,9 +645,7 @@ function normalizeTipoIA(rawTipo) {
 
       const cont = document.getElementById("listaHistorico");
       if (cont) {
-        for (const el of cont.querySelectorAll(".ia-card.is-new")) {
-          el.classList.remove("is-new");
-        }
+        for (const el of cont.querySelectorAll(".ia-card.is-new")) el.classList.remove("is-new");
       }
       badgeEl?.classList.add("d-none");
     });
@@ -759,36 +665,47 @@ function normalizeTipoIA(rawTipo) {
   }
 
   function bindFilterToolbar() {
-    const buttons = document.querySelectorAll("[data-ia-filtro],[data-filter]");
+    const buttons = document.querySelectorAll("[data-ia-filtro],[data-filter],[data-filtro]");
     if ((buttons?.length ?? 0) <= 0) return;
 
+    // ✅ evita listeners duplicados: clona e troca
     const clones = [];
     for (const btn of buttons) clones.push(btn.cloneNode(true));
-    let idx = 0;
-    for (const oldBtn of document.querySelectorAll(
-      "[data-ia-filtro],[data-filter]"
-    )) {
-      oldBtn.replaceWith(clones[idx++]);
-    }
 
-    for (const btn of document.querySelectorAll(
-      "[data-ia-filtro],[data-filter]"
-    )) {
+    let idx = 0;
+    for (const oldBtn of buttons) oldBtn.replaceWith(clones[idx++]);
+
+    for (const btn of document.querySelectorAll("[data-ia-filtro],[data-filter],[data-filtro]")) {
       btn.addEventListener(
         "click",
         (ev) => {
           if (!ev.isTrusted) return;
 
-          for (const b of document.querySelectorAll(
-            "[data-ia-filtro],[data-filter]"
-          )) {
+          for (const b of document.querySelectorAll("[data-ia-filtro],[data-filter],[data-filtro]")) {
             b.classList.remove("active");
+            b.classList.remove("is-active");
           }
           btn.classList.add("active");
+          btn.classList.add("is-active");
 
           _allowFilteredUntil = (performance?.now?.() ?? 0) + FILTER_GRACE_MS;
-          const f = normalizeTipo(btn.dataset.iaFiltro || btn.dataset.filter);
-          globalThis.__HistoricoIA.filtrar(f || "");
+
+          const raw = btn.dataset.iaFiltro || btn.dataset.filter || btn.dataset.filtro || "";
+          const f = normalizeTipo(raw);
+
+          // ✅ TODAS: refetch padrão sem tipo
+          if (!f) {
+            filtroCategoria = "";
+            globalThis.__HistoricoIA.filtro = "todas";
+            lastHistUrl = "";      // mata cache anti refetch
+            _offsetAtual = 0;      // reseta paginação
+            globalThis.carregarHistorico(PREVIEW_LIMIT, null, false);
+            setAbaAtiva("todas");
+            return;
+          }
+
+          globalThis.__HistoricoIA.filtrar(f);
+          setAbaAtiva(f);
         },
         { passive: true }
       );
@@ -799,14 +716,20 @@ function normalizeTipoIA(rawTipo) {
     btn?.addEventListener("click", (ev) => {
       if (!ev.isTrusted) return;
       _allowFilteredUntil = (performance?.now?.() ?? 0) + FILTER_GRACE_MS;
+      if (!tipo) {
+        filtroCategoria = "";
+        lastHistUrl = "";
+        _offsetAtual = 0;
+        globalThis.carregarHistorico(PREVIEW_LIMIT, null, false);
+        setAbaAtiva("todas");
+        return;
+      }
       globalThis.__HistoricoIA.filtrar(tipo);
+      setAbaAtiva(tipo);
     });
   }
 
   function bindGerarDica() {
-    // ⚠️ IMPORTANTE:
-    // btnTurbo é tratado em mini_ia.js (Mini-IA).
-    // Aqui só lidamos com outros botões que também geram dica 30d.
     const endpoints = [
       document.getElementById("btnGerarDica30d"),
       document.getElementById("btnGerarNovaDica"),
@@ -837,7 +760,6 @@ function normalizeTipoIA(rawTipo) {
         const json = await r.json();
         log("⚡ dica gerada:", json);
 
-        // marca ID para destaque
         globalThis.__LAST_DICA_ID__ = json?.salvo?.id || json?.id || null;
 
         lastHistUrl = "";
@@ -865,7 +787,6 @@ function normalizeTipoIA(rawTipo) {
     const btn = document.getElementById("btnReloadDicasModal");
     btn?.addEventListener("click", (ev) => {
       if (!ev.isTrusted) return;
-      log("Recarregando via botão do modal...");
       try {
         globalThis.__HistoricoIA?.recarregar?.();
       } catch (e) {
@@ -912,12 +833,8 @@ function normalizeTipoIA(rawTipo) {
 
     // FEED_URL dinâmico
     let fromData =
-      (list.dataset.feedUrl && list.dataset.feedUrl.trim()) ||
-      "/financeiro/ia/historico/feed/v2/";
-    if (
-      fromData.includes("/financeiro/ia/historico/feed/") &&
-      !fromData.includes("/v2/")
-    ) {
+      (list.dataset.feedUrl && list.dataset.feedUrl.trim()) || "/financeiro/ia/historico/feed/v2/";
+    if (fromData.includes("/financeiro/ia/historico/feed/") && !fromData.includes("/v2/")) {
       fromData = fromData.replace(
         "/financeiro/ia/historico/feed/",
         "/financeiro/ia/historico/feed/v2/"
@@ -927,26 +844,19 @@ function normalizeTipoIA(rawTipo) {
     log("FEED_URL =", FEED_URL);
 
     const badgeEl = document.getElementById("badgeNovasDicas");
-    const btnReload =
-      document.getElementById("btnReloadDicas") ||
-      document.getElementById("btnReloadFeed");
+    const btnReload = document.getElementById("btnReloadDicas") || document.getElementById("btnReloadFeed");
     const btnLidas = document.getElementById("btnMarcarLidas");
     const btnHist = document.getElementById("btnHistoricoIA");
-
-    const countersEls = {
-      elCountAll: document.getElementById("countAll"),
-      elCountPos: document.getElementById("countPos"),
-      elCountAlerta: document.getElementById("countAlerta"),
-      elCountNeutra: document.getElementById("countNeutra"),
-    };
 
     lastSeenAt = localStorage.getItem(KEY_LAST_SEEN) || null;
 
     bindModalMirror(list);
+
     const btnVerMais = ensureVerMaisButton(list);
     onVerMaisClick(btnVerMais);
     onMarcarLidasClick(btnLidas, badgeEl);
     onHistoricoBtnClick(btnHist, badgeEl);
+
     bindFilterToolbar();
     bindGerarDica();
     bindModalReload();
@@ -957,43 +867,21 @@ function normalizeTipoIA(rawTipo) {
       alertas: document.getElementById("btnAlertas"),
       neutras: document.getElementById("btnNeutras"),
     };
-    bindQuickFilter(quick.todas, null);
+    bindQuickFilter(quick.todas, "");
     bindQuickFilter(quick.positivas, "positiva");
     bindQuickFilter(quick.alertas, "alerta");
     bindQuickFilter(quick.neutras, "neutra");
 
-    btnReload?.addEventListener("click", () =>
-      globalThis.__HistoricoIA.recarregar()
-    );
+    btnReload?.addEventListener("click", () => globalThis.__HistoricoIA.recarregar());
 
     (async () => {
-      await globalThis.carregarHistorico(PREVIEW_LIMIT, null);
+      await globalThis.carregarHistorico(PREVIEW_LIMIT, null, false);
       startAutoRefresh();
-      const cont = document.getElementById("listaHistorico");
-      const badge = document.getElementById("badgeNovasDicas");
-
-    })();
-
-    (function diag() {
-      const req = {
-        listaHistorico: !!document.getElementById("listaHistorico"),
-        btnTurbo: !!document.getElementById("btnTurbo"),
-        btnReloadDicas: !!document.getElementById("btnReloadDicas"),
-        filtros: !!document.querySelectorAll("[data-ia-filtro],[data-filter]")
-          .length,
-      };
-      log("🔎 Diagnóstico:", req);
-
-      const btn = document.getElementById("btnHistoricoIA");
-      btn?.addEventListener("click", (ev) => {
-        if (!ev.isTrusted) return;
-        log("abrir modal + carregar()");
-        globalThis.carregarHistorico(INITIAL_LIMIT, "");
-      });
     })();
   });
 })();
 
+// ====== (seu bloco de lotes, mantido como está) ======
 (function () {
   const btnLotes = document.getElementById("btnAtualizarLotes");
   if (!btnLotes) return;
@@ -1008,11 +896,11 @@ function normalizeTipoIA(rawTipo) {
         method: "GET",
         headers: {
           "X-Requested-With": "XMLHttpRequest",
-          "Accept": "application/json",
+          Accept: "application/json",
         },
         credentials: "same-origin",
       });
-       
+
       const contentType = resp.headers.get("content-type") || "";
       if (!contentType.includes("application/json")) {
         const txt = await resp.text();
@@ -1023,7 +911,6 @@ function normalizeTipoIA(rawTipo) {
 
       const data = await resp.json();
 
-      // resposta JSON já validada acima
       if (!data.ok) {
         alert("Erro ao gerar alertas de lote: " + (data.error || "desconhecido"));
         return;
@@ -1031,7 +918,6 @@ function normalizeTipoIA(rawTipo) {
 
       const items = Array.isArray(data.items) ? data.items : [];
 
-      // ✅ resultado válido, mas vazio = NÃO é erro
       if (items.length === 0) {
         if (typeof sjToast === "function") {
           sjToast(`<div style="font-weight:800;">✅ Nenhum lote crítico com saldo.</div>`);
@@ -1041,7 +927,6 @@ function normalizeTipoIA(rawTipo) {
         return;
       }
 
-      // ✅ só recarrega se realmente houve alertas
       if (globalThis.__HistoricoIA?.recarregar) {
         globalThis.__HistoricoIA.recarregar();
       } else if (globalThis.__HistoricoIA?.reload) {
@@ -1049,15 +934,12 @@ function normalizeTipoIA(rawTipo) {
       } else {
         location.reload();
       }
-   
     } catch (err) {
-    console.error("Erro:", err);
-    alert("Falha na comunicação com o servidor.");
-  } finally {
-    btnLotes.disabled = false;
-    btnLotes.innerHTML = original;
-  }
-
-});
-}) ();
-
+      console.error("Erro:", err);
+      alert("Falha na comunicação com o servidor.");
+    } finally {
+      btnLotes.disabled = false;
+      btnLotes.innerHTML = original;
+    }
+  });
+})();
