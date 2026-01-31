@@ -1938,16 +1938,52 @@ const gradientFillPlugin = {
             }, 0);
 
             function decideVar(curr, prevVal) {
-              if (prevVal > 0) {
-                var pctV = ((curr - prevVal) / prevVal) * 100;
+              curr = Number(curr || 0);
+              prevVal = Number(prevVal || 0);
+
+              const LIMITE_BASE_FRACA = 1000; // 🔑 ajuste se quiser
+
+              // Caso normal
+              if (prevVal >= LIMITE_BASE_FRACA) {
+                const diff = curr - prevVal;
+                const pct = (diff / prevVal) * 100;
                 return {
-                  text: (pctV >= 0 ? "+" : "") + pctV.toFixed(1) + " %",
-                  sign: Math.sign(pctV),
+                  text: (pct >= 0 ? "+" : "") + pct.toFixed(1) + " %",
+                  sign: Math.sign(diff),
+                  tip:
+                    "Atual: R$ " +
+                    curr.toLocaleString("pt-BR") +
+                    " | Anterior: R$ " +
+                    prevVal.toLocaleString("pt-BR"),
                 };
               }
-              if (curr > 0) return { text: "+100 % (vs 0)", sign: 1 };
-              return { text: "0,0 %", sign: 0 };
+
+              // Base fraca → não mostrar %
+              if (prevVal > 0 && prevVal < LIMITE_BASE_FRACA) {
+                const diff = curr - prevVal;
+                return {
+                  text:
+                    (diff >= 0 ? "+" : "-") +
+                    "R$ " +
+                    Math.abs(diff).toLocaleString("pt-BR"),
+                  sign: Math.sign(diff),
+                  tip: "Base anterior muito baixa para % confiável",
+                };
+              }
+
+              // Antes era zero
+              if (prevVal === 0 && curr > 0) {
+                return {
+                  text: "+R$ " + curr.toLocaleString("pt-BR"),
+                  sign: 1,
+                  tip: "Não havia valor no período anterior",
+                };
+              }
+
+              return { text: "0,0 %", sign: 0, tip: "Sem variação" };
             }
+
+
 
             var vr = decideVar(totalR, prevR),
               vd = decideVar(totalD, prevD);
@@ -1957,12 +1993,15 @@ const gradientFillPlugin = {
               vRec.style.color =
                 vr.sign > 0 ? "#66bb6a" : vr.sign < 0 ? "#ef9a9a" : "";
             }
+            if (vRec) vRec.title = vr.tip || "";
+
             if (vDes) {
               vDes.textContent = vd.text;
               vDes.style.fontWeight = "600";
               vDes.style.color =
                 vd.sign > 0 ? "#ef9a9a" : vd.sign < 0 ? "#66bb6a" : "";
             }
+            if (vDes) vDes.title = vd.tip || "";
           })
           .catch(function () {
             if (vRec) vRec.textContent = "—";
@@ -3654,8 +3693,8 @@ document.addEventListener("DOMContentLoaded", function () {
       // dependência alta (uma fonte domina)
       if (pct >= 80) el.classList.add("sj-alerta-dependencia");
 
-// caso você queira manter o verde só para "liderança saudável", use outra regra
-// (ex.: quando NÃO é dependência)
+      // caso você queira manter o verde só para "liderança saudável", use outra regra
+      // (ex.: quando NÃO é dependência)
 
       const badge = badgeCategoria(pct);
 
@@ -3781,7 +3820,7 @@ document.addEventListener("DOMContentLoaded", function () {
       const destaqueStyle = pct >= 70
         ? "border:1px solid rgba(47,191,113,.85); background: rgba(47,191,113,.18); box-shadow: 0 0 0 1px rgba(47,191,113,.15) inset;"
         : "";
-        el.setAttribute("style", destaqueStyle);
+      el.setAttribute("style", destaqueStyle);
       const { emoji, titulo } = badgeProduto(pct);
 
       const liderNome = data.lider.nome;
